@@ -17,7 +17,7 @@ function CategoriesPage() {
 
   const save = (c: Category) => {
     setCats(prev => prev.find(x => x.id === c.id) ? prev.map(x => x.id === c.id ? c : x) : [...prev, c]);
-    toast.success(prev => "Category saved" as any);
+    toast.success("Category saved");
     setEditing(null);
   };
   const remove = (id: string) => { setCats(p => p.filter(c => c.id !== id)); toast.success("Category deleted"); setConfirm(null); };
