@@ -7,6 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 
@@ -72,14 +73,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "ApnaUstad Admin — Pakistan's Premier Home Services Platform" },
+      { name: "description", content: "Manage users, workers, bookings and the entire ApnaUstad marketplace from one premium admin dashboard." },
+      { name: "author", content: "ApnaUstad" },
+      { property: "og:title", content: "ApnaUstad Admin Dashboard" },
+      { property: "og:description", content: "Premium admin portal for ApnaUstad — Pakistan's on-demand home services marketplace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
@@ -114,6 +114,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: "#0F0F1A", border: "1px solid #1C1C2E", color: "#fff" } }} />
     </QueryClientProvider>
   );
 }

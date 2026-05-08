@@ -9,38 +9,197 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminWorkersRouteImport } from './routes/_admin.workers'
+import { Route as AdminUsersRouteImport } from './routes/_admin.users'
+import { Route as AdminSettingsRouteImport } from './routes/_admin.settings'
+import { Route as AdminReviewsRouteImport } from './routes/_admin.reviews'
+import { Route as AdminNotificationsRouteImport } from './routes/_admin.notifications'
+import { Route as AdminJobsRouteImport } from './routes/_admin.jobs'
+import { Route as AdminDashboardRouteImport } from './routes/_admin.dashboard'
+import { Route as AdminCategoriesRouteImport } from './routes/_admin.categories'
+import { Route as AdminBookingsRouteImport } from './routes/_admin.bookings'
+import { Route as AdminWorkersIdRouteImport } from './routes/_admin.workers.$id'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/_admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminWorkersRoute = AdminWorkersRouteImport.update({
+  id: '/workers',
+  path: '/workers',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminJobsRoute = AdminJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBookingsRoute = AdminBookingsRouteImport.update({
+  id: '/bookings',
+  path: '/bookings',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminWorkersIdRoute = AdminWorkersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminWorkersRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/bookings': typeof AdminBookingsRoute
+  '/categories': typeof AdminCategoriesRoute
+  '/dashboard': typeof AdminDashboardRoute
+  '/jobs': typeof AdminJobsRoute
+  '/notifications': typeof AdminNotificationsRoute
+  '/reviews': typeof AdminReviewsRoute
+  '/settings': typeof AdminSettingsRoute
+  '/users': typeof AdminUsersRoute
+  '/workers': typeof AdminWorkersRouteWithChildren
+  '/workers/$id': typeof AdminWorkersIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/bookings': typeof AdminBookingsRoute
+  '/categories': typeof AdminCategoriesRoute
+  '/dashboard': typeof AdminDashboardRoute
+  '/jobs': typeof AdminJobsRoute
+  '/notifications': typeof AdminNotificationsRoute
+  '/reviews': typeof AdminReviewsRoute
+  '/settings': typeof AdminSettingsRoute
+  '/users': typeof AdminUsersRoute
+  '/workers': typeof AdminWorkersRouteWithChildren
+  '/workers/$id': typeof AdminWorkersIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_admin': typeof AdminRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_admin/bookings': typeof AdminBookingsRoute
+  '/_admin/categories': typeof AdminCategoriesRoute
+  '/_admin/dashboard': typeof AdminDashboardRoute
+  '/_admin/jobs': typeof AdminJobsRoute
+  '/_admin/notifications': typeof AdminNotificationsRoute
+  '/_admin/reviews': typeof AdminReviewsRoute
+  '/_admin/settings': typeof AdminSettingsRoute
+  '/_admin/users': typeof AdminUsersRoute
+  '/_admin/workers': typeof AdminWorkersRouteWithChildren
+  '/_admin/workers/$id': typeof AdminWorkersIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/bookings'
+    | '/categories'
+    | '/dashboard'
+    | '/jobs'
+    | '/notifications'
+    | '/reviews'
+    | '/settings'
+    | '/users'
+    | '/workers'
+    | '/workers/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/bookings'
+    | '/categories'
+    | '/dashboard'
+    | '/jobs'
+    | '/notifications'
+    | '/reviews'
+    | '/settings'
+    | '/users'
+    | '/workers'
+    | '/workers/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/_admin'
+    | '/login'
+    | '/_admin/bookings'
+    | '/_admin/categories'
+    | '/_admin/dashboard'
+    | '/_admin/jobs'
+    | '/_admin/notifications'
+    | '/_admin/reviews'
+    | '/_admin/settings'
+    | '/_admin/users'
+    | '/_admin/workers'
+    | '/_admin/workers/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_admin': {
+      id: '/_admin'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +207,122 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_admin/workers': {
+      id: '/_admin/workers'
+      path: '/workers'
+      fullPath: '/workers'
+      preLoaderRoute: typeof AdminWorkersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/users': {
+      id: '/_admin/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/settings': {
+      id: '/_admin/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/reviews': {
+      id: '/_admin/reviews'
+      path: '/reviews'
+      fullPath: '/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/notifications': {
+      id: '/_admin/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/jobs': {
+      id: '/_admin/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AdminJobsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/dashboard': {
+      id: '/_admin/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/categories': {
+      id: '/_admin/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof AdminCategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/bookings': {
+      id: '/_admin/bookings'
+      path: '/bookings'
+      fullPath: '/bookings'
+      preLoaderRoute: typeof AdminBookingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/workers/$id': {
+      id: '/_admin/workers/$id'
+      path: '/$id'
+      fullPath: '/workers/$id'
+      preLoaderRoute: typeof AdminWorkersIdRouteImport
+      parentRoute: typeof AdminWorkersRoute
+    }
   }
 }
 
+interface AdminWorkersRouteChildren {
+  AdminWorkersIdRoute: typeof AdminWorkersIdRoute
+}
+
+const AdminWorkersRouteChildren: AdminWorkersRouteChildren = {
+  AdminWorkersIdRoute: AdminWorkersIdRoute,
+}
+
+const AdminWorkersRouteWithChildren = AdminWorkersRoute._addFileChildren(
+  AdminWorkersRouteChildren,
+)
+
+interface AdminRouteChildren {
+  AdminBookingsRoute: typeof AdminBookingsRoute
+  AdminCategoriesRoute: typeof AdminCategoriesRoute
+  AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminJobsRoute: typeof AdminJobsRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminReviewsRoute: typeof AdminReviewsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminWorkersRoute: typeof AdminWorkersRouteWithChildren
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminBookingsRoute: AdminBookingsRoute,
+  AdminCategoriesRoute: AdminCategoriesRoute,
+  AdminDashboardRoute: AdminDashboardRoute,
+  AdminJobsRoute: AdminJobsRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminReviewsRoute: AdminReviewsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminWorkersRoute: AdminWorkersRouteWithChildren,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
