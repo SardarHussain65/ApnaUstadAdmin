@@ -1,5 +1,5 @@
 // Lightweight CSV export — no dependencies
-export function toCsv<T extends Record<string, unknown>>(rows: T[], columns: { key: keyof T; header: string }[]): string {
+export function toCsv<T>(rows: T[], columns: { key: keyof T; header: string }[]): string {
   const escape = (v: unknown) => {
     if (v === null || v === undefined) return "";
     const s = String(v).replace(/"/g, '""');
@@ -10,7 +10,7 @@ export function toCsv<T extends Record<string, unknown>>(rows: T[], columns: { k
   return head + "\n" + body;
 }
 
-export function downloadCsv<T extends Record<string, unknown>>(
+export function downloadCsv<T>(
   filename: string,
   rows: T[],
   columns: { key: keyof T; header: string }[],
