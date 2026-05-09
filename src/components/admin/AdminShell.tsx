@@ -1,10 +1,11 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard, Users, Wrench, ClipboardList, Calendar, FolderKanban,
   Star, Bell, Settings, ChevronLeft, LogOut, Search, ChevronDown,
 } from "lucide-react";
 import { logout, useAuth } from "@/lib/auth";
+import { CommandPalette } from "@/components/admin/CommandPalette";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,10 +34,22 @@ const TITLES: Record<string, string> = {
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const path = useRouterState({ select: s => s.location.pathname });
   const navigate = useNavigate();
   const { user } = useAuth();
   const title = Object.entries(TITLES).find(([k]) => path.startsWith(k))?.[1] ?? "ApnaUstad Admin";
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(o => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -125,10 +138,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <ChevronDown className="w-5 h-5 -rotate-90" />
           </button>
           <h1 className="text-lg font-bold tracking-tight truncate flex-1">{title}</h1>
-          <div className="hidden md:flex items-center gap-2 px-3 h-9 w-72 rounded-xl bg-input border border-border focus-within:border-primary focus-within:glow-cyan transition">
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className="hidden md:flex items-center gap-2 px-3 h-9 w-72 rounded-xl bg-input border border-border hover:border-primary/60 hover:glow-cyan transition text-left"
+          >
             <Search className="w-4 h-4 text-muted-foreground" />
-            <input className="bg-transparent outline-none text-sm flex-1 placeholder:text-dim" placeholder="Search anything..." />
-          </div>
+            <span className="text-sm flex-1 text-dim">Search anything...</span>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border text-muted-foreground">⌘K</kbd>
+          </button>
           <button className="relative p-2 rounded-xl hover:bg-surface-light">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive animate-pulse" />
@@ -140,6 +157,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 p-4 lg:p-6 animate-fade-in">{children}</main>
       </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }
