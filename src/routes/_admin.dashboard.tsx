@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Users, Wrench, Calendar, DollarSign, CheckCircle2 } from "lucide-react";
-import { Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, Legend, BarChart, Bar } from "recharts";
+import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, Legend, BarChart, Bar } from "recharts";
 import { StatCard, StatusBadge, Avatar, Badge } from "@/components/admin/ui";
 import { dashboardStats, bookingsLast30Days, bookingStatusDistribution, bookings, workers, fmtPKR } from "@/lib/mock-data";
 import { format } from "date-fns";
