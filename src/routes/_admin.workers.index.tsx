@@ -6,7 +6,7 @@ import { Avatar, Badge, RatingStars, StatusBadge } from "@/components/admin/ui";
 import { workers as initial, CITIES, CATEGORY_NAMES, fmtPKR } from "@/lib/mock-data";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_admin/workers")({ component: WorkersPage });
+export const Route = createFileRoute("/_admin/workers/")({ component: WorkersPage });
 
 function WorkersPage() {
   const [workers, setWorkers] = useState(initial);

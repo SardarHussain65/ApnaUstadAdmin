@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminWorkersRouteImport } from './routes/_admin.workers'
 import { Route as AdminUsersRouteImport } from './routes/_admin.users'
 import { Route as AdminSettingsRouteImport } from './routes/_admin.settings'
 import { Route as AdminReviewsRouteImport } from './routes/_admin.reviews'
@@ -21,6 +20,7 @@ import { Route as AdminJobsRouteImport } from './routes/_admin.jobs'
 import { Route as AdminDashboardRouteImport } from './routes/_admin.dashboard'
 import { Route as AdminCategoriesRouteImport } from './routes/_admin.categories'
 import { Route as AdminBookingsRouteImport } from './routes/_admin.bookings'
+import { Route as AdminWorkersIndexRouteImport } from './routes/_admin.workers.index'
 import { Route as AdminWorkersIdRouteImport } from './routes/_admin.workers.$id'
 
 const LoginRoute = LoginRouteImport.update({
@@ -36,11 +36,6 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AdminWorkersRoute = AdminWorkersRouteImport.update({
-  id: '/workers',
-  path: '/workers',
-  getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
@@ -82,10 +77,15 @@ const AdminBookingsRoute = AdminBookingsRouteImport.update({
   path: '/bookings',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminWorkersIndexRoute = AdminWorkersIndexRouteImport.update({
+  id: '/workers/',
+  path: '/workers/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminWorkersIdRoute = AdminWorkersIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AdminWorkersRoute,
+  id: '/workers/$id',
+  path: '/workers/$id',
+  getParentRoute: () => AdminRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -99,8 +99,8 @@ export interface FileRoutesByFullPath {
   '/reviews': typeof AdminReviewsRoute
   '/settings': typeof AdminSettingsRoute
   '/users': typeof AdminUsersRoute
-  '/workers': typeof AdminWorkersRouteWithChildren
   '/workers/$id': typeof AdminWorkersIdRoute
+  '/workers/': typeof AdminWorkersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -113,8 +113,8 @@ export interface FileRoutesByTo {
   '/reviews': typeof AdminReviewsRoute
   '/settings': typeof AdminSettingsRoute
   '/users': typeof AdminUsersRoute
-  '/workers': typeof AdminWorkersRouteWithChildren
   '/workers/$id': typeof AdminWorkersIdRoute
+  '/workers': typeof AdminWorkersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -129,8 +129,8 @@ export interface FileRoutesById {
   '/_admin/reviews': typeof AdminReviewsRoute
   '/_admin/settings': typeof AdminSettingsRoute
   '/_admin/users': typeof AdminUsersRoute
-  '/_admin/workers': typeof AdminWorkersRouteWithChildren
   '/_admin/workers/$id': typeof AdminWorkersIdRoute
+  '/_admin/workers/': typeof AdminWorkersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -145,8 +145,8 @@ export interface FileRouteTypes {
     | '/reviews'
     | '/settings'
     | '/users'
-    | '/workers'
     | '/workers/$id'
+    | '/workers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -159,8 +159,8 @@ export interface FileRouteTypes {
     | '/reviews'
     | '/settings'
     | '/users'
-    | '/workers'
     | '/workers/$id'
+    | '/workers'
   id:
     | '__root__'
     | '/'
@@ -174,8 +174,8 @@ export interface FileRouteTypes {
     | '/_admin/reviews'
     | '/_admin/settings'
     | '/_admin/users'
-    | '/_admin/workers'
     | '/_admin/workers/$id'
+    | '/_admin/workers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -206,13 +206,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_admin/workers': {
-      id: '/_admin/workers'
-      path: '/workers'
-      fullPath: '/workers'
-      preLoaderRoute: typeof AdminWorkersRouteImport
-      parentRoute: typeof AdminRoute
     }
     '/_admin/users': {
       id: '/_admin/users'
@@ -270,27 +263,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBookingsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/workers/': {
+      id: '/_admin/workers/'
+      path: '/workers'
+      fullPath: '/workers/'
+      preLoaderRoute: typeof AdminWorkersIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/workers/$id': {
       id: '/_admin/workers/$id'
-      path: '/$id'
+      path: '/workers/$id'
       fullPath: '/workers/$id'
       preLoaderRoute: typeof AdminWorkersIdRouteImport
-      parentRoute: typeof AdminWorkersRoute
+      parentRoute: typeof AdminRoute
     }
   }
 }
-
-interface AdminWorkersRouteChildren {
-  AdminWorkersIdRoute: typeof AdminWorkersIdRoute
-}
-
-const AdminWorkersRouteChildren: AdminWorkersRouteChildren = {
-  AdminWorkersIdRoute: AdminWorkersIdRoute,
-}
-
-const AdminWorkersRouteWithChildren = AdminWorkersRoute._addFileChildren(
-  AdminWorkersRouteChildren,
-)
 
 interface AdminRouteChildren {
   AdminBookingsRoute: typeof AdminBookingsRoute
@@ -301,7 +289,8 @@ interface AdminRouteChildren {
   AdminReviewsRoute: typeof AdminReviewsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminUsersRoute: typeof AdminUsersRoute
-  AdminWorkersRoute: typeof AdminWorkersRouteWithChildren
+  AdminWorkersIdRoute: typeof AdminWorkersIdRoute
+  AdminWorkersIndexRoute: typeof AdminWorkersIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -313,7 +302,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminReviewsRoute: AdminReviewsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminUsersRoute: AdminUsersRoute,
-  AdminWorkersRoute: AdminWorkersRouteWithChildren,
+  AdminWorkersIdRoute: AdminWorkersIdRoute,
+  AdminWorkersIndexRoute: AdminWorkersIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -326,3 +316,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
