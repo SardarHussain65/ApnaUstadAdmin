@@ -14,6 +14,13 @@ function DashboardPage() {
   const recentBookings = [...bookings].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 10);
   const pendingWorkers = workers.filter(w => !w.isVerified).slice(0, 5);
 
+  const revenueByCategory = Object.entries(
+    bookings.filter(b => b.status === "completed").reduce<Record<string, number>>((acc, b) => {
+      acc[b.category] = (acc[b.category] ?? 0) + b.total;
+      return acc;
+    }, {})
+  ).map(([category, revenue]) => ({ category, revenue })).sort((a, b) => b.revenue - a.revenue);
+
   return (
     <div className="space-y-6">
       {/* Stats */}
@@ -64,6 +71,35 @@ function DashboardPage() {
             </PieChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* Revenue by Category */}
+      <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-bold text-lg">Revenue by Category</h3>
+            <p className="text-xs text-muted-foreground">Completed bookings · all time</p>
+          </div>
+          <Badge variant="orange">PKR</Badge>
+        </div>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={revenueByCategory}>
+            <defs>
+              <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FF8C00" stopOpacity={0.95} />
+                <stop offset="100%" stopColor="#BF5AF2" stopOpacity={0.7} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1C1C2E" />
+            <XAxis dataKey="category" stroke="#5B5B5E" fontSize={11} />
+            <YAxis stroke="#5B5B5E" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+            <Tooltip
+              contentStyle={{ background: "#0F0F1A", border: "1px solid #1C1C2E", borderRadius: 12, color: "#fff" }}
+              formatter={(v: number) => fmtPKR(v)}
+            />
+            <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Recent bookings + pending workers */}
