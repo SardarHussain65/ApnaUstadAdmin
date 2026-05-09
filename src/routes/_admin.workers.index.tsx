@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Eye, CheckCircle2, Power } from "lucide-react";
+import { Eye, CheckCircle2, Power, Download } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, RatingStars, StatusBadge } from "@/components/admin/ui";
 import { workers as initial, CITIES, CATEGORY_NAMES, fmtPKR } from "@/lib/mock-data";
+import { downloadCsv } from "@/lib/csv";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_admin/workers/")({ component: WorkersPage });
@@ -53,6 +54,18 @@ function WorkersPage() {
         <Select value={verified} onChange={setVerified} label="All" options={[{value:"yes",label:"Verified"},{value:"no",label:"Unverified"}]} />
         <Select value={cat} onChange={setCat} label="All Categories" options={CATEGORY_NAMES.map(c=>({value:c,label:c}))} />
         <Select value={city} onChange={setCity} label="All Cities" options={CITIES.map(c=>({value:c,label:c}))} />
+        <button
+          onClick={() => {
+            downloadCsv("workers", rows, [
+              { key: "id", header: "ID" }, { key: "name", header: "Name" }, { key: "phone", header: "Phone" },
+              { key: "cnic", header: "CNIC" }, { key: "category", header: "Category" }, { key: "city", header: "City" },
+              { key: "rating", header: "Rating" }, { key: "totalJobs", header: "Jobs" }, { key: "hourlyRate", header: "Rate" },
+              { key: "isVerified", header: "Verified" }, { key: "status", header: "Status" },
+            ]);
+            toast.success(`Exported ${rows.length} workers`);
+          }}
+          className="btn-press inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-surface-light hover:bg-primary/15 hover:text-primary border border-border text-sm font-semibold transition"
+        ><Download className="w-4 h-4" /> Export CSV</button>
       </div>
       <DataTable
         rows={rows}

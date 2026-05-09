@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { CreditCard, Banknote, Smartphone, Eye } from "lucide-react";
+import { CreditCard, Banknote, Smartphone, Download } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
 import { bookings as initial, fmtPKR, type Booking } from "@/lib/mock-data";
+import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -54,6 +55,17 @@ function BookingsPage() {
         <Select value={status} onChange={setStatus} label="All Status" options={["pending","accepted","ongoing","completed","cancelled"].map(s=>({value:s,label:s}))} />
         <Select value={pay} onChange={setPay} label="Payment" options={[{value:"card",label:"Card"},{value:"cash",label:"Cash"},{value:"easypaisa",label:"EasyPaisa"}]} />
         <Select value={type} onChange={setType} label="Type" options={[{value:"instant",label:"Instant"},{value:"scheduled",label:"Scheduled"}]} />
+        <button
+          onClick={() => {
+            downloadCsv("bookings", rows, [
+              { key: "id", header: "ID" }, { key: "customerName", header: "Customer" }, { key: "workerName", header: "Worker" },
+              { key: "category", header: "Category" }, { key: "scheduledAt", header: "Scheduled" }, { key: "total", header: "Total" },
+              { key: "paymentMethod", header: "Payment" }, { key: "paymentStatus", header: "Paid" }, { key: "status", header: "Status" },
+            ]);
+            toast.success(`Exported ${rows.length} bookings`);
+          }}
+          className="btn-press inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-surface-light hover:bg-primary/15 hover:text-primary border border-border text-sm font-semibold transition"
+        ><Download className="w-4 h-4" /> Export CSV</button>
       </div>
 
       <DataTable rows={rows} onRowClick={b => setSelected(b)} columns={[
