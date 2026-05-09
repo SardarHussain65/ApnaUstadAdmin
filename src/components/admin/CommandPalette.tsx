@@ -24,8 +24,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   const go = (to: string, params?: Record<string, string>) => () => {
     onClose();
-    // @ts-expect-error dynamic params
-    navigate({ to, params });
+    navigate({ to, params } as never);
   };
 
   const allItems: Item[] = useMemo(() => {
