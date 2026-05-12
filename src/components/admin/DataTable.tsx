@@ -8,9 +8,9 @@ export interface Column<T> {
   className?: string;
 }
 
-export function DataTable<T extends { id: string }>({
-  rows, columns, pageSize = 10, onRowClick,
-}: { rows: T[]; columns: Column<T>[]; pageSize?: number; onRowClick?: (row: T) => void }) {
+export function DataTable<T extends { id?: string; _id?: string }>({
+  rows, columns, pageSize = 10, onRowClick, isLoading = false,
+}: { rows: T[]; columns: Column<T>[]; pageSize?: number; onRowClick?: (row: T) => void; isLoading?: boolean }) {
   const [page, setPage] = useState(1);
   useEffect(() => { setPage(1); }, [rows.length]);
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -30,9 +30,12 @@ export function DataTable<T extends { id: string }>({
             </tr>
           </thead>
           <tbody>
-            {view.map((row, i) => (
+            {isLoading && (
+              <tr><td colSpan={columns.length} className="text-center py-12 text-muted-foreground">Loading...</td></tr>
+            )}
+            {!isLoading && view.map((row, i) => (
               <tr
-                key={row.id}
+                key={row.id ?? row._id ?? i}
                 className="border-b border-border/60 hover:bg-surface-light/50 transition cursor-pointer animate-fade-in"
                 style={{ animationDelay: `${i * 30}ms` }}
                 onClick={() => onRowClick?.(row)}
@@ -42,7 +45,7 @@ export function DataTable<T extends { id: string }>({
                 ))}
               </tr>
             ))}
-            {view.length === 0 && (
+            {!isLoading && view.length === 0 && (
               <tr><td colSpan={columns.length} className="text-center py-12 text-muted-foreground">No data found</td></tr>
             )}
           </tbody>

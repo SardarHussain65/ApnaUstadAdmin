@@ -4,37 +4,40 @@ import { Eye, Power } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
-import { users as initialUsers, CITIES, bookings, fmtPKR, type User } from "@/lib/mock-data";
+import { CITIES, bookings, fmtPKR } from "@/lib/mock-data";
 import { format } from "date-fns";
-import { toast } from "sonner";
+import { useUsers, useToggleUserStatus } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/users")({
   component: UsersPage,
 });
 
 function UsersPage() {
-  const [users, setUsers] = useState(initialUsers);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [city, setCity] = useState("");
-  const [selected, setSelected] = useState<User | null>(null);
+  const [selected, setSelected] = useState<any | null>(null);
 
-  const rows = useMemo(() => users.filter(u => {
-    if (q && !`${u.name}${u.phone}${u.email}`.toLowerCase().includes(q.toLowerCase())) return false;
-    if (status && u.status !== status) return false;
+  const { data, isLoading } = useUsers({ search: q });
+  const toggleUserMutation = useToggleUserStatus();
+
+  const apiUsers = (data as any) || [];
+
+  const rows = useMemo(() => apiUsers.filter((u: any) => {
+    const activeStatus = u.isActive ? "active" : "inactive";
+    if (status && activeStatus !== status) return false;
     if (city && u.city !== city) return false;
     return true;
-  }), [users, q, status, city]);
+  }), [apiUsers, status, city]);
 
   const toggleStatus = (id: string) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "active" ? "inactive" : "active" } : u));
-    toast.success("User status updated");
+    toggleUserMutation.mutate(id);
   };
 
   const stats = {
-    total: users.length,
-    active: users.filter(u => u.status === "active").length,
-    inactive: users.filter(u => u.status === "inactive").length,
+    total: apiUsers.length,
+    active: apiUsers.filter((u:any) => u.isActive).length,
+    inactive: apiUsers.filter((u:any) => !u.isActive).length,
   };
 
   return (
@@ -52,60 +55,61 @@ function UsersPage() {
       </div>
 
       <DataTable
+        isLoading={isLoading}
         rows={rows}
         onRowClick={u => setSelected(u)}
         columns={[
           { key: "user", header: "User", render: u => (
             <div className="flex items-center gap-3">
-              <Avatar src={u.avatar} name={u.name} />
+              <Avatar src={u.profileImage} name={u.fullName} />
               <div>
-                <div className="font-semibold">{u.name}</div>
-                <div className="text-xs text-muted-foreground font-mono">{u.id}</div>
+                <div className="font-semibold">{u.fullName}</div>
+                <div className="text-xs text-muted-foreground font-mono">{u._id.slice(-6)}</div>
               </div>
             </div>
           )},
           { key: "phone", header: "Phone", render: u => <span className="font-mono text-xs">{u.phone}</span> },
-          { key: "email", header: "Email", render: u => <span className="text-xs text-muted-foreground">{u.email}</span> },
-          { key: "city", header: "City", render: u => u.city },
-          { key: "status", header: "Status", render: u => <StatusBadge status={u.status} /> },
-          { key: "joined", header: "Joined", render: u => <span className="text-xs text-muted-foreground">{format(new Date(u.joinedAt), "dd MMM yyyy")}</span> },
+          { key: "email", header: "Email", render: u => <span className="text-xs text-muted-foreground">{u.email || 'N/A'}</span> },
+          { key: "city", header: "City", render: u => u.city || "N/A" },
+          { key: "status", header: "Status", render: u => <StatusBadge status={u.isActive ? "active" : "inactive"} /> },
+          { key: "joined", header: "Joined", render: u => <span className="text-xs text-muted-foreground">{u.createdAt ? format(new Date(u.createdAt), "dd MMM yyyy") : 'N/A'}</span> },
           { key: "actions", header: "", render: u => (
             <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
               <button onClick={() => setSelected(u)} className="p-2 rounded-lg hover:bg-primary/15 hover:text-primary transition" title="View"><Eye className="w-4 h-4" /></button>
-              <button onClick={() => toggleStatus(u.id)} className="p-2 rounded-lg hover:bg-accent/15 hover:text-accent transition" title="Toggle status"><Power className="w-4 h-4" /></button>
+              <button onClick={() => toggleStatus(u._id)} className="p-2 rounded-lg hover:bg-accent/15 hover:text-accent transition" title="Toggle status"><Power className="w-4 h-4" /></button>
             </div>
           )},
         ]}
       />
 
       <Drawer open={!!selected} onClose={() => setSelected(null)} title="User Details">
-        {selected && <UserDetail user={selected} onToggle={() => { toggleStatus(selected.id); setSelected({ ...selected, status: selected.status === "active" ? "inactive" : "active" }); }} />}
+        {selected && <UserDetail user={selected} onToggle={() => { toggleStatus(selected._id); setSelected({ ...selected, isActive: !selected.isActive }); }} />}
       </Drawer>
     </div>
   );
 }
 
-function UserDetail({ user, onToggle }: { user: User; onToggle: () => void }) {
-  const userBookings = bookings.filter(b => b.customerId === user.id).slice(0, 5);
+function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
+  const userBookings = bookings.filter(b => b.customerId === user._id).slice(0, 5); // Fallback for mocking inside the detail view until we connect booking queries 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-4">
-        <Avatar src={user.avatar} name={user.name} size={72} />
+        <Avatar src={user.profileImage} name={user.fullName} size={72} />
         <div>
-          <div className="text-xl font-bold">{user.name}</div>
-          <div className="text-xs text-muted-foreground font-mono">{user.id}</div>
-          <div className="mt-1"><StatusBadge status={user.status} /></div>
+          <div className="text-xl font-bold">{user.fullName}</div>
+          <div className="text-xs text-muted-foreground font-mono">{user._id}</div>
+          <div className="mt-1"><StatusBadge status={user.isActive ? "active" : "inactive"} /></div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm">
         <Field label="Phone" value={user.phone} />
-        <Field label="Email" value={user.email} />
-        <Field label="City" value={user.city} />
-        <Field label="Joined" value={format(new Date(user.joinedAt), "dd MMM yyyy")} />
-        <Field label="Address" value={user.address} className="col-span-2" />
+        <Field label="Email" value={user.email || 'N/A'} />
+        <Field label="City" value={user.city || 'N/A'} />
+        <Field label="Joined" value={user.createdAt ? format(new Date(user.createdAt), "dd MMM yyyy") : 'N/A'} />
+        <Field label="Address" value={user.address || 'N/A'} className="col-span-2" />
       </div>
       <button onClick={onToggle} className="btn-press w-full h-11 rounded-xl gradient-cyan text-background font-bold glow-cyan">
-        {user.status === "active" ? "Deactivate Account" : "Activate Account"}
+        {user.isActive ? "Deactivate Account" : "Activate Account"}
       </button>
       <div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">Recent Bookings</div>

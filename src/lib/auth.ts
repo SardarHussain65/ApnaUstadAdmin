@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
+import { api } from "./api"; // Live backend wrapper
 
 const KEY = "adminToken";
 const USER_KEY = "adminUser";
 
 export interface AdminUser {
-  name: string;
+  name?: string;
   email: string;
   role: "superadmin" | "admin";
+  id?: string;
 }
 
 export function getToken() {
@@ -20,24 +22,21 @@ export function getAdmin(): AdminUser | null {
   return raw ? JSON.parse(raw) : null;
 }
 
-export function login(email: string, password: string): Promise<{ token: string; user: AdminUser }> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (email && password.length >= 4) {
-        const user: AdminUser = {
-          name: email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-          email,
-          role: email.includes("super") ? "superadmin" : "admin",
-        };
-        const token = "mock-jwt-" + Math.random().toString(36).slice(2);
-        localStorage.setItem(KEY, token);
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-        resolve({ token, user });
-      } else {
-        reject(new Error("Invalid credentials. Please check email and password."));
-      }
-    }, 700);
-  });
+export async function login(email: string, password: string): Promise<{ token: string; user: AdminUser }> {
+  try {
+    const res: any = await api.post('/admin/login', { email, password });
+    
+    // Store token and user based on your backend response format
+    const token = res.token || res.data?.token;
+    const user = res.admin || res.data?.admin;
+
+    localStorage.setItem(KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    
+    return { token, user };
+  } catch (error: any) {
+    throw new Error(error.message || "Invalid credentials. Please check email and password.");
+  }
 }
 
 export function logout() {
