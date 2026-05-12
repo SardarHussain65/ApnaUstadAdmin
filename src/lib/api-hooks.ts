@@ -96,10 +96,10 @@ export const useDashboardStats = () => {
 
 // --- Job Queries & Mutations ---
 export const useJobs = (params: { page?: number; limit?: number; search?: string; status?: string } = {}) => {
-  const query = new URLSearchParams(params as any).toString();
+  const query = toQueryString(params);
   return useQuery({
     queryKey: ['jobs', params],
-    queryFn: () => api.get<any>(`/admin/jobs?${query}`),
+    queryFn: () => api.get<any>(query ? `/admin/jobs?${query}` : '/admin/jobs'),
   });
 };
 
