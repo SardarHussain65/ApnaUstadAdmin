@@ -6,7 +6,6 @@ import { Avatar, Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
 import { CITIES, bookings, fmtPKR } from "@/lib/mock-data";
 import { format } from "date-fns";
-import { toast } from "sonner";
 import { useUsers, useToggleUserStatus } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/users")({
