@@ -4,39 +4,43 @@ import { CreditCard, Banknote, Smartphone, Download } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
-import { bookings as initial, fmtPKR, type Booking } from "@/lib/mock-data";
+import { fmtPKR } from "@/lib/mock-data";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useBookings } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/bookings")({ component: BookingsPage });
 
-const PAY_ICON = { card: CreditCard, cash: Banknote, easypaisa: Smartphone };
+const PAY_ICON: Record<string, any> = { card: CreditCard, cash: Banknote, easypaisa: Smartphone };
 
 function BookingsPage() {
-  const [bookings, setBookings] = useState(initial);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [pay, setPay] = useState("");
   const [type, setType] = useState("");
-  const [selected, setSelected] = useState<Booking | null>(null);
+  const [selected, setSelected] = useState<any | null>(null);
   const [reason, setReason] = useState("");
 
-  const rows = useMemo(() => bookings.filter(b => {
-    if (q && !`${b.id}${b.customerName}`.toLowerCase().includes(q.toLowerCase())) return false;
-    if (status && b.status !== status) return false;
+  const { data, isLoading } = useBookings({ status: status || undefined });
+
+  const apiBookings = (data as any) || [];
+
+  const rows = useMemo(() => apiBookings.filter((b: any) => {
+    // Client side filtering for search & custom fields
+    if (q && !`${b._id}${b.customer?.fullName}`.toLowerCase().includes(q.toLowerCase())) return false;
     if (pay && b.paymentMethod !== pay) return false;
-    if (type && b.type !== type) return false;
+    if (type && b.bookingType !== type) return false;
     return true;
-  }), [bookings, q, status, pay, type]);
+  }), [apiBookings, q, pay, type]);
 
   const stats = {
-    total: bookings.length,
-    pending: bookings.filter(b => b.status === "pending").length,
-    ongoing: bookings.filter(b => b.status === "ongoing").length,
-    completed: bookings.filter(b => b.status === "completed").length,
-    cancelled: bookings.filter(b => b.status === "cancelled").length,
-    revenue: bookings.filter(b => b.status === "completed").reduce((s, b) => s + b.total, 0),
+    total: apiBookings.length,
+    pending: apiBookings.filter((b:any) => b.status === "pending").length,
+    ongoing: apiBookings.filter((b:any) => b.status === "ongoing").length,
+    completed: apiBookings.filter((b:any) => b.status === "completed").length,
+    cancelled: apiBookings.filter((b:any) => b.status === "cancelled").length,
+    revenue: apiBookings.filter((b:any) => b.status === "completed").reduce((s:number, b:any) => s + (b.totalAmount || 0), 0),
   };
 
   return (
@@ -68,40 +72,40 @@ function BookingsPage() {
         ><Download className="w-4 h-4" /> Export CSV</button>
       </div>
 
-      <DataTable rows={rows} onRowClick={b => setSelected(b)} columns={[
-        { key: "id", header: "Booking", render: b => <span className="font-mono text-xs text-primary">{b.id}</span> },
-        { key: "c", header: "Customer", render: b => b.customerName },
-        { key: "w", header: "Worker", render: b => <span className="text-accent">{b.workerName}</span> },
-        { key: "cat", header: "Category", render: b => <Badge variant="orange">{b.category}</Badge> },
-        { key: "d", header: "Date", render: b => <span className="text-xs text-muted-foreground">{format(new Date(b.scheduledAt), "dd MMM, HH:mm")}</span> },
-        { key: "tot", header: "Total", render: b => <span className="font-semibold">{fmtPKR(b.total)}</span> },
+      <DataTable isLoading={isLoading} rows={rows} onRowClick={b => setSelected(b)} columns={[
+        { key: "id", header: "Booking", render: b => <span className="font-mono text-xs text-primary">{b._id.slice(-6)}</span> },
+        { key: "c", header: "Customer", render: b => b.customer?.fullName || 'Unknown' },
+        { key: "w", header: "Worker", render: b => <span className="text-accent">{b.worker?.fullName || 'Unknown'}</span> },
+        { key: "cat", header: "Category", render: b => <Badge variant="orange">{b.category || 'N/A'}</Badge> },
+        { key: "d", header: "Date", render: b => <span className="text-xs text-muted-foreground">{b.createdAt ? format(new Date(b.createdAt), "dd MMM, HH:mm") : 'N/A'}</span> },
+        { key: "tot", header: "Total", render: b => <span className="font-semibold">{fmtPKR(b.totalAmount || 0)}</span> },
         { key: "p", header: "Payment", render: b => {
-          const Icon = PAY_ICON[b.paymentMethod];
-          return <span className="inline-flex items-center gap-1.5 text-xs"><Icon className="w-3.5 h-3.5" /> <StatusBadge status={b.paymentStatus} /></span>;
+          const Icon = PAY_ICON[b.paymentMethod || 'cash'] || Banknote;
+          return <span className="inline-flex items-center gap-1.5 text-xs"><Icon className="w-3.5 h-3.5" /> <StatusBadge status={b.paymentStatus || 'pending'} /></span>;
         }},
         { key: "s", header: "Status", render: b => <StatusBadge status={b.status} /> },
       ]} />
 
-      <Drawer open={!!selected} onClose={() => setSelected(null)} title={`Booking ${selected?.id ?? ""}`} width="max-w-2xl">
+      <Drawer open={!!selected} onClose={() => setSelected(null)} title={`Booking ${selected?._id?.slice(-6) ?? ""}`} width="max-w-2xl">
         {selected && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-3">
-              <Card label="Customer" value={selected.customerName} sub={selected.customerId} />
-              <Card label="Worker" value={selected.workerName} sub={selected.workerId} accent />
-              <Card label="Category" value={selected.category} />
-              <Card label="Type" value={selected.type} />
-              <Card label="Scheduled" value={format(new Date(selected.scheduledAt), "dd MMM yyyy, HH:mm")} />
-              <Card label="Duration" value={`${selected.duration} hours`} />
-              <Card label="Address" value={selected.address} className="col-span-2" />
-              <Card label="Description" value={selected.description} className="col-span-2" />
+              <Card label="Customer" value={selected.customer?.fullName || 'Unknown'} sub={selected.customer?._id} />
+              <Card label="Worker" value={selected.worker?.fullName || 'Unknown'} sub={selected.worker?._id} accent />
+              <Card label="Category" value={selected.category || 'N/A'} />
+              <Card label="Type" value={selected.bookingType || 'N/A'} />
+              <Card label="Scheduled" value={selected.createdAt ? format(new Date(selected.createdAt), "dd MMM yyyy, HH:mm") : 'N/A'} />
+              <Card label="Duration" value={`${selected.estimatedHours || 1} hours`} />
+              <Card label="Address" value={selected.address || 'N/A'} className="col-span-2" />
+              <Card label="Description" value={selected.description || 'N/A'} className="col-span-2" />
             </div>
             <div className="bg-surface-light rounded-2xl p-4">
               <div className="text-xs uppercase text-muted-foreground font-semibold mb-3">Financial Breakdown</div>
-              <Line label="Subtotal" value={fmtPKR(selected.subtotal)} />
-              <Line label="Platform Fee" value={fmtPKR(selected.platformFee)} />
-              <Line label="Worker Earning" value={fmtPKR(selected.workerEarning)} accent />
-              <div className="border-t border-border mt-2 pt-2"><Line label="Total" value={fmtPKR(selected.total)} bold /></div>
-              <div className="mt-3 flex items-center justify-between text-sm"><span className="text-muted-foreground">Payment</span><div className="flex gap-2"><Badge variant="info">{selected.paymentMethod}</Badge><StatusBadge status={selected.paymentStatus} /></div></div>
+              <Line label="Subtotal" value={fmtPKR(selected.subtotal || 0)} />
+              <Line label="Platform Fee" value={fmtPKR(selected.platformFee || 0)} />
+              <Line label="Worker Earning" value={fmtPKR(selected.workerEarning || 0)} accent />
+              <div className="border-t border-border mt-2 pt-2"><Line label="Total" value={fmtPKR(selected.totalAmount || 0)} bold /></div>
+              <div className="mt-3 flex items-center justify-between text-sm"><span className="text-muted-foreground">Payment</span><div className="flex gap-2"><Badge variant="info">{selected.paymentMethod || 'cash'}</Badge><StatusBadge status={selected.paymentStatus || 'pending'} /></div></div>
             </div>
             <div>
               <div className="text-xs uppercase text-muted-foreground font-semibold mb-2">Status Timeline</div>

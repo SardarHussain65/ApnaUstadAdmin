@@ -10,8 +10,8 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@apnaustad.pk");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("admin@apnaustad.com");
+  const [password, setPassword] = useState("Admin@123");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");

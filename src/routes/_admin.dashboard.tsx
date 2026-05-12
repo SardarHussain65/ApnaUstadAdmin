@@ -2,33 +2,49 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Users, Wrench, Calendar, DollarSign, CheckCircle2 } from "lucide-react";
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell, Legend, BarChart, Bar } from "recharts";
 import { StatCard, StatusBadge, Avatar, Badge } from "@/components/admin/ui";
-import { dashboardStats, bookingsLast30Days, bookingStatusDistribution, bookings, workers, fmtPKR } from "@/lib/mock-data";
+import { dashboardStats as mockStats, bookingsLast30Days, bookingStatusDistribution, bookings, workers, fmtPKR } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useDashboardStats, useBookings, useWorkers } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/dashboard")({
   component: DashboardPage,
 });
 
 function DashboardPage() {
-  const recentBookings = [...bookings].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 10);
-  const pendingWorkers = workers.filter(w => !w.isVerified).slice(0, 5);
+  const { data: statsData, isLoading: statsLoading } = useDashboardStats();
+  const { data: bookingsData } = useBookings({ limit: 10 });
+  const { data: workersData } = useWorkers({ status: 'false', limit: 5 }); // Assuming unverified workers
+  
+  const recentBookings = (bookingsData as any) || [];
+  const pendingWorkers = ((workersData as any) || []).filter((w: any) => !w.isVerified).slice(0, 5);
+
+  const stats = statsData?.counts ? {
+    totalUsers: statsData.counts.users,
+    usersChange: "+5%", // Need logic for this
+    totalWorkers: statsData.counts.workers,
+    workersChange: "+8%",
+    totalBookings: statsData.counts.bookings,
+    bookingsChange: "+12%",
+    totalRevenue: statsData.counts.revenue,
+    revenueChange: "+18%"
+  } : mockStats;
 
   const revenueByCategory = Object.entries(
-    bookings.filter(b => b.status === "completed").reduce<Record<string, number>>((acc, b) => {
-      acc[b.category] = (acc[b.category] ?? 0) + b.total;
+    recentBookings.filter((b: any) => b.status === "completed").reduce<Record<string, number>>((acc, b) => {
+      acc[b.category] = (acc[b.category] ?? 0) + (b.totalAmount || 0);
       return acc;
     }, {})
-  ).map(([category, revenue]) => ({ category, revenue })).sort((a, b) => b.revenue - a.revenue);
+  ).map(([category, revenue]) => ({ category, revenue })).sort((a: any, b: any) => b.revenue - a.revenue);
 
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Users" value={dashboardStats.totalUsers} change={dashboardStats.usersChange} gradient="gradient-cyan glow-cyan" icon={<Users className="w-6 h-6 text-background" />} />
-        <StatCard label="Total Workers" value={dashboardStats.totalWorkers} change={dashboardStats.workersChange} gradient="gradient-orange glow-orange" icon={<Wrench className="w-6 h-6 text-white" />} />
-        <StatCard label="Total Bookings" value={dashboardStats.totalBookings} change={dashboardStats.bookingsChange} gradient="gradient-purple glow-purple" icon={<Calendar className="w-6 h-6 text-white" />} />
-        <StatCard label="Total Revenue" value={dashboardStats.totalRevenue} change={dashboardStats.revenueChange} isCurrency gradient="gradient-success" icon={<DollarSign className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Users" value={stats.totalUsers} change={stats.usersChange} gradient="gradient-cyan glow-cyan" icon={<Users className="w-6 h-6 text-background" />} />
+        <StatCard label="Total Workers" value={stats.totalWorkers} change={stats.workersChange} gradient="gradient-orange glow-orange" icon={<Wrench className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Bookings" value={stats.totalBookings} change={stats.bookingsChange} gradient="gradient-purple glow-purple" icon={<Calendar className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Revenue" value={stats.totalRevenue} change={stats.revenueChange} isCurrency gradient="gradient-success" icon={<DollarSign className="w-6 h-6 text-white" />} />
       </div>
 
       {/* Charts */}
@@ -83,7 +99,7 @@ function DashboardPage() {
           <Badge variant="orange">PKR</Badge>
         </div>
         <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={revenueByCategory}>
+          <BarChart data={revenueByCategory.length > 0 ? revenueByCategory : [{category: 'N/A', revenue: 0}]}>
             <defs>
               <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#FF8C00" stopOpacity={0.95} />
@@ -121,15 +137,20 @@ function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentBookings.map((b, i) => (
-                  <tr key={b.id} className="border-b border-border/60 hover:bg-surface-light/40 animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
-                    <td className="px-4 py-2.5 font-mono text-xs text-primary">{b.id}</td>
-                    <td className="px-4 py-2.5">{b.customerName}</td>
-                    <td className="px-4 py-2.5 text-accent">{b.workerName}</td>
-                    <td className="px-4 py-2.5 font-semibold">{fmtPKR(b.total)}</td>
+                {recentBookings.map((b: any, i: number) => (
+                  <tr key={b._id} className="border-b border-border/60 hover:bg-surface-light/40 animate-fade-in" style={{ animationDelay: `${i * 30}ms` }}>
+                    <td className="px-4 py-2.5 font-mono text-xs text-primary">{b._id.slice(-6)}</td>
+                    <td className="px-4 py-2.5">{b.customer?.fullName || 'Unknown'}</td>
+                    <td className="px-4 py-2.5 text-accent">{b.worker?.fullName || 'Unknown'}</td>
+                    <td className="px-4 py-2.5 font-semibold">{fmtPKR(b.totalAmount || 0)}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={b.status} /></td>
                   </tr>
                 ))}
+                {recentBookings.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">No bookings found</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -141,15 +162,15 @@ function DashboardPage() {
             <Link to="/workers" className="text-xs text-primary font-semibold hover:underline">All →</Link>
           </div>
           <div className="p-3 space-y-2">
-            {pendingWorkers.map((w, i) => (
-              <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-light/50 hover:bg-surface-light transition animate-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
-                <Avatar src={w.avatar} name={w.name} size={40} />
+            {pendingWorkers.map((w: any, i: number) => (
+              <div key={w._id} className="flex items-center gap-3 p-3 rounded-xl bg-surface-light/50 hover:bg-surface-light transition animate-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
+                <Avatar src={w.profileImage} name={w.fullName} size={40} />
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">{w.name}</div>
+                  <div className="font-semibold text-sm truncate">{w.fullName}</div>
                   <div className="text-[11px] text-muted-foreground">{w.category} · {w.city}</div>
                 </div>
                 <button
-                  onClick={() => toast.success(`${w.name} verified successfully`)}
+                  onClick={() => toast.success(`${w.fullName} verified successfully`)}
                   className="btn-press px-3 py-1.5 rounded-lg gradient-cyan text-background text-xs font-bold flex items-center gap-1"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" /> Verify
