@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Users, Wrench, ClipboardList, Calendar, FolderKanban,
   Star, Bell, Settings, ChevronLeft, LogOut, Search, ChevronDown,
 } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 import { logout, useAuth } from "@/lib/auth";
 import { CommandPalette } from "@/components/admin/CommandPalette";
 
@@ -16,6 +17,7 @@ const NAV = [
   { to: "/categories", label: "Categories", icon: FolderKanban },
   { to: "/reviews", label: "Reviews", icon: Star },
   { to: "/notifications", label: "Notifications", icon: Bell },
+  { to: "/support", label: "Support", icon: HelpCircle },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -28,6 +30,7 @@ const TITLES: Record<string, string> = {
   "/categories": "Service Categories",
   "/reviews": "Reviews & Ratings",
   "/notifications": "Push Notifications",
+  "/support": "Support Requests",
   "/settings": "Settings",
 };
 
@@ -146,10 +149,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <span className="text-sm flex-1 text-dim">Search anything...</span>
             <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border text-muted-foreground">⌘K</kbd>
           </button>
-          <button className="relative p-2 rounded-xl hover:bg-surface-light">
+          <Link to="/notifications" className="relative p-2 rounded-xl hover:bg-surface-light">
             <Bell className="w-5 h-5" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive animate-pulse" />
-          </button>
+          </Link>
           <div className="w-9 h-9 rounded-full gradient-purple flex items-center justify-center text-sm font-bold cursor-pointer">
             {user?.name?.[0]?.toUpperCase() ?? "A"}
           </div>

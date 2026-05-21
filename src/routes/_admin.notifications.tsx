@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Rocket } from "lucide-react";
 import { notifications as initial, type Notification } from "@/lib/mock-data";
+import { api } from "@/lib/api";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/admin/ui";
@@ -14,12 +15,22 @@ function NotificationsPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
 
-  const send = () => {
+  const send = async () => {
     if (!title.trim() || !body.trim()) return toast.error("Title and body are required");
-    const n: Notification = { id: `N${Date.now()}`, title, body, target, sentAt: new Date().toISOString(), status: "delivered" };
-    setList([n, ...list]);
-    setTitle(""); setBody("");
-    toast.success("🚀 Notification sent");
+    try {
+      const payload = { target: target === 'All Users' ? 'users' : target === 'All Workers' ? 'workers' : 'all', title, body };
+      const resp = await api.post('/notifications/broadcast', payload);
+      const result = resp || {};
+      const successCount = result?.result?.successCount ?? result?.result?.successCount ?? 0;
+      const failureCount = result?.result?.failureCount ?? 0;
+      const n: Notification = { id: `N${Date.now()}`, title, body, target, sentAt: new Date().toISOString(), status: failureCount === 0 ? "delivered" : "partial" };
+      setList([n, ...list]);
+      setTitle(""); setBody("");
+      toast.success(`🚀 Sent: ${successCount} delivered, ${failureCount} failed`);
+    } catch (err: any) {
+      console.error('Failed to send notification', err);
+      toast.error('Failed to send');
+    }
   };
 
   return (

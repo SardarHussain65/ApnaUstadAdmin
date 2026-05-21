@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  admin-frontend:
+    build: .
+    container_name: apna-ustad-admin
+    restart: always
+    ports:
+      - "3001:4173"
+    environment:
+      - VITE_API_URL=https://api.sardarhussain.me/api/v1
