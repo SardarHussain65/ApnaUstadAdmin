@@ -83,7 +83,44 @@ export interface AdminBooking {
   totalAmount: number;
   status: string;
   paymentStatus?: string;
+  paymentMethod?: 'cash' | 'card' | 'easypaisa';
+  subtotal?: number;
+  platformFee?: number;
+  workerEarning?: number;
+  bookingType?: string;
+  estimatedHours?: number;
+  address?: string;
+  description?: string;
+  payment?: AdminPayment | null;
   createdAt?: string;
+}
+
+export interface AdminPayment {
+  _id: string;
+  booking?: AdminBooking | string;
+  customer?: {
+    _id: string;
+    fullName: string;
+    phone?: string;
+  };
+  worker?: {
+    _id: string;
+    fullName: string;
+    phone?: string;
+  };
+  method: 'cash';
+  status: 'pending' | 'payable' | 'paid' | 'cancelled';
+  currency: 'PKR';
+  amount: number;
+  subtotal: number;
+  platformFee: number;
+  workerEarning: number;
+  receiptNumber?: string | null;
+  paidAt?: string | null;
+  payableAt?: string | null;
+  cancelledAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // --- Dashboard Queries ---
@@ -139,6 +176,21 @@ export const useBookingDetails = (id: string, enabled: boolean = true) => {
     queryKey: ['booking', id],
     queryFn: () => api.get<any>(`/admin/bookings/${id}`),
     enabled,
+  });
+};
+
+export const usePayments = (params: { page?: number; limit?: number; status?: string; workerId?: string; customerId?: string } = {}) => {
+  const query = toQueryString(params);
+  return useQuery({
+    queryKey: ['payments', params],
+    queryFn: () => api.get<AdminPayment[]>(`/admin/payments${query ? `?${query}` : ''}`),
+  });
+};
+
+export const usePaymentSummary = () => {
+  return useQuery({
+    queryKey: ['payments-summary'],
+    queryFn: () => api.get<Record<string, { count: number; totalAmount: number; workerEarnings: number; platformFees: number }>>('/admin/payments/summary'),
   });
 };
 

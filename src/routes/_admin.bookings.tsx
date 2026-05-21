@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { CreditCard, Banknote, Smartphone, Download } from "lucide-react";
+import { Banknote, Download, ReceiptText } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
@@ -8,11 +8,9 @@ import { fmtPKR } from "@/lib/mock-data";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { useBookings } from "@/lib/api-hooks";
+import { AdminPayment, useBookings, usePayments, usePaymentSummary } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/bookings")({ component: BookingsPage });
-
-const PAY_ICON: Record<string, any> = { card: CreditCard, cash: Banknote, easypaisa: Smartphone };
 
 function BookingsPage() {
   const [q, setQ] = useState("");
@@ -20,16 +18,19 @@ function BookingsPage() {
   const [pay, setPay] = useState("");
   const [type, setType] = useState("");
   const [selected, setSelected] = useState<any | null>(null);
-  const [reason, setReason] = useState("");
 
   const { data, isLoading } = useBookings({ status: status || undefined });
+  const { data: paymentsData = [] } = usePayments({ limit: 10 });
+  const { data: paymentSummary = {} } = usePaymentSummary();
 
   const apiBookings = (data as any) || [];
+  const latestPayments = (paymentsData as AdminPayment[]) || [];
 
   const rows = useMemo(() => apiBookings.filter((b: any) => {
     // Client side filtering for search & custom fields
     if (q && !`${b._id}${b.customer?.fullName}`.toLowerCase().includes(q.toLowerCase())) return false;
-    if (pay && b.paymentMethod !== pay) return false;
+    const paymentState = b.payment?.status || b.paymentStatus || 'pending';
+    if (pay && paymentState !== pay) return false;
     if (type && b.bookingType !== type) return false;
     return true;
   }), [apiBookings, q, pay, type]);
@@ -40,24 +41,26 @@ function BookingsPage() {
     ongoing: apiBookings.filter((b:any) => b.status === "ongoing").length,
     completed: apiBookings.filter((b:any) => b.status === "completed").length,
     cancelled: apiBookings.filter((b:any) => b.status === "cancelled").length,
-    revenue: apiBookings.filter((b:any) => b.status === "completed").reduce((s:number, b:any) => s + (b.totalAmount || 0), 0),
+    revenue: (paymentSummary as any)?.paid?.totalAmount || 0,
+    payable: (paymentSummary as any)?.payable?.totalAmount || 0,
   };
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
         <MiniStat label="Total" value={stats.total.toString()} />
         <MiniStat label="Pending" value={stats.pending.toString()} color="text-gold" />
         <MiniStat label="Ongoing" value={stats.ongoing.toString()} color="text-accent" />
         <MiniStat label="Completed" value={stats.completed.toString()} color="text-success" />
         <MiniStat label="Cancelled" value={stats.cancelled.toString()} color="text-destructive" />
-        <MiniStat label="Revenue" value={fmtPKR(stats.revenue)} color="text-primary" />
+        <MiniStat label="Cash Paid" value={fmtPKR(stats.revenue)} color="text-primary" />
+        <MiniStat label="Awaiting Cash" value={fmtPKR(stats.payable)} color="text-accent" />
       </div>
 
       <div className="flex flex-wrap gap-2">
         <SearchInput value={q} onChange={setQ} placeholder="Search by booking ID or customer..." />
         <Select value={status} onChange={setStatus} label="All Status" options={["pending","accepted","ongoing","completed","cancelled"].map(s=>({value:s,label:s}))} />
-        <Select value={pay} onChange={setPay} label="Payment" options={[{value:"card",label:"Card"},{value:"cash",label:"Cash"},{value:"easypaisa",label:"EasyPaisa"}]} />
+        <Select value={pay} onChange={setPay} label="Payment" options={[{value:"pending",label:"Pending"},{value:"payable",label:"Awaiting Cash"},{value:"paid",label:"Cash Paid"},{value:"cancelled",label:"Cancelled"}]} />
         <Select value={type} onChange={setType} label="Type" options={[{value:"instant",label:"Instant"},{value:"scheduled",label:"Scheduled"}]} />
         <button
           onClick={() => {
@@ -80,8 +83,8 @@ function BookingsPage() {
         { key: "d", header: "Date", render: b => <span className="text-xs text-muted-foreground">{b.createdAt ? format(new Date(b.createdAt), "dd MMM, HH:mm") : 'N/A'}</span> },
         { key: "tot", header: "Total", render: b => <span className="font-semibold">{fmtPKR(b.totalAmount || 0)}</span> },
         { key: "p", header: "Payment", render: b => {
-          const Icon = PAY_ICON[b.paymentMethod || 'cash'] || Banknote;
-          return <span className="inline-flex items-center gap-1.5 text-xs"><Icon className="w-3.5 h-3.5" /> <StatusBadge status={b.paymentStatus || 'pending'} /></span>;
+          const paymentState = b.payment?.status || b.paymentStatus || 'pending';
+          return <span className="inline-flex items-center gap-1.5 text-xs"><Banknote className="w-3.5 h-3.5" /> <StatusBadge status={paymentState} /></span>;
         }},
         { key: "s", header: "Status", render: b => <StatusBadge status={b.status} /> },
       ]} />
@@ -105,7 +108,9 @@ function BookingsPage() {
               <Line label="Platform Fee" value={fmtPKR(selected.platformFee || 0)} />
               <Line label="Worker Earning" value={fmtPKR(selected.workerEarning || 0)} accent />
               <div className="border-t border-border mt-2 pt-2"><Line label="Total" value={fmtPKR(selected.totalAmount || 0)} bold /></div>
-              <div className="mt-3 flex items-center justify-between text-sm"><span className="text-muted-foreground">Payment</span><div className="flex gap-2"><Badge variant="info">{selected.paymentMethod || 'cash'}</Badge><StatusBadge status={selected.paymentStatus || 'pending'} /></div></div>
+              <div className="mt-3 flex items-center justify-between text-sm"><span className="text-muted-foreground">Payment</span><div className="flex gap-2"><Badge variant="info">cash</Badge><StatusBadge status={selected.payment?.status || selected.paymentStatus || 'pending'} /></div></div>
+              {selected.payment?.receiptNumber && <Line label="Receipt" value={selected.payment.receiptNumber} />}
+              {selected.payment?.paidAt && <Line label="Paid At" value={format(new Date(selected.payment.paidAt), "dd MMM yyyy, HH:mm")} />}
             </div>
             <div>
               <div className="text-xs uppercase text-muted-foreground font-semibold mb-2">Status Timeline</div>
@@ -125,21 +130,53 @@ function BookingsPage() {
                 <span>Pending</span><span>Accepted</span><span>Ongoing</span><span>Completed</span>
               </div>
             </div>
-            {selected.status !== "completed" && selected.status !== "cancelled" && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4">
-                <div className="font-semibold text-destructive mb-2">Cancel Booking</div>
-                <textarea value={reason} onChange={e=>setReason(e.target.value)} placeholder="Reason for cancellation..." className="w-full h-20 rounded-xl bg-input border border-border p-3 text-sm" />
-                <button onClick={() => {
-                  setBookings(prev => prev.map(b => b.id === selected.id ? { ...b, status: "cancelled" } : b));
-                  setSelected({ ...selected, status: "cancelled" });
-                  toast.success("Booking cancelled");
-                  setReason("");
-                }} className="btn-press mt-2 w-full h-10 rounded-xl bg-destructive text-destructive-foreground font-bold">Cancel Booking</button>
-              </div>
-            )}
           </div>
         )}
       </Drawer>
+
+      <div className="bg-card border border-border rounded-2xl shadow-card overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2 font-bold">
+            <ReceiptText className="w-4 h-4 text-primary" />
+            Cash Payment Ledger
+          </div>
+          <span className="text-xs text-muted-foreground">Latest 10 records</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-light text-muted-foreground text-xs uppercase">
+              <tr>
+                <th className="px-4 py-3 text-left">Receipt</th>
+                <th className="px-4 py-3 text-left">Booking</th>
+                <th className="px-4 py-3 text-left">Customer</th>
+                <th className="px-4 py-3 text-left">Worker</th>
+                <th className="px-4 py-3 text-right">Amount</th>
+                <th className="px-4 py-3 text-right">Worker</th>
+                <th className="px-4 py-3 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latestPayments.map(payment => {
+                const booking = typeof payment.booking === 'object' ? payment.booking : null;
+                return (
+                  <tr key={payment._id} className="border-t border-border/60 hover:bg-surface-light/35">
+                    <td className="px-4 py-3 font-mono text-xs text-primary">{payment.receiptNumber || payment._id.slice(-6)}</td>
+                    <td className="px-4 py-3">{booking?.category || "Booking"}</td>
+                    <td className="px-4 py-3">{payment.customer?.fullName || "N/A"}</td>
+                    <td className="px-4 py-3 text-accent">{payment.worker?.fullName || "N/A"}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{fmtPKR(payment.amount || 0)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-success">{fmtPKR(payment.workerEarning || 0)}</td>
+                    <td className="px-4 py-3"><StatusBadge status={payment.status} /></td>
+                  </tr>
+                );
+              })}
+              {latestPayments.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No cash payments recorded yet</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
