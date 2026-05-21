@@ -14,7 +14,7 @@ export default defineConfig({
   },
   vite: {
     server: {
-      allowedHosts: true
+      allowedHosts: ['sardarhussain.me', 'www.sardarhussain.me']
     }
   }
 });
