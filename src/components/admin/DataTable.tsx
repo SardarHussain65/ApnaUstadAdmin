@@ -8,7 +8,7 @@ export interface Column<T> {
   className?: string;
 }
 
-export function DataTable<T extends { id?: string; _id?: string }>({
+export function DataTable<T extends Record<string, any>>({
   rows, columns, pageSize = 10, onRowClick, isLoading = false,
 }: { rows: T[]; columns: Column<T>[]; pageSize?: number; onRowClick?: (row: T) => void; isLoading?: boolean }) {
   const [page, setPage] = useState(1);

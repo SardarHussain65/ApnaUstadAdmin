@@ -21,30 +21,30 @@ function DashboardPage() {
 
   const stats = statsData?.counts ? {
     totalUsers: statsData.counts.users,
-    usersChange: "+5%", // Need logic for this
+    usersChange: 5,
     totalWorkers: statsData.counts.workers,
-    workersChange: "+8%",
+    workersChange: 8,
     totalBookings: statsData.counts.bookings,
-    bookingsChange: "+12%",
+    bookingsChange: 12,
     totalRevenue: statsData.counts.revenue,
-    revenueChange: "+18%"
+    revenueChange: 18
   } : mockStats;
 
   const revenueByCategory = Object.entries(
-    recentBookings.filter((b: any) => b.status === "completed").reduce<Record<string, number>>((acc, b) => {
+    (recentBookings as any[]).filter((b: any) => b.status === "completed").reduce((acc: Record<string, number>, b: any) => {
       acc[b.category] = (acc[b.category] ?? 0) + (b.totalAmount || 0);
       return acc;
-    }, {})
+    }, {} as Record<string, number>)
   ).map(([category, revenue]) => ({ category, revenue })).sort((a: any, b: any) => b.revenue - a.revenue);
 
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Users" value={stats.totalUsers} change={stats.usersChange} gradient="gradient-cyan glow-cyan" icon={<Users className="w-6 h-6 text-background" />} />
-        <StatCard label="Total Workers" value={stats.totalWorkers} change={stats.workersChange} gradient="gradient-orange glow-orange" icon={<Wrench className="w-6 h-6 text-white" />} />
-        <StatCard label="Total Bookings" value={stats.totalBookings} change={stats.bookingsChange} gradient="gradient-purple glow-purple" icon={<Calendar className="w-6 h-6 text-white" />} />
-        <StatCard label="Total Revenue" value={stats.totalRevenue} change={stats.revenueChange} isCurrency gradient="gradient-success" icon={<DollarSign className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Users" value={Number(stats.totalUsers) || 0} change={stats.usersChange} gradient="gradient-cyan glow-cyan" icon={<Users className="w-6 h-6 text-background" />} />
+        <StatCard label="Total Workers" value={Number(stats.totalWorkers) || 0} change={stats.workersChange} gradient="gradient-orange glow-orange" icon={<Wrench className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Bookings" value={Number(stats.totalBookings) || 0} change={stats.bookingsChange} gradient="gradient-purple glow-purple" icon={<Calendar className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Revenue" value={Number(stats.totalRevenue) || 0} change={stats.revenueChange} isCurrency gradient="gradient-success" icon={<DollarSign className="w-6 h-6 text-white" />} />
       </div>
 
       {/* Charts */}
