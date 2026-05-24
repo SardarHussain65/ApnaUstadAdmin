@@ -41,10 +41,10 @@ function DashboardPage() {
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Users" value={stats.totalUsers} change={stats.usersChange} gradient="gradient-cyan glow-cyan" icon={<Users className="w-6 h-6 text-background" />} />
-        <StatCard label="Total Workers" value={stats.totalWorkers} change={stats.workersChange} gradient="gradient-orange glow-orange" icon={<Wrench className="w-6 h-6 text-white" />} />
-        <StatCard label="Total Bookings" value={stats.totalBookings} change={stats.bookingsChange} gradient="gradient-purple glow-purple" icon={<Calendar className="w-6 h-6 text-white" />} />
-        <StatCard label="Total Revenue" value={stats.totalRevenue} change={stats.revenueChange} isCurrency gradient="gradient-success" icon={<DollarSign className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Users" value={Number(stats.totalUsers) || 0} change={stats.usersChange} gradient="gradient-cyan glow-cyan" icon={<Users className="w-6 h-6 text-background" />} />
+        <StatCard label="Total Workers" value={Number(stats.totalWorkers) || 0} change={stats.workersChange} gradient="gradient-orange glow-orange" icon={<Wrench className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Bookings" value={Number(stats.totalBookings) || 0} change={stats.bookingsChange} gradient="gradient-purple glow-purple" icon={<Calendar className="w-6 h-6 text-white" />} />
+        <StatCard label="Total Revenue" value={Number(stats.totalRevenue) || 0} change={stats.revenueChange} isCurrency gradient="gradient-success" icon={<DollarSign className="w-6 h-6 text-white" />} />
       </div>
 
       {/* Charts */}
