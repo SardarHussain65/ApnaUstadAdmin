@@ -21,13 +21,13 @@ function DashboardPage() {
 
   const stats = statsData?.counts ? {
     totalUsers: statsData.counts.users,
-    usersChange: "+5%", // Need logic for this
+    usersChange: 5,
     totalWorkers: statsData.counts.workers,
-    workersChange: "+8%",
+    workersChange: 8,
     totalBookings: statsData.counts.bookings,
-    bookingsChange: "+12%",
+    bookingsChange: 12,
     totalRevenue: statsData.counts.revenue,
-    revenueChange: "+18%"
+    revenueChange: 18
   } : mockStats;
 
   const revenueByCategory = Object.entries(
