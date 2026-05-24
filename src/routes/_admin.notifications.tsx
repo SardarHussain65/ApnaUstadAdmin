@@ -20,10 +20,10 @@ function NotificationsPage() {
     try {
       const payload = { target: target === 'All Users' ? 'users' : target === 'All Workers' ? 'workers' : 'all', title, body };
       const resp = await api.post('/notifications/broadcast', payload);
-      const result = resp || {};
-      const successCount = result?.result?.successCount ?? result?.result?.successCount ?? 0;
+      const result: any = resp || {};
+      const successCount = result?.result?.successCount ?? 0;
       const failureCount = result?.result?.failureCount ?? 0;
-      const n: Notification = { id: `N${Date.now()}`, title, body, target, sentAt: new Date().toISOString(), status: failureCount === 0 ? "delivered" : "partial" };
+      const n: Notification = { id: `N${Date.now()}`, title, body, target, sentAt: new Date().toISOString(), status: failureCount === 0 ? "delivered" : "failed" };
       setList([n, ...list]);
       setTitle(""); setBody("");
       toast.success(`🚀 Sent: ${successCount} delivered, ${failureCount} failed`);
