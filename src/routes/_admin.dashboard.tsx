@@ -31,10 +31,10 @@ function DashboardPage() {
   } : mockStats;
 
   const revenueByCategory = Object.entries(
-    recentBookings.filter((b: any) => b.status === "completed").reduce<Record<string, number>>((acc, b) => {
+    (recentBookings as any[]).filter((b: any) => b.status === "completed").reduce((acc: Record<string, number>, b: any) => {
       acc[b.category] = (acc[b.category] ?? 0) + (b.totalAmount || 0);
       return acc;
-    }, {})
+    }, {} as Record<string, number>)
   ).map(([category, revenue]) => ({ category, revenue })).sort((a: any, b: any) => b.revenue - a.revenue);
 
   return (
