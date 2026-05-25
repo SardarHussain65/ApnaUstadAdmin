@@ -1,7 +1,7 @@
 FROM node:22-slim
 WORKDIR /app
 COPY package*.json ./
-RUN rm -f package-lock.json && npm install
+RUN npm install
 COPY . .
 EXPOSE 4173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "4173"]

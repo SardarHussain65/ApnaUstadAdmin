@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 services:
   admin-frontend:
     build: .
@@ -8,3 +8,4 @@ services:
       - "3001:4173"
     environment:
       - VITE_API_URL=https://api.sardarhussain.me/api/v1
+      # - VITE_API_URL=http://localhost:5001/api/v1
