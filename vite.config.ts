@@ -14,7 +14,7 @@ export default defineConfig({
   },
   vite: {
     server: {
-      allowedHosts: ['sardarhussain.me', 'www.sardarhussain.me']
+      allowedHosts: ['apnaustad.app', 'www.apnaustad.app']
     }
   }
 });
