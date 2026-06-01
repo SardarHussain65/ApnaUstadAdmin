@@ -81,6 +81,17 @@ export interface AdminBooking {
   scheduledDate: string;
   scheduledTime?: string;
   totalAmount: number;
+  agreement?: {
+    clientOffer: number;
+    agreedPrice: number;
+    cashDue: number;
+    priceSource: 'accepted_offer' | 'counter_offer' | 'direct_rate';
+    commissionRateSnapshot: number;
+    commissionAmount: number;
+    workerNetIncome: number;
+    lockedAt: string;
+    pricingVersion: number;
+  };
   status: string;
   paymentStatus?: string;
   paymentMethod?: 'cash' | 'card' | 'easypaisa';
@@ -162,6 +173,38 @@ export const useDeleteJob = () => {
   });
 };
 
+export const useUpdateJobStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, reason }: { id: string; status: string; reason?: string }) =>
+      api.patch(`/admin/jobs/${id}/status`, { status, reason }),
+    onSuccess: (_, variables) => {
+      toast.success(`Job status updated to ${variables.status}`);
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job', variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update job status');
+    },
+  });
+};
+
+export const useCancelJob = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      api.patch(`/admin/jobs/${id}/cancel`, { reason }),
+    onSuccess: (_, variables) => {
+      toast.success('Job cancelled successfully');
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job', variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to cancel job');
+    },
+  });
+};
+
 // --- Bookings Queries ---
 export const useBookings = (params: { page?: number; limit?: number; status?: string; workerId?: string; customerId?: string } = {}) => {
   const query = toQueryString(params);
@@ -176,6 +219,38 @@ export const useBookingDetails = (id: string, enabled: boolean = true) => {
     queryKey: ['booking', id],
     queryFn: () => api.get<any>(`/admin/bookings/${id}`),
     enabled,
+  });
+};
+
+export const useUpdateBookingStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, cancelReason }: { id: string; status: string; cancelReason?: string }) =>
+      api.patch(`/admin/bookings/${id}/status`, { status, cancelReason }),
+    onSuccess: (_, variables) => {
+      toast.success(`Booking status updated to ${variables.status}`);
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['booking', variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update booking status');
+    },
+  });
+};
+
+export const useCancelBooking = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      api.post(`/admin/bookings/${id}/cancel`, { reason }),
+    onSuccess: (_, variables) => {
+      toast.success('Booking cancelled successfully');
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['booking', variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to cancel booking');
+    },
   });
 };
 
@@ -272,6 +347,30 @@ export const useVerifyWorker = () => {
   });
 };
 
+export const useUpdateWorkerProfile = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; fullName?: string; phone?: string; email?: string; category?: string; hourlyRate?: number; bio?: string; experience?: number; city?: string; address?: string }) =>
+      api.patch<Worker>(`/admin/workers/${id}`, data),
+    onSuccess: (_data, variables) => {
+      toast.success('Worker profile updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+      queryClient.invalidateQueries({ queryKey: ['worker', variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update worker profile');
+    },
+  });
+};
+
+export const useWorkerReviews = (workerId: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['worker-reviews', workerId],
+    queryFn: () => api.get<any>(`/reviews/worker/${workerId}`),
+    enabled: !!workerId && enabled,
+  });
+};
+
 // --- Categories Queries ---
 export const useCategories = (params: { page?: number; limit?: number; search?: string; active?: boolean } = { limit: 100 }) => {
   const qs = toQueryString(params);
@@ -340,3 +439,741 @@ export const useDeleteReview = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reviews'] }),
   });
 };
+
+export const useToggleFlagReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      api.patch(`/admin/reviews/${id}/flag`, { reason }),
+    onSuccess: () => {
+      toast.success('Review flag status updated');
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update review flag status');
+    },
+  });
+};
+
+// --- Worker Wallet Types ---
+export interface WorkerWallet {
+  _id: string;
+  worker: {
+    _id: string;
+    fullName: string;
+    phone: string;
+    email?: string;
+    profileImage?: string;
+  };
+  balance: number;
+  reservedBalance?: number;
+  availableBalance?: number;
+  totalRecharged: number;
+  totalCommissionDeducted: number;
+  isActive: boolean;
+  lastRechargedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WalletTransaction {
+  _id: string;
+  wallet: string;
+  worker: string;
+  type: 'recharge' | 'commission_deduction' | 'refund' | 'adjustment';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  description: string;
+  reference?: {
+    booking?: string;
+    payment?: string;
+    topUpRequest?: string;
+  };
+  performedBy: {
+    actor: string;
+    actorType: 'worker' | 'admin';
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WalletTopUpRequest {
+  _id: string;
+  requestId: string;
+  worker?: {
+    _id: string;
+    fullName: string;
+    phone?: string;
+    email?: string;
+    profileImage?: string;
+    category?: string;
+  };
+  wallet: string;
+  amount: number;
+  method: 'easypaisa' | 'jazzcash' | 'bank_transfer' | 'other';
+  proofImageUrl: string;
+  status: 'pending' | 'approved' | 'rejected';
+  paymentDetailsSnapshot: {
+    method: string;
+    label: string;
+    accountTitle?: string;
+    accountNumber?: string;
+    bankName?: string;
+    iban?: string;
+    instructions?: string;
+  };
+  admin?: {
+    _id: string;
+    fullName: string;
+    email?: string;
+  } | null;
+  adminNotes?: string;
+  rejectionReason?: string;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WalletSummary {
+  walletCount: number;
+  totalBalance: number;
+  totalReservedBalance?: number;
+  totalAvailableBalance?: number;
+  totalRecharged: number;
+  totalCommissionDeducted: number;
+  lowBalanceCount: number;
+  zeroBalanceCount: number;
+  minimumWalletBalance: number;
+  pendingTopUpCount: number;
+  pendingTopUpAmount: number;
+  commissionSettings?: WalletSettings;
+}
+
+export interface WalletSettings {
+  platformFeePercentage: number;
+  minimumWalletBalance: number;
+  commissionEnabled: boolean;
+  updatedAt?: string;
+}
+
+export type WalletPaymentMethodKey = 'easypaisa' | 'jazzcash' | 'bank_transfer' | 'other';
+
+export interface WalletPaymentMethodSetting {
+  _id?: string;
+  method: WalletPaymentMethodKey;
+  label: string;
+  accountTitle: string;
+  accountNumber: string;
+  bankName?: string;
+  iban?: string;
+  instructions?: string;
+  enabled: boolean;
+  isConfigured: boolean;
+  sortOrder?: number;
+  updatedAt?: string;
+}
+
+export type WalletPaymentMethodInput = Omit<WalletPaymentMethodSetting, '_id' | 'isConfigured' | 'updatedAt'>;
+
+export interface WorkerWalletDetails {
+  worker: {
+    _id: string;
+    fullName: string;
+    phone: string;
+    email?: string;
+    profileImage?: string;
+  };
+  wallet: {
+    _id: string;
+    worker: string;
+    balance: number;
+    reservedBalance?: number;
+    availableBalance?: number;
+    totalRecharged: number;
+    totalCommissionDeducted: number;
+    isActive: boolean;
+    lastRechargedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+  transactions: WalletTransaction[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+// --- Worker Wallet Hooks ---
+export const useWorkerWallets = (params: { search?: string; balanceStatus?: 'low' | 'zero' | 'sufficient' | ''; page?: number; limit?: number } = {}) => {
+  const qs = toQueryString(params);
+  return useQuery({
+    queryKey: ['worker-wallets', params],
+    queryFn: () => api.get<any>(`/admin/wallets${qs ? `?${qs}` : ''}`),
+  });
+};
+
+export const useWalletSummary = () => {
+  return useQuery({
+    queryKey: ['wallet-summary'],
+    queryFn: () => api.get<WalletSummary>('/admin/wallets/summary'),
+  });
+};
+
+export const useWalletSettings = () => {
+  return useQuery({
+    queryKey: ['wallet-settings'],
+    queryFn: () => api.get<WalletSettings>('/admin/wallet-settings'),
+  });
+};
+
+export const useUpdateWalletSettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (settings: WalletSettings) => api.patch<WalletSettings>('/admin/wallet-settings', settings),
+    onSuccess: () => {
+      toast.success('Wallet commission settings updated');
+      queryClient.invalidateQueries({ queryKey: ['wallet-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['worker-wallets'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update wallet settings');
+    },
+  });
+};
+
+export const useWalletPaymentMethodSettings = () => {
+  return useQuery({
+    queryKey: ['wallet-payment-methods'],
+    queryFn: () => api.get<WalletPaymentMethodSetting[]>('/admin/wallet-payment-methods'),
+  });
+};
+
+export const useUpdateWalletPaymentMethodSettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ methods }: { methods: WalletPaymentMethodInput[] }) =>
+      api.patch<WalletPaymentMethodSetting[]>('/admin/wallet-payment-methods', { methods }),
+    onSuccess: () => {
+      toast.success('Payment methods updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['wallet-payment-methods'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update payment methods');
+    },
+  });
+};
+
+export const useWorkerWalletDetails = (workerId: string, page = 1, limit = 10) => {
+  return useQuery({
+    queryKey: ['worker-wallet-details', workerId, page, limit],
+    queryFn: () => api.get<WorkerWalletDetails>(`/admin/wallets/${workerId}?page=${page}&limit=${limit}`),
+    enabled: !!workerId,
+  });
+};
+
+export const useAdminRechargeWallet = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workerId, amount, description }: { workerId: string; amount: number; description?: string }) =>
+      api.post(`/admin/wallets/${workerId}/recharge`, { amount, description }),
+    onSuccess: (data, variables) => {
+      toast.success('Wallet recharged successfully');
+      queryClient.invalidateQueries({ queryKey: ['worker-wallets'] });
+      queryClient.invalidateQueries({ queryKey: ['worker-wallet-details', variables.workerId] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to recharge wallet');
+    },
+  });
+};
+
+export const useAdminAdjustWallet = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workerId, amount, type, description }: { workerId: string; amount: number; type: 'refund' | 'adjustment'; description: string }) =>
+      api.post(`/admin/wallets/${workerId}/adjust`, { amount, type, description }),
+    onSuccess: (data, variables) => {
+      toast.success('Wallet balance adjusted successfully');
+      queryClient.invalidateQueries({ queryKey: ['worker-wallets'] });
+      queryClient.invalidateQueries({ queryKey: ['worker-wallet-details', variables.workerId] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to adjust wallet balance');
+    },
+  });
+};
+
+export const useWalletTopUps = (params: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  method?: string;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+} = {}) => {
+  const qs = toQueryString(params);
+  return useQuery({
+    queryKey: ['wallet-topups', params],
+    queryFn: () => api.get<WalletTopUpRequest[]>(`/admin/wallet-topups${qs ? `?${qs}` : ''}`),
+  });
+};
+
+export const useWalletTopUpSummary = (params: {
+  status?: string;
+  method?: string;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+} = {}) => {
+  const qs = toQueryString(params);
+  return useQuery({
+    queryKey: ['wallet-topup-summary', params],
+    queryFn: () => api.get<Record<'pending' | 'approved' | 'rejected', { count: number; amount: number }>>(`/admin/wallet-topups/summary${qs ? `?${qs}` : ''}`),
+  });
+};
+
+export const useApproveWalletTopUp = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, adminNotes }: { id: string; adminNotes?: string }) =>
+      api.patch(`/admin/wallet-topups/${id}/approve`, { adminNotes }),
+    onSuccess: () => {
+      toast.success('Top-up approved and wallet credited');
+      queryClient.invalidateQueries({ queryKey: ['wallet-topups'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-topup-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['worker-wallets'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-summary'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to approve top-up');
+    },
+  });
+};
+
+export const useRejectWalletTopUp = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, rejectionReason, adminNotes }: { id: string; rejectionReason: string; adminNotes?: string }) =>
+      api.patch(`/admin/wallet-topups/${id}/reject`, { rejectionReason, adminNotes }),
+    onSuccess: () => {
+      toast.success('Top-up request rejected');
+      queryClient.invalidateQueries({ queryKey: ['wallet-topups'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-topup-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-summary'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to reject top-up');
+    },
+  });
+};
+
+// --- Admin Notifications ---
+export interface AdminNotification {
+  _id: string;
+  isBroadcast?: boolean;
+  broadcastId?: string;
+  recipientType: 'user' | 'worker' | 'admin';
+  recipient?: {
+    _id: string;
+    fullName: string;
+    phone: string;
+    email?: string;
+    profileImage?: string;
+  } | null;
+  title: string;
+  message: string;
+  deliveryStatus?: string;
+  scheduledAt?: string;
+  createdAt?: string;
+  sentAt?: string;
+  totalCount?: number;
+  sentCount?: number;
+  readCount?: number;
+  failedCount?: number;
+}
+
+export interface AdminNotificationsResponse {
+  notifications: AdminNotification[];
+  pagination: {
+    total: number;
+    page: number;
+    pages: number;
+  };
+}
+
+export const useAdminNotifications = (params: { page?: number; limit?: number; grouped?: boolean } = { limit: 50 }) => {
+  const qs = toQueryString(params);
+  return useQuery({
+    queryKey: ['admin-notifications', params],
+    queryFn: () => api.get<AdminNotificationsResponse>(`/admin/notifications${qs ? `?${qs}` : ''}`),
+  });
+};
+
+export const useBroadcastNotification = () => {
+  return useMutation({
+    mutationFn: (payload: { target: 'users' | 'workers' | 'all' | 'user' | 'worker'; title: string; body: string; recipientId?: string; scheduledAt?: string; type?: string }) =>
+      api.post(`/admin/notifications/global`, payload),
+  });
+};
+
+// --- Support Queries ---
+export interface SupportReply {
+  from: 'admin' | 'user';
+  message: string;
+  authorName?: string;
+  createdAt: string;
+}
+
+export interface SupportRequest {
+  _id: string;
+  user?: string;
+  name: string;
+  email?: string;
+  topic?: string;
+  message: string;
+  status: 'open' | 'closed' | 'pending';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  metadata?: Record<string, any>;
+  replies?: SupportReply[];
+  createdAt: string;
+}
+
+export const useSupportRequests = (params: { status?: string; search?: string; priority?: string } = {}) => {
+  const qs = toQueryString(params);
+  return useQuery({
+    queryKey: ['support-requests', params],
+    queryFn: () => api.get<SupportRequest[]>(`/admin/support/requests${qs ? `?${qs}` : ''}`),
+  });
+};
+
+export const useReplySupportRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, message, authorName }: { id: string; message: string; authorName?: string }) =>
+      api.post<SupportRequest>(`/admin/support/requests/${id}/reply`, { message, authorName }),
+    onSuccess: () => {
+      toast.success('Reply sent successfully');
+      queryClient.invalidateQueries({ queryKey: ['support-requests'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to send reply');
+    }
+  });
+};
+
+export const useUpdateSupportStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'open' | 'closed' | 'pending' }) =>
+      api.patch<SupportRequest>(`/admin/support/requests/${id}/status`, { status }),
+    onSuccess: () => {
+      toast.success('Ticket status updated');
+      queryClient.invalidateQueries({ queryKey: ['support-requests'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update status');
+    }
+  });
+};
+
+export const useUpdateSupportPriority = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, priority }: { id: string; priority: 'low' | 'medium' | 'high' | 'urgent' }) =>
+      api.patch<SupportRequest>(`/admin/support/requests/${id}/priority`, { priority }),
+    onSuccess: () => {
+      toast.success('Ticket priority updated');
+      queryClient.invalidateQueries({ queryKey: ['support-requests'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update priority');
+    }
+  });
+};
+
+export const useUpdateAdminProfile = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { fullName?: string; email?: string }) =>
+      api.patch<any>(`/admin/me`, payload),
+    onSuccess: (data) => {
+      toast.success('Profile updated successfully');
+      localStorage.setItem('adminUser', JSON.stringify(data));
+      queryClient.invalidateQueries({ queryKey: ['admin-profile'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update profile');
+    }
+  });
+};
+
+export const useChangeAdminPassword = () => {
+  return useMutation({
+    mutationFn: (payload: { currentPassword?: string; newPassword?: string }) =>
+      api.post(`/admin/change-password`, payload),
+    onSuccess: () => {
+      toast.success('Password updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update password');
+    }
+  });
+};
+
+// --- Reports Hooks ---
+export const useRevenueReport = () => {
+  return useQuery({
+    queryKey: ['reports-revenue'],
+    queryFn: () => api.get<any>('/admin/reports/revenue'),
+  });
+};
+
+export const useBookingsReport = () => {
+  return useQuery({
+    queryKey: ['reports-bookings'],
+    queryFn: () => api.get<any>('/admin/reports/bookings'),
+  });
+};
+
+export const useWorkersReport = () => {
+  return useQuery({
+    queryKey: ['reports-workers'],
+    queryFn: () => api.get<any>('/admin/reports/workers'),
+  });
+};
+
+export const useUsersReport = () => {
+  return useQuery({
+    queryKey: ['reports-users'],
+    queryFn: () => api.get<any>('/admin/reports/users'),
+  });
+};
+
+// --- Audit Log Hooks ---
+export const useAuditLogs = (params: { page?: number; limit?: number; search?: string; action?: string; entityType?: string } = {}) => {
+  const query = toQueryString(params);
+  return useQuery({
+    queryKey: ['audit-logs', params],
+    queryFn: () => api.get<any>(`/admin/audit-logs${query ? `?${query}` : ''}`),
+  });
+};
+
+// --- Sub-Admin Hooks ---
+export interface AdminUser {
+  _id: string;
+  fullName: string;
+  email: string;
+  role: 'superadmin' | 'admin';
+  status: 'active' | 'inactive';
+  lastLogin?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const useAdmins = () => {
+  return useQuery({
+    queryKey: ['admins'],
+    queryFn: () => api.get<AdminUser[]>('/admin/admins'),
+  });
+};
+
+export const useCreateAdmin = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Omit<AdminUser, '_id' | 'createdAt' | 'updatedAt' | 'status'> & { password?: string }) =>
+      api.post<AdminUser>('/admin/admins', data),
+    onSuccess: () => {
+      toast.success('Admin user created successfully');
+      queryClient.invalidateQueries({ queryKey: ['admins'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to create admin user');
+    },
+  });
+};
+
+export const useToggleAdminStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.patch<AdminUser>(`/admin/admins/${id}/status`, {}),
+    onSuccess: (data) => {
+      toast.success(`Admin user status updated to ${data.status}`);
+      queryClient.invalidateQueries({ queryKey: ['admins'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to toggle admin status');
+    },
+  });
+};
+
+export const useDeleteAdmin = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/admin/admins/${id}`),
+    onSuccess: () => {
+      toast.success('Admin user deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['admins'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete admin user');
+    },
+  });
+};
+
+// --- Dispute Queries & Mutations ---
+export interface Dispute {
+  _id: string;
+  booking?: any;
+  customer?: any;
+  worker?: any;
+  raisedBy: string;
+  raisedByType: 'customer' | 'worker';
+  reason: string;
+  description: string;
+  status: 'open' | 'under_review' | 'resolved' | 'dismissed';
+  amountDisputed: number;
+  proofImages: string[];
+  adminNotes?: string;
+  resolutionDetails?: string;
+  resolvedBy?: any;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const useDisputes = (params: { page?: number; limit?: number; status?: string; reason?: string } = {}) => {
+  const qs = toQueryString(params);
+  return useQuery({
+    queryKey: ['disputes', params],
+    queryFn: () => api.get<any>(`/admin/disputes${qs ? `?${qs}` : ''}`),
+  });
+};
+
+export const useDisputeDetails = (id: string, enabled = true) => {
+  return useQuery({
+    queryKey: ['dispute', id],
+    queryFn: () => api.get<Dispute>(`/admin/disputes/${id}`),
+    enabled: !!id && enabled,
+  });
+};
+
+export const useResolveDispute = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; status: 'resolved' | 'dismissed' | 'under_review'; adminNotes?: string; resolutionDetails?: string; refundAmount?: number }) =>
+      api.patch<any>(`/admin/disputes/${id}/resolve`, data),
+    onSuccess: (data: any) => {
+      toast.success('Dispute resolution saved');
+      queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      queryClient.invalidateQueries({ queryKey: ['dispute', data._id || data.data?._id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to resolve dispute');
+    },
+  });
+};
+
+// --- Promo Code Queries & Mutations ---
+export interface PromoCode {
+  _id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  minBookingAmount: number;
+  maxDiscountAmount: number;
+  startDate: string;
+  endDate: string;
+  usageLimit: number;
+  usageCount: number;
+  userUsageLimit: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const usePromos = (params: { page?: number; limit?: number } = {}) => {
+  const qs = toQueryString(params);
+  return useQuery({
+    queryKey: ['promos', params],
+    queryFn: () => api.get<any>(`/admin/promos${qs ? `?${qs}` : ''}`),
+  });
+};
+
+export const useCreatePromo = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Omit<PromoCode, '_id' | 'createdAt' | 'updatedAt' | 'isActive' | 'usageCount'>) =>
+      api.post<PromoCode>('/admin/promos', data),
+    onSuccess: () => {
+      toast.success('Promo code created successfully');
+      queryClient.invalidateQueries({ queryKey: ['promos'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to create promo code');
+    },
+  });
+};
+
+export const useTogglePromoStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.patch<PromoCode>(`/admin/promos/${id}/status`, {}),
+    onSuccess: (data) => {
+      toast.success(`Promo code is now ${data.isActive ? 'active' : 'inactive'}`);
+      queryClient.invalidateQueries({ queryKey: ['promos'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to toggle status');
+    },
+  });
+};
+
+export const useDeletePromo = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete(`/admin/promos/${id}`),
+    onSuccess: () => {
+      toast.success('Promo code deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['promos'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete promo code');
+    },
+  });
+};
+
+/**
+ * Aggregates badge counts for the sidebar navigation.
+ * Polls with a 60-second staleTime to avoid hammering the API.
+ */
+export const useNavBadges = () => {
+  const STALE = 60_000;
+
+  const { data: supportData } = useSupportRequests({ status: 'open' });
+  const { data: jobsData } = useJobs({ status: 'open' });
+  const { data: bookingsData } = useBookings({ status: 'pending' });
+  const { data: workersData } = useWorkers({ verified: false, status: 'active' });
+  const { data: topUpsData } = useWalletTopUps({ status: 'pending', limit: 50 });
+  const { data: disputesData } = useDisputes({ status: 'open' });
+
+  const openTickets = (supportData as any[])?.length ?? 0;
+  const openJobs = (jobsData as any[])?.length ?? 0;
+  const pendingBookings = (bookingsData as any[])?.length ?? 0;
+  const unverifiedWorkers = (workersData as any[])?.length ?? 0;
+  const pendingTopUps = (topUpsData as any)?.topUps?.length ?? (Array.isArray(topUpsData) ? (topUpsData as any[]).length : 0);
+  
+  // Safeguard array structure from API response
+  const rawDisputes = disputesData?.data ?? disputesData;
+  const openDisputes = Array.isArray(rawDisputes) ? rawDisputes.length : 0;
+
+  return { openTickets, openJobs, pendingBookings, unverifiedWorkers, pendingTopUps, openDisputes };
+};
+

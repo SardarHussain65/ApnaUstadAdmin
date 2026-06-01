@@ -79,6 +79,10 @@ export function StatusBadge({ status }: { status: string }) {
     paid: { v: "success" },
     unpaid: { v: "danger" },
     delivered: { v: "success" },
+    sent: { v: "info" },
+    queued: { v: "warning", pulse: true },
+    created: { v: "muted" },
+    failed: { v: "danger" },
     instant: { v: "orange" },
     scheduled: { v: "purple" },
   };

@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Banknote, Download, ReceiptText } from "lucide-react";
+import { Banknote, Download, ReceiptText, XCircle, ExternalLink, CalendarIcon } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
@@ -8,7 +8,7 @@ import { fmtPKR } from "@/lib/mock-data";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { AdminPayment, useBookings, usePayments, usePaymentSummary } from "@/lib/api-hooks";
+import { AdminPayment, useBookings, useCancelBooking, useUpdateBookingStatus, usePayments, usePaymentSummary } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/bookings")({ component: BookingsPage });
 
@@ -17,32 +17,74 @@ function BookingsPage() {
   const [status, setStatus] = useState("");
   const [pay, setPay] = useState("");
   const [type, setType] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selected, setSelected] = useState<any | null>(null);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [statusOverride, setStatusOverride] = useState("");
 
   const { data, isLoading } = useBookings({ status: status || undefined });
   const { data: paymentsData = [] } = usePayments({ limit: 10 });
   const { data: paymentSummary = {} } = usePaymentSummary();
+  const cancelMutation = useCancelBooking();
+  const updateStatusMutation = useUpdateBookingStatus();
 
   const apiBookings = (data as any) || [];
   const latestPayments = (paymentsData as AdminPayment[]) || [];
 
   const rows = useMemo(() => apiBookings.filter((b: any) => {
-    // Client side filtering for search & custom fields
-    if (q && !`${b._id}${b.customer?.fullName}`.toLowerCase().includes(q.toLowerCase())) return false;
+    if (q && !`${b._id}${b.customer?.fullName}${b.worker?.fullName}`.toLowerCase().includes(q.toLowerCase())) return false;
     const paymentState = b.payment?.status || b.paymentStatus || 'pending';
     if (pay && paymentState !== pay) return false;
     if (type && b.bookingType !== type) return false;
+    if (dateFrom) {
+      const bookingDate = new Date(b.createdAt || b.scheduledDate);
+      if (bookingDate < new Date(dateFrom)) return false;
+    }
+    if (dateTo) {
+      const bookingDate = new Date(b.createdAt || b.scheduledDate);
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59);
+      if (bookingDate > toDate) return false;
+    }
     return true;
-  }), [apiBookings, q, pay, type]);
+  }), [apiBookings, q, pay, type, dateFrom, dateTo]);
 
   const stats = {
     total: apiBookings.length,
-    pending: apiBookings.filter((b:any) => b.status === "pending").length,
-    ongoing: apiBookings.filter((b:any) => b.status === "ongoing").length,
-    completed: apiBookings.filter((b:any) => b.status === "completed").length,
-    cancelled: apiBookings.filter((b:any) => b.status === "cancelled").length,
+    pending: apiBookings.filter((b: any) => b.status === "pending").length,
+    ongoing: apiBookings.filter((b: any) => b.status === "ongoing").length,
+    completed: apiBookings.filter((b: any) => b.status === "completed").length,
+    cancelled: apiBookings.filter((b: any) => b.status === "cancelled").length,
     revenue: (paymentSummary as any)?.paid?.totalAmount || 0,
     payable: (paymentSummary as any)?.payable?.totalAmount || 0,
+  };
+
+  const handleCancel = () => {
+    if (!selected) return;
+    cancelMutation.mutate(
+      { id: selected._id, reason: "Cancelled by admin" },
+      {
+        onSuccess: () => {
+          setCancelConfirm(false);
+          setSelected(null);
+          toast.success("Booking cancelled successfully");
+        },
+      }
+    );
+  };
+
+  const handleStatusOverride = () => {
+    if (!selected || !statusOverride) return;
+    updateStatusMutation.mutate(
+      { id: selected._id, status: statusOverride },
+      {
+        onSuccess: () => {
+          toast.success(`Status updated to ${statusOverride}`);
+          setStatusOverride("");
+        },
+      }
+    );
   };
 
   return (
@@ -57,11 +99,34 @@ function BookingsPage() {
         <MiniStat label="Awaiting Cash" value={fmtPKR(stats.payable)} color="text-accent" />
       </div>
 
+      {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        <SearchInput value={q} onChange={setQ} placeholder="Search by booking ID or customer..." />
+        <SearchInput value={q} onChange={setQ} placeholder="Search by ID, customer or worker..." />
         <Select value={status} onChange={setStatus} label="All Status" options={["pending","accepted","ongoing","completed","cancelled"].map(s=>({value:s,label:s}))} />
         <Select value={pay} onChange={setPay} label="Payment" options={[{value:"pending",label:"Pending"},{value:"payable",label:"Awaiting Cash"},{value:"paid",label:"Cash Paid"},{value:"cancelled",label:"Cancelled"}]} />
         <Select value={type} onChange={setType} label="Type" options={[{value:"instant",label:"Instant"},{value:"scheduled",label:"Scheduled"}]} />
+        {/* Date range */}
+        <div className="flex items-center gap-1 bg-surface-light border border-border rounded-xl h-10 px-3 text-sm">
+          <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground" />
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            className="bg-transparent outline-none text-xs cursor-pointer"
+            placeholder="From"
+          />
+          <span className="text-muted-foreground text-xs">→</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            className="bg-transparent outline-none text-xs cursor-pointer"
+            placeholder="To"
+          />
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(""); setDateTo(""); }} className="ml-1 text-muted-foreground hover:text-foreground">×</button>
+          )}
+        </div>
         <button
           onClick={() => {
             downloadCsv("bookings", rows, [
@@ -76,12 +141,36 @@ function BookingsPage() {
       </div>
 
       <DataTable isLoading={isLoading} rows={rows} onRowClick={b => setSelected(b)} columns={[
-        { key: "id", header: "Booking", render: b => <span className="font-mono text-xs text-primary">{b._id.slice(-6)}</span> },
-        { key: "c", header: "Customer", render: b => b.customer?.fullName || 'Unknown' },
-        { key: "w", header: "Worker", render: b => <span className="text-accent">{b.worker?.fullName || 'Unknown'}</span> },
+        { key: "id", header: "Booking", render: b => <span className="font-mono text-xs text-primary">#{b._id.slice(-6)}</span> },
+        {
+          key: "c", header: "Customer", render: b => (
+            <div className="flex items-center gap-1">
+              <span>{b.customer?.fullName || 'Unknown'}</span>
+              {b.customer?._id && (
+                <Link to="/users" onClick={e => e.stopPropagation()}
+                  className="text-muted-foreground hover:text-primary transition" title={`User: ${b.customer._id}`}>
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              )}
+            </div>
+          )
+        },
+        {
+          key: "w", header: "Worker", render: b => (
+            <div className="flex items-center gap-1">
+              <span className="text-accent">{b.worker?.fullName || 'Unknown'}</span>
+              {b.worker?._id && (
+                <Link to="/workers/$id" params={{ id: b.worker._id }} onClick={e => e.stopPropagation()}
+                  className="text-muted-foreground hover:text-primary transition">
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+              )}
+            </div>
+          )
+        },
         { key: "cat", header: "Category", render: b => <Badge variant="orange">{b.category || 'N/A'}</Badge> },
         { key: "d", header: "Date", render: b => <span className="text-xs text-muted-foreground">{b.createdAt ? format(new Date(b.createdAt), "dd MMM, HH:mm") : 'N/A'}</span> },
-        { key: "tot", header: "Total", render: b => <span className="font-semibold">{fmtPKR(b.totalAmount || 0)}</span> },
+        { key: "tot", header: "Cash Due", render: b => <span className="font-semibold">{fmtPKR(b.agreement?.cashDue ?? b.totalAmount ?? 0)}</span> },
         { key: "p", header: "Payment", render: b => {
           const paymentState = b.payment?.status || b.paymentStatus || 'pending';
           return <span className="inline-flex items-center gap-1.5 text-xs"><Banknote className="w-3.5 h-3.5" /> <StatusBadge status={paymentState} /></span>;
@@ -89,7 +178,8 @@ function BookingsPage() {
         { key: "s", header: "Status", render: b => <StatusBadge status={b.status} /> },
       ]} />
 
-      <Drawer open={!!selected} onClose={() => setSelected(null)} title={`Booking ${selected?._id?.slice(-6) ?? ""}`} width="max-w-2xl">
+      {/* Booking Detail Drawer */}
+      <Drawer open={!!selected} onClose={() => { setSelected(null); setCancelConfirm(false); setStatusOverride(""); }} title={`Booking #${selected?._id?.slice(-6) ?? ""}`} width="max-w-2xl">
         {selected && (
           <div className="space-y-5">
             <div className="grid grid-cols-2 gap-3">
@@ -104,10 +194,12 @@ function BookingsPage() {
             </div>
             <div className="bg-surface-light rounded-2xl p-4">
               <div className="text-xs uppercase text-muted-foreground font-semibold mb-3">Financial Breakdown</div>
-              <Line label="Subtotal" value={fmtPKR(selected.subtotal || 0)} />
-              <Line label="Platform Fee" value={fmtPKR(selected.platformFee || 0)} />
-              <Line label="Worker Earning" value={fmtPKR(selected.workerEarning || 0)} accent />
-              <div className="border-t border-border mt-2 pt-2"><Line label="Total" value={fmtPKR(selected.totalAmount || 0)} bold /></div>
+              <Line label="Client Offer" value={fmtPKR(selected.agreement?.clientOffer ?? selected.subtotal ?? 0)} />
+              <Line label="Agreed Job Price" value={fmtPKR(selected.agreement?.agreedPrice ?? selected.subtotal ?? 0)} />
+              <Line label={`Wallet Commission (${selected.agreement?.commissionRateSnapshot ?? 0}%)`} value={fmtPKR(selected.agreement?.commissionAmount ?? selected.platformFee ?? 0)} />
+              <Line label="Worker Net Income" value={fmtPKR(selected.agreement?.workerNetIncome ?? selected.workerEarning ?? 0)} accent />
+              <div className="border-t border-border mt-2 pt-2"><Line label="Client Cash Due" value={fmtPKR(selected.agreement?.cashDue ?? selected.totalAmount ?? 0)} bold /></div>
+              <div className="mt-2 text-xs text-muted-foreground">Price source: {(selected.agreement?.priceSource || "legacy").replaceAll("_", " ")}</div>
               <div className="mt-3 flex items-center justify-between text-sm"><span className="text-muted-foreground">Payment</span><div className="flex gap-2"><Badge variant="info">cash</Badge><StatusBadge status={selected.payment?.status || selected.paymentStatus || 'pending'} /></div></div>
               {selected.payment?.receiptNumber && <Line label="Receipt" value={selected.payment.receiptNumber} />}
               {selected.payment?.paidAt && <Line label="Paid At" value={format(new Date(selected.payment.paidAt), "dd MMM yyyy, HH:mm")} />}
@@ -130,6 +222,74 @@ function BookingsPage() {
                 <span>Pending</span><span>Accepted</span><span>Ongoing</span><span>Completed</span>
               </div>
             </div>
+
+            {/* Quick nav links */}
+            <div className="flex flex-wrap gap-2">
+              {selected.customer?._id && (
+                <Link to="/users"
+                  className="inline-flex items-center gap-1.5 px-3 h-8 rounded-xl bg-surface border border-border text-xs font-semibold hover:border-primary hover:text-primary transition">
+                  <ExternalLink className="w-3 h-3" /> View Customer
+                </Link>
+              )}
+              {selected.worker?._id && (
+                <Link to="/workers/$id" params={{ id: selected.worker._id }}
+                  className="inline-flex items-center gap-1.5 px-3 h-8 rounded-xl bg-surface border border-border text-xs font-semibold hover:border-accent hover:text-accent transition">
+                  <ExternalLink className="w-3 h-3" /> View Worker
+                </Link>
+              )}
+            </div>
+
+            {/* Status Override */}
+            {!["cancelled", "completed"].includes(selected.status) && (
+              <div className="border border-border rounded-xl p-4 space-y-3">
+                <div className="text-xs uppercase text-muted-foreground font-semibold">Admin Status Override</div>
+                <div className="flex gap-2">
+                  <select
+                    value={statusOverride}
+                    onChange={e => setStatusOverride(e.target.value)}
+                    className="flex-1 bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary cursor-pointer"
+                  >
+                    <option value="">Select new status...</option>
+                    {["pending","accepted","ongoing","completed"].filter(s => s !== selected.status).map(s => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
+                  </select>
+                  <button
+                    disabled={!statusOverride || updateStatusMutation.isPending}
+                    onClick={handleStatusOverride}
+                    className="px-4 h-10 rounded-xl gradient-cyan text-background font-bold disabled:opacity-50 text-sm"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Cancel Action */}
+            {selected.status !== "cancelled" && selected.status !== "completed" && (
+              !cancelConfirm ? (
+                <button
+                  onClick={() => setCancelConfirm(true)}
+                  className="btn-press w-full h-11 rounded-xl bg-destructive/15 text-destructive border border-destructive/30 font-bold flex items-center justify-center gap-2 hover:bg-destructive/25"
+                >
+                  <XCircle className="w-4 h-4" /> Cancel Booking
+                </button>
+              ) : (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4">
+                  <p className="text-sm text-destructive font-semibold mb-3">⚠ Confirm cancellation of booking #{selected._id.slice(-6)}?</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setCancelConfirm(false)} className="flex-1 h-9 rounded-xl border border-border text-sm font-semibold">No, keep it</button>
+                    <button
+                      disabled={cancelMutation.isPending}
+                      onClick={handleCancel}
+                      className="flex-1 h-9 rounded-xl bg-destructive text-white text-sm font-bold disabled:opacity-60"
+                    >
+                      {cancelMutation.isPending ? "Cancelling..." : "Yes, cancel"}
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
           </div>
         )}
       </Drawer>

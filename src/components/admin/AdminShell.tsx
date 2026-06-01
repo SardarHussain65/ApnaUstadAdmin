@@ -2,24 +2,12 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard, Users, Wrench, ClipboardList, Calendar, FolderKanban,
-  Star, Bell, Settings, ChevronLeft, LogOut, Search, ChevronDown,
+  Star, Bell, Settings, ChevronLeft, LogOut, Search, ChevronDown, Wallet,
+  HelpCircle, BarChart3, History, UserCog, Scale, Tag
 } from "lucide-react";
-import { HelpCircle } from "lucide-react";
 import { logout, useAuth } from "@/lib/auth";
 import { CommandPalette } from "@/components/admin/CommandPalette";
-
-const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/users", label: "Users", icon: Users },
-  { to: "/workers", label: "Workers", icon: Wrench },
-  { to: "/jobs", label: "Job Posts", icon: ClipboardList },
-  { to: "/bookings", label: "Bookings", icon: Calendar },
-  { to: "/categories", label: "Categories", icon: FolderKanban },
-  { to: "/reviews", label: "Reviews", icon: Star },
-  { to: "/notifications", label: "Notifications", icon: Bell },
-  { to: "/support", label: "Support", icon: HelpCircle },
-  { to: "/settings", label: "Settings", icon: Settings },
-];
+import { useNavBadges } from "@/lib/api-hooks";
 
 const TITLES: Record<string, string> = {
   "/dashboard": "Dashboard Overview",
@@ -27,10 +15,16 @@ const TITLES: Record<string, string> = {
   "/workers": "Workers Management",
   "/jobs": "Job Posts",
   "/bookings": "Bookings",
+  "/wallets": "Worker Wallets & Commission Management",
   "/categories": "Service Categories",
   "/reviews": "Reviews & Ratings",
   "/notifications": "Push Notifications",
   "/support": "Support Requests",
+  "/disputes": "Booking Disputes Moderation",
+  "/reports": "Reports & Analytics",
+  "/audit": "System Audit Logs",
+  "/admins": "Admin Users Management",
+  "/promos": "Promos & Coupons Management",
   "/settings": "Settings",
 };
 
@@ -42,6 +36,40 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const title = Object.entries(TITLES).find(([k]) => path.startsWith(k))?.[1] ?? "ApnaUstad Admin";
+
+  const badges = useNavBadges();
+
+  // Map nav routes to badge counts
+  const badgeMap: Record<string, number> = {
+    "/support": badges.openTickets,
+    "/jobs": badges.openJobs,
+    "/bookings": badges.pendingBookings,
+    "/workers": badges.unverifiedWorkers,
+    "/wallets": badges.pendingTopUps,
+    "/disputes": badges.openDisputes,
+  };
+
+  const NAV = [
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/users", label: "Users", icon: Users },
+    { to: "/workers", label: "Workers", icon: Wrench },
+    { to: "/jobs", label: "Job Posts", icon: ClipboardList },
+    { to: "/bookings", label: "Bookings", icon: Calendar },
+    { to: "/wallets", label: "Wallets", icon: Wallet },
+    { to: "/categories", label: "Categories", icon: FolderKanban },
+    { to: "/promos", label: "Promos", icon: Tag },
+    { to: "/reviews", label: "Reviews", icon: Star },
+    { to: "/notifications", label: "Notifications", icon: Bell },
+    { to: "/support", label: "Support", icon: HelpCircle },
+    { to: "/disputes", label: "Booking Disputes", icon: Scale },
+    { to: "/reports", label: "Reports & Analytics", icon: BarChart3 },
+    { to: "/audit", label: "Audit Logs", icon: History },
+    { to: "/admins", label: "Admin Users", icon: UserCog, superAdminOnly: true },
+    { to: "/settings", label: "Settings", icon: Settings },
+  ];
+
+  // Total actionable badge for the header bell
+  const totalBadge = badges.openTickets + badges.pendingTopUps + badges.openDisputes;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -83,8 +111,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
           {NAV.map(item => {
+            if (item.superAdminOnly && user?.role !== "superadmin") return null;
             const active = path.startsWith(item.to);
             const Icon = item.icon;
+            const count = badgeMap[item.to] ?? 0;
             return (
               <Link
                 key={item.to}
@@ -96,8 +126,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 }`}
               >
                 {active && <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-primary glow-cyan" />}
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                <span className="relative flex-shrink-0">
+                  <Icon className="w-5 h-5" />
+                  {/* Collapsed badge */}
+                  {collapsed && count > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                      {count > 99 ? "99+" : count}
+                    </span>
+                  )}
+                </span>
+                {!collapsed && (
+                  <>
+                    <span className="truncate flex-1">{item.label}</span>
+                    {count > 0 && (
+                      <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-destructive/90 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-sm">
+                        {count > 99 ? "99+" : count}
+                      </span>
+                    )}
+                  </>
+                )}
               </Link>
             );
           })}
@@ -149,9 +196,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <span className="text-sm flex-1 text-dim">Search anything...</span>
             <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border text-muted-foreground">⌘K</kbd>
           </button>
-          <Link to="/notifications" className="relative p-2 rounded-xl hover:bg-surface-light">
+          <Link to="/support" className="relative p-2 rounded-xl hover:bg-surface-light" title={totalBadge > 0 ? `${totalBadge} pending actions` : "Notifications"}>
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive animate-pulse" />
+            {totalBadge > 0 ? (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none animate-pulse shadow">
+                {totalBadge > 99 ? "99+" : totalBadge}
+              </span>
+            ) : (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-success" />
+            )}
           </Link>
           <div className="w-9 h-9 rounded-full gradient-purple flex items-center justify-center text-sm font-bold cursor-pointer">
             {user?.name?.[0]?.toUpperCase() ?? "A"}
