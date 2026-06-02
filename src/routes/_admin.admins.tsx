@@ -325,7 +325,7 @@ function AdminsManagementPage() {
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground leading-relaxed">
             Are you sure you want to toggle the status of this admin account?
-            Deactivating an account will immediately invalidate allactive API sessions and block future login attempts.
+            Deactivating an account will immediately invalidate all active API sessions and block future login attempts.
           </p>
           <div className="flex gap-3 justify-end pt-2">
             <button
