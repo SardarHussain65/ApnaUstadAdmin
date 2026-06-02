@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { Trash2, Download, ExternalLink, ChevronDown, Users, XCircle } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge } from "@/components/admin/ui";
@@ -8,7 +8,7 @@ import { CATEGORY_NAMES, fmtPKR } from "@/lib/mock-data";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { useDeleteJob, useCancelJob, useJobs, useJobDetails, useUpdateJobStatus } from "@/lib/api-hooks";
+import { useDeleteJob, useCancelJob, useJobsPage, useJobDetails, useUpdateJobStatus } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/jobs")({ component: JobsPage });
 
@@ -22,20 +22,25 @@ function JobsPage() {
   const [statusOverride, setStatusOverride] = useState("");
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [bidsExpanded, setBidsExpanded] = useState(true);
+  const [page, setPage] = useState(1);
+  const deferredQ = useDeferredValue(q);
 
-  const { data, isLoading } = useJobs({ search: q, status: status || undefined });
+  useEffect(() => { setPage(1); }, [deferredQ, status, urg, cat]);
+
+  const { data, isLoading } = useJobsPage({
+    page,
+    limit: 10,
+    search: deferredQ,
+    status: status || undefined,
+    urgency: urg || undefined,
+    category: cat || undefined,
+  });
   const { data: jobDetails, isLoading: detailsLoading } = useJobDetails(sel?._id || "", !!sel);
   const deleteJobMutation = useDeleteJob();
   const cancelJobMutation = useCancelJob();
   const updateStatusMutation = useUpdateJobStatus();
 
-  const apiJobs = (data as any) || [];
-
-  const rows = useMemo(() => apiJobs.filter((j: any) => {
-    if (urg && j.urgency !== urg) return false;
-    if (cat && j.category !== cat) return false;
-    return true;
-  }), [apiJobs, urg, cat]);
+  const rows = data?.items || [];
 
   const enrichedJob = (jobDetails as any) || sel;
   const bids = enrichedJob?.bids || [];
@@ -83,11 +88,16 @@ function JobsPage() {
           }}
           className="btn-press inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-surface-light hover:bg-primary/15 hover:text-primary border border-border text-sm font-semibold transition"
         >
-          <Download className="w-4 h-4" /> Export CSV
+          <Download className="w-4 h-4" /> Export Page CSV
         </button>
       </div>
 
-      <DataTable isLoading={isLoading} rows={rows} onRowClick={j => { setSel(j); setBidsExpanded(true); setStatusOverride(""); setCancelConfirm(false); }} columns={[
+      <DataTable isLoading={isLoading} rows={rows} pagination={{
+        page,
+        totalPages: data?.pagination.totalPages ?? 1,
+        totalItems: data?.pagination.totalItems ?? 0,
+        onPageChange: setPage,
+      }} onRowClick={j => { setSel(j); setBidsExpanded(true); setStatusOverride(""); setCancelConfirm(false); }} columns={[
         { key: "id", header: "Job ID", render: j => <span className="font-mono text-xs text-primary">#{j._id.slice(-6)}</span> },
         {
           key: "c", header: "Customer", render: j => (

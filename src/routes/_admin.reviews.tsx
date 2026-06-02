@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Trash2, Search, Calendar, Star, Filter, Eye, Tag, Sparkles, AlertTriangle, MessageSquare } from "lucide-react";
-import { useReviews, useDeleteReview, useCategories, useToggleFlagReview } from "@/lib/api-hooks";
+import { useReviewsPage, useDeleteReview, useCategories, useToggleFlagReview } from "@/lib/api-hooks";
 import { RatingStars, Avatar, Badge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { PaginationBar } from "@/components/admin/DataTable";
 
 export const Route = createFileRoute("/_admin/reviews")({ component: ReviewsPage });
 
@@ -14,17 +15,37 @@ function ReviewsPage() {
   const [selectedRating, setSelectedRating] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [dateFilter, setDateFilter] = useState(""); // "today", "week", "month", ""
+  const [page, setPage] = useState(1);
+  const deferredSearch = useDeferredValue(searchQuery);
 
   // Drawer state
   const [selectedReview, setSelectedReview] = useState<any | null>(null);
 
   // Queries & Mutations
-  const { data: reviewsData, isLoading } = useReviews({ limit: 200 }); // fetch a good number of reviews for full list management
+  const dateFrom = useMemo(() => {
+    if (!dateFilter) return undefined;
+    const from = new Date();
+    if (dateFilter === "today") from.setHours(from.getHours() - 24);
+    if (dateFilter === "week") from.setDate(from.getDate() - 7);
+    if (dateFilter === "month") from.setDate(from.getDate() - 30);
+    return from.toISOString();
+  }, [dateFilter]);
+
+  useEffect(() => { setPage(1); }, [deferredSearch, selectedRating, selectedCategory, dateFrom]);
+
+  const { data: reviewsData, isLoading } = useReviewsPage({
+    page,
+    limit: 10,
+    search: deferredSearch,
+    rating: selectedRating ? Number(selectedRating) : undefined,
+    category: selectedCategory,
+    dateFrom,
+  });
   const { data: categories = [] } = useCategories();
   const deleteMutation = useDeleteReview();
   const flagMutation = useToggleFlagReview();
 
-  const reviewsList = (reviewsData as any) || [];
+  const reviewsList = reviewsData?.items || [];
 
   // Delete handler
   const handleDelete = async (id: string) => {
@@ -75,51 +96,13 @@ function ReviewsPage() {
     return { total, average, distribution };
   }, [reviewsList]);
 
-  // Filters logic
-  const filteredReviews = useMemo(() => {
-    return reviewsList.filter((rv: any) => {
-      // 1. Search Query (matches Customer Name, Worker Name, or Comment)
-      const matchesSearch =
-        !searchQuery ||
-        `${rv.customer?.fullName || ""} ${rv.worker?.fullName || ""} ${rv.comment || ""}`
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
-
-      // 2. Rating Filter
-      const matchesRating = !selectedRating || Math.round(rv.rating) === +selectedRating;
-
-      // 3. Category Filter (worker's category)
-      const matchesCategory =
-        !selectedCategory ||
-        (rv.worker?.category &&
-          String(rv.worker.category).toLowerCase() === selectedCategory.toLowerCase());
-
-      // 4. Date Filter
-      let matchesDate = true;
-      if (dateFilter && rv.createdAt) {
-        const reviewDate = new Date(rv.createdAt);
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - reviewDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (dateFilter === "today") {
-          matchesDate = diffDays <= 1;
-        } else if (dateFilter === "week") {
-          matchesDate = diffDays <= 7;
-        } else if (dateFilter === "month") {
-          matchesDate = diffDays <= 30;
-        }
-      }
-
-      return matchesSearch && matchesRating && matchesCategory && matchesDate;
-    });
-  }, [reviewsList, searchQuery, selectedRating, selectedCategory, dateFilter]);
+  const filteredReviews = reviewsList;
 
   return (
     <div className="space-y-6">
       {/* 🚀 Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
           Customer Reviews
         </h2>
         <p className="text-sm text-dim mt-1">
@@ -131,7 +114,7 @@ function ReviewsPage() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
         {/* Average Stats Card */}
         <div className="md:col-span-4 bg-card border border-border rounded-2xl p-5 shadow-card flex flex-col items-center justify-center text-center">
-          <div className="text-sm text-dim font-medium mb-1">Average Platform Rating</div>
+          <div className="text-sm text-dim font-medium mb-1">Visible Page Average</div>
           <div className="text-5xl font-extrabold text-white tracking-tight flex items-baseline gap-1">
             {stats.average}
             <span className="text-sm text-dim font-normal">/ 5.0</span>
@@ -140,7 +123,7 @@ function ReviewsPage() {
             <RatingStars rating={stats.average} size={18} />
           </div>
           <div className="text-xs text-dim mt-3 font-semibold">
-            Based on {stats.total} total reviews
+            Based on {stats.total} visible reviews · {reviewsData?.pagination.totalItems ?? 0} matching
           </div>
         </div>
 
@@ -167,7 +150,7 @@ function ReviewsPage() {
                 </span>
                 <div className="flex-1 h-2 rounded-full bg-input overflow-hidden border border-border/30">
                   <div
-                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-gold to-accent rounded-full transition-all duration-500"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -331,6 +314,14 @@ function ReviewsPage() {
             </table>
           </div>
         )}
+        <PaginationBar
+          page={page}
+          totalPages={reviewsData?.pagination.totalPages ?? 1}
+          totalItems={reviewsData?.pagination.totalItems ?? 0}
+          pageSize={10}
+          visibleItems={reviewsList.length}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* 🔍 Detail Drawer */}
@@ -353,7 +344,7 @@ function ReviewsPage() {
             {/* Comment Section */}
             <div className="space-y-2">
               <h4 className="text-xs font-semibold text-dim uppercase tracking-wider">Comment</h4>
-              <p className="p-4 bg-input border border-border rounded-xl text-sm text-slate-100 leading-relaxed italic">
+              <p className="p-4 bg-input border border-border rounded-xl text-sm text-foreground/90 leading-relaxed italic">
                 "{selectedReview.comment || "No comment was provided by the user."}"
               </p>
             </div>
@@ -448,8 +439,8 @@ function ReviewsPage() {
                   onClick={() => handleFlagReview(selectedReview._id)}
                   className={`btn-press flex-1 h-11 rounded-xl font-bold flex items-center justify-center gap-2 text-xs transition border ${
                     selectedReview.isFlagged
-                      ? "bg-slate-500/10 hover:bg-slate-500/20 text-slate-300 border-slate-500/30"
-                      : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30"
+                      ? "bg-surface-light/10 hover:bg-surface-light/20 text-muted-foreground border-border/30"
+                      : "bg-gold/10 hover:bg-gold/20 text-gold border-gold/30"
                   }`}
                   disabled={flagMutation.isPending}
                 >

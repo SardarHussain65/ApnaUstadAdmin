@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Eye, Power, Download, Search } from "lucide-react";
-import { DataTable } from "@/components/admin/DataTable";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Eye, Power, Download, Filter, Search, Calendar, User, ShieldAlert } from "lucide-react";
+import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
 import { CITIES, fmtPKR } from "@/lib/mock-data";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { useUsers, useToggleUserStatus, useBookings } from "@/lib/api-hooks";
+import { useUsersPage, useToggleUserStatus, useBookings } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/users")({
   component: UsersPage,
@@ -20,56 +20,55 @@ function UsersPage() {
   const [city, setCity] = useState("");
   const [dateFilter, setDateFilter] = useState(""); // "today", "week", "month", ""
   const [selected, setSelected] = useState<any | null>(null);
+  const [page, setPage] = useState(1);
+  const deferredQ = useDeferredValue(q);
 
-  // Queries
-  const { data, isLoading } = useUsers({ search: q });
+  const dateFrom = useMemo(() => {
+    if (!dateFilter) return undefined;
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    if (dateFilter === "week") from.setDate(from.getDate() - 7);
+    if (dateFilter === "month") from.setDate(from.getDate() - 30);
+    return from.toISOString();
+  }, [dateFilter]);
+
+  useEffect(() => { setPage(1); }, [deferredQ, status, city, dateFilter]);
+
+  const { data, isLoading } = useUsersPage({
+    page,
+    limit: 10,
+    search: deferredQ,
+    status: status || undefined,
+    city: city || undefined,
+    dateFrom,
+  });
   const toggleUserMutation = useToggleUserStatus();
 
-  const apiUsers = (data as any) || [];
+  const rows = data?.items || [];
 
-  const rows = useMemo(() => {
-    return apiUsers.filter((u: any) => {
-      // 1. Status Filter
-      const activeStatus = u.isActive ? "active" : "inactive";
-      if (status && activeStatus !== status) return false;
-
-      // 2. City Filter
-      if (city && u.city !== city) return false;
-
-      // 3. Date Filter (Joined within)
-      if (dateFilter && u.createdAt) {
-        const joinedDate = new Date(u.createdAt);
-        const now = new Date();
-        const diffTime = Math.abs(now.getTime() - joinedDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (dateFilter === "today" && diffDays > 1) return false;
-        if (dateFilter === "week" && diffDays > 7) return false;
-        if (dateFilter === "month" && diffDays > 30) return false;
+  const toggleStatus = (user: any) => {
+    toggleUserMutation.mutate(
+      { id: user._id, isActive: !user.isActive },
+      {
+        onSuccess: () => {
+          setSelected((current: any | null) => current?._id === user._id ? { ...current, isActive: !current.isActive } : current);
+        },
       }
-
-      return true;
-    });
-  }, [apiUsers, status, city, dateFilter]);
-
-  const toggleStatus = (id: string) => {
-    toggleUserMutation.mutate(id);
+    );
   };
 
-  const stats = useMemo(() => {
-    return {
-      total: apiUsers.length,
-      active: apiUsers.filter((u: any) => u.isActive).length,
-      inactive: apiUsers.filter((u: any) => !u.isActive).length,
-    };
-  }, [apiUsers]);
+  const stats = {
+    total: data?.pagination.totalItems ?? 0,
+    active: rows.filter((u: any) => u.isActive).length,
+    inactive: rows.filter((u: any) => !u.isActive).length,
+  };
 
   return (
     <div className="space-y-6">
       {/* 🚀 Header & Stats */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
             User Accounts
           </h2>
           <p className="text-sm text-dim mt-1">
@@ -78,9 +77,9 @@ function UsersPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="info">Total: {stats.total}</Badge>
-          <Badge variant="success" pulse>Active: {stats.active}</Badge>
-          <Badge variant="danger">Suspended: {stats.inactive}</Badge>
+          <Badge variant="info">Matching: {stats.total}</Badge>
+          <Badge variant="success" pulse>Visible Active: {stats.active}</Badge>
+          <Badge variant="danger">Visible Suspended: {stats.inactive}</Badge>
         </div>
       </div>
 
@@ -151,7 +150,7 @@ function UsersPage() {
             }}
             className="btn-press inline-flex items-center gap-1.5 px-3.5 h-9 rounded-xl bg-surface-light hover:bg-primary/15 hover:text-primary border border-border text-xs font-semibold transition"
           >
-            <Download className="w-4 h-4" /> Export CSV
+            <Download className="w-4 h-4" /> Export Page CSV
           </button>
         </div>
       </div>
@@ -161,6 +160,12 @@ function UsersPage() {
         <DataTable
           isLoading={isLoading}
           rows={rows}
+          pagination={{
+            page,
+            totalPages: data?.pagination.totalPages ?? 1,
+            totalItems: data?.pagination.totalItems ?? 0,
+            onPageChange: setPage,
+          }}
           onRowClick={(u) => setSelected(u)}
           columns={[
             {
@@ -220,7 +225,7 @@ function UsersPage() {
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => toggleStatus(u._id)}
+                    onClick={() => toggleStatus(u)}
                     className="p-2 rounded-lg hover:bg-accent/15 hover:text-accent text-dim transition"
                     title="Suspend / Activate"
                   >
@@ -238,10 +243,7 @@ function UsersPage() {
         {selected && (
           <UserDetail
             user={selected}
-            onToggle={() => {
-              toggleStatus(selected._id);
-              setSelected({ ...selected, isActive: !selected.isActive });
-            }}
+            onToggle={() => toggleStatus(selected)}
           />
         )}
       </Drawer>
@@ -289,11 +291,10 @@ function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
         <div className="text-xs uppercase tracking-wider text-dim font-bold">Moderation Controls</div>
         <button
           onClick={onToggle}
-          className={`btn-press w-full h-11 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${
-            user.isActive
+          className={`btn-press w-full h-11 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${user.isActive
               ? "bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20"
               : "gradient-cyan text-background border-transparent glow-cyan"
-          }`}
+            }`}
         >
           <Power className="w-4 h-4" />
           {user.isActive ? "Deactivate / Suspend Account" : "Activate Account"}
@@ -304,7 +305,7 @@ function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
       <div className="space-y-3 pt-2">
         <div className="text-xs uppercase tracking-wider text-dim font-bold flex items-center justify-between">
           <span>Recent Bookings</span>
-          <span className="text-[10px] text-primary">{userBookings.length} total</span>
+          <span className="text-[10px] text-primary">{userBookings.length} recent</span>
         </div>
 
         <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">

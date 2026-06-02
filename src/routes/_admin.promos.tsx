@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { 
   Tag, Plus, Trash2, Calendar, Sparkles, Percent, DollarSign, 
   AlertCircle, Power, Copy, Check, Info, ShieldCheck, ToggleLeft, ToggleRight
@@ -11,7 +11,7 @@ import { fmtPKR } from "@/lib/mock-data";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { 
-  usePromos, 
+  usePromosPage, 
   useCreatePromo, 
   useTogglePromoStatus, 
   useDeletePromo,
@@ -39,9 +39,20 @@ function PromosPage() {
   const [statusFilter, setStatusFilter] = useState(""); // "", "active", "inactive"
   const [typeFilter, setTypeFilter] = useState(""); // "", "percentage", "fixed"
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const deferredQ = useDeferredValue(q);
 
   // Queries & Mutations
-  const { data: promos = [], isLoading, isError, error, refetch } = usePromos();
+  useEffect(() => { setPage(1); }, [deferredQ, statusFilter, typeFilter]);
+
+  const { data, isLoading, isError, error, refetch } = usePromosPage({
+    page,
+    limit: 10,
+    search: deferredQ,
+    status: statusFilter,
+    discountType: typeFilter,
+  });
+  const promos = data?.items || [];
   const createMutation = useCreatePromo();
   const toggleMutation = useTogglePromoStatus();
   const deleteMutation = useDeletePromo();
@@ -63,11 +74,15 @@ function PromosPage() {
   });
 
   // Copy helper
-  const handleCopy = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    toast.success(`Promo code "${code}" copied to clipboard`);
-    setTimeout(() => setCopiedCode(null), 2000);
+  const handleCopy = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      toast.success(`Promo code "${code}" copied to clipboard`);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch {
+      toast.error("Could not copy promo code");
+    }
   };
 
   // Generate code helper
@@ -79,18 +94,6 @@ function PromosPage() {
     }
     setForm(prev => ({ ...prev, code }));
   };
-
-  // Filter promos
-  const filteredPromos = useMemo(() => {
-    return promos.filter((p: PromoCode) => {
-      const codeMatches = p.code.toLowerCase().includes(q.toLowerCase());
-      const typeMatches = typeFilter ? p.discountType === typeFilter : true;
-      const statusMatches = statusFilter 
-        ? (statusFilter === "active" ? p.isActive : !p.isActive) 
-        : true;
-      return codeMatches && typeMatches && statusMatches;
-    });
-  }, [promos, q, typeFilter, statusFilter]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -170,12 +173,13 @@ function PromosPage() {
       {/* 🚀 Header & Description */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
             Promo & Coupon Management
           </h2>
           <p className="text-sm text-dim mt-1">
             Create coupons, configure checkout rules, track usages, and manage active system discounts.
           </p>
+          <div className="mt-2"><Badge variant="info">Matching Coupons: {data?.pagination.totalItems ?? 0}</Badge></div>
         </div>
 
         <button 
@@ -189,19 +193,19 @@ function PromosPage() {
       {/* 📊 Statistics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <StatCard 
-          label="Active Coupons" 
+          label="Visible Active Coupons" 
           value={stats.active} 
           icon={<ShieldCheck className="w-5 h-5 text-white" />} 
           gradient="gradient-cyan glow-cyan" 
         />
         <StatCard 
-          label="Total Usages" 
+          label="Visible Usages" 
           value={stats.usages} 
           icon={<Sparkles className="w-5 h-5 text-white" />} 
           gradient="gradient-purple glow-purple" 
         />
         <StatCard 
-          label="Inactive Coupons" 
+          label="Visible Inactive Coupons" 
           value={stats.inactive} 
           icon={<Power className="w-5 h-5 text-white" />} 
           gradient="gradient-orange glow-orange" 
@@ -261,8 +265,14 @@ function PromosPage() {
         <div className="bg-card border border-border rounded-2xl shadow-card overflow-hidden">
           <DataTable<PromoCode>
             isLoading={isLoading}
-            rows={filteredPromos}
+            rows={promos}
             pageSize={10}
+            pagination={{
+              page,
+              totalPages: data?.pagination.totalPages ?? 1,
+              totalItems: data?.pagination.totalItems ?? 0,
+              onPageChange: setPage,
+            }}
             columns={[
               {
                 key: "code",
@@ -311,12 +321,12 @@ function PromosPage() {
                   return (
                     <div className="flex flex-col gap-1 text-[11px] text-muted-foreground">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-surface-light" />
                         <span>{limit} • {userLimit}</span>
                       </div>
                       {hasMin && (
-                        <div className="flex items-center gap-1.5 text-amber-400">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        <div className="flex items-center gap-1.5 text-gold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gold" />
                           <span>Min Booking: {fmtPKR(p.minBookingAmount)}</span>
                         </div>
                       )}
@@ -347,7 +357,7 @@ function PromosPage() {
                       {limit > 0 && (
                         <div className="w-full h-1.5 rounded-full bg-surface-light overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-300"
+                            className="h-full bg-gradient-to-r from-secondary to-primary rounded-full transition-all duration-300"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>

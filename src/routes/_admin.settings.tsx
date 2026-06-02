@@ -93,7 +93,7 @@ function SettingsPage() {
       await updateWalletSettingsMutation.mutateAsync({
         platformFeePercentage: Number(platformFee),
         minimumWalletBalance: Number(minBalance),
-        commissionEnabled: true
+        commissionEnabled: walletSettings?.commissionEnabled ?? true
       });
     } catch (err) {
       // toast is handled in mutation
@@ -104,7 +104,7 @@ function SettingsPage() {
     <div className="space-y-6 max-w-5xl">
       {/* 🚀 Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent flex items-center gap-2">
+        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent flex items-center gap-2">
           <Settings2 className="w-6 h-6 text-primary" />
           System Settings
         </h2>
@@ -125,7 +125,7 @@ function SettingsPage() {
             <p className="text-xs text-muted-foreground mb-5">Manage your display profile and account identifiers</p>
             
             <div className="flex items-center gap-4 mb-6 p-4 bg-surface-light/20 border border-border rounded-xl">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center text-xl font-bold text-white shadow-lg">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-xl font-bold text-white shadow-lg">
                 {(fullName || user?.name || "A")[0].toUpperCase()}
               </div>
               <div>
@@ -267,58 +267,71 @@ function SettingsPage() {
               <span>Fetching live system rules...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* Rule 1: Commission */}
-              <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] uppercase text-dim font-bold block mb-1">Platform Commission Fee</span>
-                  <p className="text-xs text-muted-foreground leading-relaxed">Percentage deducted from completed service bookings</p>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Rule 1: Commission */}
+                <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase text-dim font-bold block mb-1">Platform Commission Fee</span>
+                    <p className="text-xs text-muted-foreground leading-relaxed">Percentage deducted from completed service bookings</p>
+                  </div>
+                  <div className="mt-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="40"
+                      value={platformFee}
+                      onChange={(e) => setPlatformFee(Number(e.target.value))}
+                      className="w-full accent-primary bg-surface h-1.5 rounded-lg cursor-pointer"
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs font-black text-primary">{platformFee}% platform fee</span>
+                      <span className="text-[9px] text-dim font-mono">Max 40%</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={platformFee}
-                    onChange={(e) => setPlatformFee(Number(e.target.value))}
-                    className="w-20 h-10 px-2 rounded-xl bg-input border border-border text-center text-sm font-extrabold focus:border-primary/50 focus:outline-none"
-                  />
-                  <span className="text-xl font-bold text-primary">%</span>
+
+                {/* Rule 2: Minimum Balance */}
+                <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase text-dim font-bold block mb-1">Minimum Wallet Balance</span>
+                    <p className="text-xs text-muted-foreground leading-relaxed">Minimum funds worker needs to accept direct booking requests</p>
+                  </div>
+                  <div className="mt-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="1500"
+                      step="50"
+                      value={minBalance}
+                      onChange={(e) => setMinBalance(Number(e.target.value))}
+                      className="w-full accent-accent bg-surface h-1.5 rounded-lg cursor-pointer"
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs font-black text-accent">{minBalance} ₨ min balance</span>
+                      <span className="text-[9px] text-dim font-mono">Max 1500</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Rule 3: Platform Constants */}
+                <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-2.5">
+                  <div>
+                    <span className="text-[10px] uppercase text-dim font-bold block">Platform Region</span>
+                    <div className="text-lg font-bold text-white mt-1">Pakistan (PKR ₨)</div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase text-dim font-bold block">Commission Scope</span>
+                    <div className="text-lg font-bold text-white mt-1">Global Rules</div>
+                  </div>
+                </div>
+
               </div>
 
-              {/* Rule 2: Minimum Balance */}
-              <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] uppercase text-dim font-bold block mb-1">Minimum Wallet Balance</span>
-                  <p className="text-xs text-muted-foreground leading-relaxed">Minimum funds worker needs to accept direct booking requests</p>
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs font-semibold text-accent">PKR</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={minBalance}
-                    onChange={(e) => setMinBalance(Number(e.target.value))}
-                    className="w-28 h-10 px-2 rounded-xl bg-input border border-border text-center text-sm font-extrabold focus:border-primary/50 focus:outline-none"
-                  />
-                  <span className="text-lg font-bold text-white">₨</span>
-                </div>
+              <div className="border-t border-border/60 pt-5 text-xs text-muted-foreground">
+                Category-specific commission overrides are not enabled. The saved global rule applies to all categories.
               </div>
-
-              {/* Rule 3: Platform Constants */}
-              <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-2.5">
-                <div>
-                  <span className="text-[10px] uppercase text-dim font-bold block">Platform Region</span>
-                  <div className="text-lg font-bold text-white mt-1">Pakistan (PKR ₨)</div>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase text-dim font-bold block">App Live Version</span>
-                  <div className="text-lg font-bold text-white mt-1">1.0.0 (Production)</div>
-                </div>
-              </div>
-
             </div>
           )}
         </div>

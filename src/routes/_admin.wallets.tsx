@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { MouseEvent } from "react";
 import {
   AlertTriangle,
@@ -24,7 +24,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge } from "@/components/admin/ui";
-import { Drawer } from "@/components/admin/Drawer";
+import { Drawer, Modal } from "@/components/admin/Drawer";
 import { downloadCsv } from "@/lib/csv";
 import {
   useAdminAdjustWallet,
@@ -36,9 +36,9 @@ import {
   useWalletSettings,
   useWalletSummary,
   useWalletTopUpSummary,
-  useWalletTopUps,
+  useWalletTopUpsPage,
   useWorkerWalletDetails,
-  useWorkerWallets,
+  useWorkerWalletsPage,
   type WalletPaymentMethodInput,
   type WalletPaymentMethodSetting,
   type WalletSettings,
@@ -53,10 +53,10 @@ export const Route = createFileRoute("/_admin/wallets")({
 const fmtPKR = (amount: number) => `Rs. ${Number(amount || 0).toLocaleString("en-PK")}`;
 
 const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-amber-500/12 text-amber-300 border-amber-500/25",
-  approved: "bg-emerald-500/12 text-emerald-300 border-emerald-500/25",
+  pending: "bg-gold/12 text-gold border-gold/25",
+  approved: "bg-success/12 text-success border-success/25",
   rejected: "bg-destructive/12 text-destructive border-destructive/25",
-  eligible: "bg-emerald-500/12 text-emerald-300 border-emerald-500/25",
+  eligible: "bg-success/12 text-success border-success/25",
   blocked: "bg-destructive/12 text-destructive border-destructive/25",
 };
 
@@ -74,6 +74,9 @@ function WalletsPage() {
   const [method, setMethod] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [topUpPage, setTopUpPage] = useState(1);
+  const [walletPage, setWalletPage] = useState(1);
+  const deferredQ = useDeferredValue(q);
   const [selectedTopUp, setSelectedTopUp] = useState<WalletTopUpRequest | null>(null);
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
@@ -81,19 +84,22 @@ function WalletsPage() {
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustDescription, setAdjustDescription] = useState("");
   const [adjustType, setAdjustType] = useState<"refund" | "adjustment">("adjustment");
+  const [workspace, setWorkspace] = useState<"topups" | "balances" | "configuration">("topups");
 
-  const topUpFilters = { status: topUpStatus, method, search: q, dateFrom, dateTo, limit: 100 };
+  useEffect(() => { setTopUpPage(1); }, [topUpStatus, method, dateFrom, dateTo, deferredQ]);
+  useEffect(() => { setWalletPage(1); }, [balanceStatus, deferredQ]);
+
+  const topUpFilters = { page: topUpPage, status: topUpStatus, method, search: deferredQ, dateFrom, dateTo, limit: 8 };
   const { data: walletSummary } = useWalletSummary();
-  const { data: topUpSummary } = useWalletTopUpSummary({ method, search: q, dateFrom, dateTo });
-  const { data: topUpData, isLoading: isTopUpsLoading } = useWalletTopUps(topUpFilters);
-  const { data: walletData, isLoading: isWalletsLoading } = useWorkerWallets({ search: q, balanceStatus, limit: 100 });
+  const { data: topUpSummary } = useWalletTopUpSummary({ method, search: deferredQ, dateFrom, dateTo });
+  const { data: topUpData, isLoading: isTopUpsLoading } = useWalletTopUpsPage(topUpFilters);
+  const { data: walletData, isLoading: isWalletsLoading } = useWorkerWalletsPage({ page: walletPage, search: deferredQ, balanceStatus, limit: 10 });
   const approveMutation = useApproveWalletTopUp();
   const rejectMutation = useRejectWalletTopUp();
   const adjustMutation = useAdminAdjustWallet();
 
-  const topUps = (topUpData as any) || [];
-  const wallets = (walletData as any) || [];
-  const pendingTopUps = topUps.filter((request: WalletTopUpRequest) => request.status === "pending");
+  const topUps = topUpData?.items || [];
+  const wallets = walletData?.items || [];
 
   const flatTopUps = useMemo(() => topUps.map((request: WalletTopUpRequest) => ({
     requestId: request.requestId,
@@ -149,63 +155,68 @@ function WalletsPage() {
         <Metric title="Low / Zero Wallets" value={`${walletSummary?.lowBalanceCount || 0} / ${walletSummary?.zeroBalanceCount || 0}`} helper={`Min ${fmtPKR(walletSummary?.minimumWalletBalance || 500)}`} icon={ShieldCheck} tone="red" />
       </div>
 
-      <div className="grid grid-cols-1 2xl:grid-cols-[0.9fr_1.4fr] gap-4">
-        <CommissionSettingsPanel />
-        <PaymentMethodSettingsPanel />
+      <div className="app-glass flex flex-wrap gap-2 rounded-2xl p-2">
+        <WorkspaceTab active={workspace === "topups"} onClick={() => setWorkspace("topups")} icon={AlertTriangle} label="Top-Up Queue" helper="Verify incoming deposits" />
+        <WorkspaceTab active={workspace === "balances"} onClick={() => setWorkspace("balances")} icon={Wallet} label="Worker Balances" helper="Monitor eligibility and corrections" />
+        <WorkspaceTab active={workspace === "configuration"} onClick={() => setWorkspace("configuration")} icon={Smartphone} label="Payment Configuration" helper="Commission and recharge methods" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="info">Pending: {topUpSummary?.pending?.count || 0}</Badge>
-        <Badge variant="success">Approved: {topUpSummary?.approved?.count || 0}</Badge>
-        <Badge variant="danger">Rejected: {topUpSummary?.rejected?.count || 0}</Badge>
-        <button
-          onClick={() => downloadCsv("wallet-topups", flatTopUps, [
-            { key: "requestId", header: "Request ID" },
-            { key: "worker", header: "Worker" },
-            { key: "phone", header: "Phone" },
-            { key: "amount", header: "Amount" },
-            { key: "method", header: "Method" },
-            { key: "status", header: "Status" },
-            { key: "createdAt", header: "Created At" },
-            { key: "adminNotes", header: "Admin Notes" },
-            { key: "rejectionReason", header: "Rejection Reason" },
-          ])}
-          className="ml-auto inline-flex items-center gap-2 h-10 px-3 rounded-xl bg-surface-light border border-sidebar-border hover:border-primary/50 text-xs font-bold transition"
-        >
-          <Download className="w-4 h-4" /> Export Top-Ups
-        </button>
-      </div>
+      {workspace === "configuration" && (
+        <div className="grid grid-cols-1 2xl:grid-cols-[0.9fr_1.4fr] gap-4">
+          <CommissionSettingsPanel />
+          <PaymentMethodSettingsPanel />
+        </div>
+      )}
 
-      <div className="flex flex-wrap gap-2">
-        <SearchInput value={q} onChange={setQ} placeholder="Search workers, phone, or email..." />
-        <Select value={topUpStatus} onChange={setTopUpStatus} label="All Top-Ups" options={[
-          { value: "pending", label: "Pending" },
-          { value: "approved", label: "Approved" },
-          { value: "rejected", label: "Rejected" },
-        ]} />
-        <Select value={method} onChange={setMethod} label="All Methods" options={[
-          { value: "easypaisa", label: "Easypaisa" },
-          { value: "jazzcash", label: "JazzCash" },
-          { value: "bank_transfer", label: "Bank Transfer" },
-          { value: "other", label: "Other" },
-        ]} />
-        <Select value={balanceStatus} onChange={setBalanceStatus} label="All Balances" options={[
-          { value: "sufficient", label: "Sufficient" },
-          { value: "low", label: "Low" },
-          { value: "zero", label: "Zero / Negative" },
-        ]} />
-        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-10 px-3 rounded-xl bg-input border border-border text-sm" />
-        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-10 px-3 rounded-xl bg-input border border-border text-sm" />
-      </div>
+      {workspace === "topups" && (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="info">Pending: {topUpSummary?.pending?.count || 0}</Badge>
+            <Badge variant="success">Approved: {topUpSummary?.approved?.count || 0}</Badge>
+            <Badge variant="danger">Rejected: {topUpSummary?.rejected?.count || 0}</Badge>
+            <button
+              onClick={() => downloadCsv("wallet-topups", flatTopUps, [
+                { key: "requestId", header: "Request ID" },
+                { key: "worker", header: "Worker" },
+                { key: "phone", header: "Phone" },
+                { key: "amount", header: "Amount" },
+                { key: "method", header: "Method" },
+                { key: "status", header: "Status" },
+                { key: "createdAt", header: "Created At" },
+                { key: "adminNotes", header: "Admin Notes" },
+                { key: "rejectionReason", header: "Rejection Reason" },
+              ])}
+              className="ml-auto inline-flex items-center gap-2 h-10 px-3 rounded-xl bg-surface-light border border-sidebar-border hover:border-primary/50 text-xs font-bold transition"
+            >
+              <Download className="w-4 h-4" /> Export Top-Up Page
+            </button>
+          </div>
 
-      <section className="space-y-3">
+          <div className="toolbar-panel flex flex-wrap gap-2 p-3">
+            <SearchInput value={q} onChange={setQ} placeholder="Search workers, phone, or email..." />
+            <Select value={topUpStatus} onChange={setTopUpStatus} label="All Top-Ups" options={[
+              { value: "pending", label: "Pending" },
+              { value: "approved", label: "Approved" },
+              { value: "rejected", label: "Rejected" },
+            ]} />
+            <Select value={method} onChange={setMethod} label="All Methods" options={[
+              { value: "easypaisa", label: "Easypaisa" },
+              { value: "jazzcash", label: "JazzCash" },
+              { value: "bank_transfer", label: "Bank Transfer" },
+              { value: "other", label: "Other" },
+            ]} />
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-10 px-3 rounded-xl bg-input border border-border text-sm" />
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-10 px-3 rounded-xl bg-input border border-border text-sm" />
+          </div>
+
+          <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-extrabold">Top-Up Verification Queue</h2>
             <p className="text-xs text-muted-foreground">Review uploaded payment proofs before wallet credit is applied.</p>
           </div>
-          <Badge variant={pendingTopUps.length ? "danger" : "success"} pulse={pendingTopUps.length > 0}>
-            {pendingTopUps.length} Pending
+          <Badge variant={(topUpSummary?.pending?.count || 0) ? "danger" : "success"} pulse={(topUpSummary?.pending?.count || 0) > 0}>
+            {topUpSummary?.pending?.count || 0} Pending
           </Badge>
         </div>
 
@@ -213,6 +224,12 @@ function WalletsPage() {
           isLoading={isTopUpsLoading}
           rows={topUps}
           pageSize={8}
+          pagination={{
+            page: topUpPage,
+            totalPages: topUpData?.pagination.totalPages ?? 1,
+            totalItems: topUpData?.pagination.totalItems ?? 0,
+            onPageChange: setTopUpPage,
+          }}
           onRowClick={(request) => setSelectedTopUp(request as WalletTopUpRequest)}
           columns={[
             { key: "request", header: "Request", render: (request: WalletTopUpRequest) => (
@@ -231,7 +248,7 @@ function WalletsPage() {
               </div>
             ) },
             { key: "method", header: "Method", render: (request: WalletTopUpRequest) => <span className="text-xs font-bold">{METHOD_LABEL[request.method] || request.method}</span> },
-            { key: "amount", header: "Amount", render: (request: WalletTopUpRequest) => <span className="font-extrabold text-emerald-300">{fmtPKR(request.amount)}</span> },
+            { key: "amount", header: "Amount", render: (request: WalletTopUpRequest) => <span className="font-extrabold text-success">{fmtPKR(request.amount)}</span> },
             { key: "status", header: "Status", render: (request: WalletTopUpRequest) => <StatusPill status={request.status} /> },
             { key: "proof", header: "Proof", render: (request: WalletTopUpRequest) => (
               <button onClick={(e) => { e.stopPropagation(); setSelectedTopUp(request); }} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold">
@@ -240,18 +257,37 @@ function WalletsPage() {
             ) },
           ]}
         />
-      </section>
+          </section>
+        </>
+      )}
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-extrabold">Worker Balances</h2>
-          <p className="text-xs text-muted-foreground">Monitor wallet eligibility, commission deductions, and manual corrections.</p>
-        </div>
+      {workspace === "balances" && (
+        <>
+          <div className="toolbar-panel flex flex-wrap gap-2 p-3">
+            <SearchInput value={q} onChange={setQ} placeholder="Search workers, phone, or email..." />
+            <Select value={balanceStatus} onChange={setBalanceStatus} label="All Balances" options={[
+              { value: "sufficient", label: "Sufficient" },
+              { value: "low", label: "Low" },
+              { value: "zero", label: "Zero / Negative" },
+            ]} />
+          </div>
 
-        <DataTable
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-lg font-extrabold">Worker Balances</h2>
+              <p className="text-xs text-muted-foreground">Monitor wallet eligibility, commission deductions, and manual corrections.</p>
+            </div>
+
+            <DataTable
           isLoading={isWalletsLoading}
           rows={wallets}
           pageSize={10}
+          pagination={{
+            page: walletPage,
+            totalPages: walletData?.pagination.totalPages ?? 1,
+            totalItems: walletData?.pagination.totalItems ?? 0,
+            onPageChange: setWalletPage,
+          }}
           onRowClick={(wallet) => setSelectedWorkerId(wallet.worker._id)}
           columns={[
             { key: "worker", header: "Worker", render: (wallet) => (
@@ -264,12 +300,12 @@ function WalletsPage() {
               </div>
             ) },
             { key: "phone", header: "Phone", render: (wallet) => <span className="font-mono text-xs">{wallet.worker.phone}</span> },
-            { key: "balance", header: "Available", render: (wallet) => <span className={`font-extrabold ${(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "text-destructive" : "text-emerald-300"}`}>{fmtPKR(wallet.availableBalance ?? wallet.balance)}</span> },
-            { key: "held", header: "Held", render: (wallet) => <span className="text-xs font-semibold text-amber-300">{fmtPKR(wallet.reservedBalance || 0)}</span> },
+            { key: "balance", header: "Available", render: (wallet) => <span className={`font-extrabold ${(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "text-destructive" : "text-success"}`}>{fmtPKR(wallet.availableBalance ?? wallet.balance)}</span> },
+            { key: "held", header: "Held", render: (wallet) => <span className="text-xs font-semibold text-gold">{fmtPKR(wallet.reservedBalance || 0)}</span> },
             { key: "recharged", header: "Approved Top-Ups", render: (wallet) => <span className="text-xs font-semibold text-muted-foreground">{fmtPKR(wallet.totalRecharged)}</span> },
             { key: "commission", header: "Commission", render: (wallet) => <span className="text-xs font-semibold text-muted-foreground">{fmtPKR(wallet.totalCommissionDeducted)}</span> },
             { key: "status", header: "Eligibility", render: (wallet) => (
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "bg-destructive/15 text-destructive" : "bg-emerald-500/15 text-emerald-300"}`}>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
                 {(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "Blocked" : "Eligible"}
               </span>
             ) },
@@ -279,8 +315,10 @@ function WalletsPage() {
               </button>
             ) },
           ]}
-        />
-      </section>
+            />
+          </section>
+        </>
+      )}
 
       <Drawer open={!!selectedTopUp} onClose={() => setSelectedTopUp(null)} title="Top-Up Verification" width="max-w-2xl">
         {selectedTopUp && (
@@ -298,16 +336,19 @@ function WalletsPage() {
         {selectedWorkerId && <WorkerWalletDetail workerId={selectedWorkerId} />}
       </Drawer>
 
-      {adjustModalOpen && activeWallet && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface max-w-md w-full rounded-2xl border border-sidebar-border p-6 space-y-4">
-            <h3 className="text-lg font-bold text-gradient-purple">Manual Wallet Correction</h3>
+      <Modal
+        open={adjustModalOpen && !!activeWallet}
+        onClose={() => { setAdjustModalOpen(false); setActiveWallet(null); }}
+        title="Manual Wallet Correction"
+      >
+        {activeWallet && (
+          <div className="space-y-4">
             <p className="text-xs text-muted-foreground">
               Use this only for admin corrections, refunds, or balance fixes for <strong className="text-foreground">{activeWallet.worker.fullName}</strong>.
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setAdjustType("adjustment")} className={`h-10 rounded-lg text-xs font-bold border transition ${adjustType === "adjustment" ? "bg-primary/10 border-primary text-primary" : "bg-surface-light border-sidebar-border text-muted-foreground"}`}>Correction</button>
-              <button type="button" onClick={() => setAdjustType("refund")} className={`h-10 rounded-lg text-xs font-bold border transition ${adjustType === "refund" ? "bg-emerald-500/10 border-emerald-500 text-emerald-300" : "bg-surface-light border-sidebar-border text-muted-foreground"}`}>Refund</button>
+              <button type="button" onClick={() => setAdjustType("refund")} className={`h-10 rounded-lg text-xs font-bold border transition ${adjustType === "refund" ? "bg-success/10 border-success text-success" : "bg-surface-light border-sidebar-border text-muted-foreground"}`}>Refund</button>
             </div>
             <input type="number" placeholder="Amount, e.g. -500 or 250" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} className="w-full h-11 bg-surface-light rounded-xl border border-sidebar-border px-3 text-sm focus:outline-none focus:border-primary font-bold" />
             <input type="text" placeholder="Required reason" value={adjustDescription} onChange={(e) => setAdjustDescription(e.target.value)} className="w-full h-11 bg-surface-light rounded-xl border border-sidebar-border px-3 text-sm focus:outline-none focus:border-primary" />
@@ -318,8 +359,8 @@ function WalletsPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }
@@ -327,7 +368,7 @@ function WalletsPage() {
 function Metric({ title, value, helper, icon: Icon, tone }: { title: string; value: string; helper?: string; icon: any; tone: "cyan" | "amber" | "purple" | "red" }) {
   const toneClass = {
     cyan: "text-primary bg-primary/10 border-primary/20",
-    amber: "text-amber-300 bg-amber-500/10 border-amber-500/20",
+    amber: "text-gold bg-gold/10 border-gold/20",
     purple: "text-secondary bg-secondary/10 border-secondary/20",
     red: "text-destructive bg-destructive/10 border-destructive/20",
   }[tone];
@@ -345,6 +386,28 @@ function Metric({ title, value, helper, icon: Icon, tone }: { title: string; val
         </div>
       </div>
     </div>
+  );
+}
+
+function WorkspaceTab({ active, onClick, icon: Icon, label, helper }: { active: boolean; onClick: () => void; icon: any; label: string; helper: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-w-[210px] flex-1 items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
+        active
+          ? "border-primary/35 bg-primary/10 shadow-[0_0_18px_rgba(0,245,255,0.08)]"
+          : "border-transparent bg-white/[0.025] hover:border-border hover:bg-surface-light/50"
+      }`}
+    >
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${active ? "border-primary/25 bg-primary/15 text-primary" : "border-border bg-surface-light text-muted-foreground"}`}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0">
+        <span className={`block text-xs font-extrabold ${active ? "text-primary" : "text-foreground"}`}>{label}</span>
+        <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{helper}</span>
+      </span>
+    </button>
   );
 }
 
@@ -458,7 +521,7 @@ function CommissionSettingsPanel() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <InfoBox label="Rs. 5,000 job commission" value={fmtPKR(previewCommission)} accent={form.commissionEnabled ? "text-amber-300" : "text-muted-foreground"} />
+            <InfoBox label="Rs. 5,000 job commission" value={fmtPKR(previewCommission)} accent={form.commissionEnabled ? "text-gold" : "text-muted-foreground"} />
             <InfoBox label="Required wallet balance" value={fmtPKR(previewRequired)} accent="text-primary" />
           </div>
 
@@ -581,7 +644,7 @@ function PaymentMethodSettingsPanel() {
                     </div>
                     <div>
                       <div className="font-extrabold">{METHOD_LABEL[method.method] || method.label}</div>
-                      <div className={`text-[10px] font-bold uppercase ${ready ? "text-emerald-300" : "text-amber-300"}`}>
+                      <div className={`text-[10px] font-bold uppercase ${ready ? "text-success" : "text-gold"}`}>
                         {ready ? "Visible and ready" : method.enabled ? "Setup needed" : "Disabled"}
                       </div>
                     </div>
@@ -681,7 +744,7 @@ function TopUpDetail({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <InfoBox label="Amount" value={fmtPKR(request.amount)} accent="text-emerald-300" />
+        <InfoBox label="Amount" value={fmtPKR(request.amount)} accent="text-success" />
         <InfoBox label="Method" value={METHOD_LABEL[request.method] || request.method} />
         <InfoBox label="Account Title" value={request.paymentDetailsSnapshot?.accountTitle || "Not set"} />
         <InfoBox label="Account Number" value={request.paymentDetailsSnapshot?.accountNumber || request.paymentDetailsSnapshot?.iban || "Not set"} />
@@ -745,10 +808,10 @@ function WorkerWalletDetail({ workerId }: { workerId: string }) {
   const availableBalance = wallet.availableBalance ?? wallet.balance;
 
   const TX_MAP: Record<string, { color: string; label: string; icon: any }> = {
-    recharge: { color: "text-emerald-300 bg-emerald-500/10 border-emerald-500/20", label: "Recharge", icon: ArrowDownLeft },
-    commission_deduction: { color: "text-amber-300 bg-amber-500/10 border-amber-500/20", label: "Commission", icon: ArrowUpRight },
+    recharge: { color: "text-success bg-success/10 border-success/20", label: "Recharge", icon: ArrowDownLeft },
+    commission_deduction: { color: "text-gold bg-gold/10 border-gold/20", label: "Commission", icon: ArrowUpRight },
     refund: { color: "text-blue-300 bg-blue-500/10 border-blue-500/20", label: "Refund", icon: RefreshCw },
-    adjustment: { color: "text-cyan-300 bg-cyan-500/10 border-cyan-500/20", label: "Adjustment", icon: Info },
+    adjustment: { color: "text-primary bg-primary/10 border-primary/20", label: "Adjustment", icon: Info },
   };
 
   return (
@@ -763,8 +826,8 @@ function WorkerWalletDetail({ workerId }: { workerId: string }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <InfoBox label="Available Balance" value={fmtPKR(availableBalance)} accent={availableBalance < 500 ? "text-destructive" : "text-emerald-300"} />
-        <InfoBox label="Held for Active Jobs" value={fmtPKR(wallet.reservedBalance || 0)} accent="text-amber-300" />
+        <InfoBox label="Available Balance" value={fmtPKR(availableBalance)} accent={availableBalance < 500 ? "text-destructive" : "text-success"} />
+        <InfoBox label="Held for Active Jobs" value={fmtPKR(wallet.reservedBalance || 0)} accent="text-gold" />
         <InfoBox label="Approved Top-Ups" value={fmtPKR(wallet.totalRecharged)} />
         <InfoBox label="Commission Deducted" value={fmtPKR(wallet.totalCommissionDeducted)} />
         <InfoBox label="Last Top-Up" value={wallet.lastRechargedAt ? format(new Date(wallet.lastRechargedAt), "dd MMM yyyy HH:mm") : "Never"} />
@@ -815,7 +878,7 @@ function WorkerWalletDetail({ workerId }: { workerId: string }) {
                     </div>
                   </div>
                 </div>
-                <div className={`text-sm font-extrabold ${isPositive ? "text-emerald-300" : "text-destructive"}`}>
+                <div className={`text-sm font-extrabold ${isPositive ? "text-success" : "text-destructive"}`}>
                   {isPositive ? "+" : "-"}{fmtPKR(tx.amount)}
                 </div>
               </div>

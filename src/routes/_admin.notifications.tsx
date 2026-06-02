@@ -71,7 +71,7 @@ function NotificationsPage() {
   );
 
   const suggestions = useMemo(() => {
-    if (targetIsUser) return usersData?.users || [];
+    if (targetIsUser) return usersData || [];
     if (targetIsWorker) return workersData || [];
     return [];
   }, [targetIsUser, targetIsWorker, usersData, workersData]);

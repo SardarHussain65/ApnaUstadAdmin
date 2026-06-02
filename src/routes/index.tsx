@@ -25,6 +25,9 @@ export const Route = createFileRoute("/")({
    REUSABLE PRIMITIVES
    ===================================================================== */
 
+const visualSeed = (index: number, salt: number) => ((index * 73 + salt * 41) % 101) / 100;
+const FEATURE_ACCENTS = ["cyan", "orange", "purple", "success"] as const;
+
 function Particles({ count = 40 }: { count?: number }) {
   return (
     <>
@@ -33,13 +36,13 @@ function Particles({ count = 40 }: { count?: number }) {
           key={i}
           className="absolute rounded-full bg-primary/40 pointer-events-none"
           style={{
-            width: 2 + Math.random() * 3,
-            height: 2 + Math.random() * 3,
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animation: `float ${4 + Math.random() * 6}s ease-in-out infinite`,
-            animationDelay: `${Math.random() * 5}s`,
-            opacity: 0.2 + Math.random() * 0.6,
+            width: 2 + visualSeed(i, 1) * 3,
+            height: 2 + visualSeed(i, 2) * 3,
+            left: `${visualSeed(i, 3) * 100}%`,
+            top: `${visualSeed(i, 4) * 100}%`,
+            animation: `float ${4 + visualSeed(i, 5) * 6}s ease-in-out infinite`,
+            animationDelay: `${visualSeed(i, 6) * 5}s`,
+            opacity: 0.2 + visualSeed(i, 7) * 0.6,
           }}
         />
       ))}
@@ -300,8 +303,8 @@ function LandingPage() {
       <header className="sticky top-0 z-50 glass border-b border-border/50">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl gradient-cyan flex items-center justify-center glow-cyan">
-              <Wrench className="w-5 h-5 text-background" strokeWidth={2.5} />
+            <div className="w-10 h-10 rounded-xl border border-white/10 bg-black/20 flex items-center justify-center overflow-hidden shadow-lg">
+              <img src="/images/logo_premium.png" alt="" className="h-10 w-10 scale-[1.35] object-contain" />
             </div>
             <div className="leading-tight">
               <div className="text-lg font-extrabold text-gradient-cyan">ApnaUstad</div>
@@ -427,8 +430,8 @@ function LandingPage() {
               { i: Navigation, t: "Track booking progress", d: "Real-time updates from acceptance to arrival to completion — no more guessing." },
               { i: Banknote, t: "Confirm cash payments", d: "Pay the worker in cash on completion, then tap to confirm in the app for your records." },
               { i: ThumbsUp, t: "Leave reviews after work", d: "Rate the work and help build a trusted community of quality local professionals." },
-            ].map((x) => (
-              <FeatureCard key={x.t} icon={x.i} title={x.t} desc={x.d} accent={Math.random() > 0.66 ? "orange" : Math.random() > 0.5 ? "purple" : "cyan"} />
+            ].map((x, index) => (
+              <FeatureCard key={x.t} icon={x.i} title={x.t} desc={x.d} accent={FEATURE_ACCENTS[index % 3]} />
             ))}
           </div>
         </div>
@@ -714,8 +717,8 @@ function LandingPage() {
               { i: Star, t: "Ratings & reviews", d: "Quality stays high — customers decide." },
               { i: Layers, t: "Easy booking manager", d: "Track all your jobs in one place." },
               { i: Heart, t: "Made for Pakistan", d: "Local language, local payment, local trust." },
-            ].map((x) => (
-              <FeatureCard key={x.t} icon={x.i} title={x.t} desc={x.d} accent={["cyan", "orange", "purple", "success"][Math.floor(Math.random() * 4)] as any} />
+            ].map((x, index) => (
+              <FeatureCard key={x.t} icon={x.i} title={x.t} desc={x.d} accent={FEATURE_ACCENTS[index % FEATURE_ACCENTS.length]} />
             ))}
           </div>
         </div>
@@ -789,8 +792,8 @@ function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 grid sm:grid-cols-2 md:grid-cols-5 gap-8">
           <div className="md:col-span-2">
             <Link to="/" className="flex items-center gap-2.5 mb-4">
-              <div className="w-9 h-9 rounded-xl gradient-cyan flex items-center justify-center glow-cyan">
-                <Wrench className="w-5 h-5 text-background" strokeWidth={2.5} />
+              <div className="w-10 h-10 rounded-xl border border-white/10 bg-black/20 flex items-center justify-center overflow-hidden shadow-lg">
+                <img src="/images/logo_premium.png" alt="" className="h-10 w-10 scale-[1.35] object-contain" />
               </div>
               <div className="text-lg font-extrabold text-gradient-cyan">ApnaUstad</div>
             </Link>

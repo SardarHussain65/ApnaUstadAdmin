@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { Banknote, Download, ReceiptText, XCircle, ExternalLink, CalendarIcon } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge } from "@/components/admin/ui";
@@ -8,7 +8,7 @@ import { fmtPKR } from "@/lib/mock-data";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { AdminPayment, useBookings, useCancelBooking, useUpdateBookingStatus, usePayments, usePaymentSummary } from "@/lib/api-hooks";
+import { AdminPayment, useBookingsPage, useCancelBooking, useUpdateBookingStatus, usePayments, usePaymentSummary } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/bookings")({ component: BookingsPage });
 
@@ -22,40 +22,35 @@ function BookingsPage() {
   const [selected, setSelected] = useState<any | null>(null);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [statusOverride, setStatusOverride] = useState("");
+  const [page, setPage] = useState(1);
+  const deferredQ = useDeferredValue(q);
 
-  const { data, isLoading } = useBookings({ status: status || undefined });
+  useEffect(() => { setPage(1); }, [deferredQ, status, pay, type, dateFrom, dateTo]);
+
+  const { data, isLoading } = useBookingsPage({
+    page,
+    limit: 10,
+    search: deferredQ,
+    status: status || undefined,
+    paymentStatus: pay || undefined,
+    bookingType: type || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+  });
   const { data: paymentsData = [] } = usePayments({ limit: 10 });
   const { data: paymentSummary = {} } = usePaymentSummary();
   const cancelMutation = useCancelBooking();
   const updateStatusMutation = useUpdateBookingStatus();
 
-  const apiBookings = (data as any) || [];
+  const rows = data?.items || [];
   const latestPayments = (paymentsData as AdminPayment[]) || [];
 
-  const rows = useMemo(() => apiBookings.filter((b: any) => {
-    if (q && !`${b._id}${b.customer?.fullName}${b.worker?.fullName}`.toLowerCase().includes(q.toLowerCase())) return false;
-    const paymentState = b.payment?.status || b.paymentStatus || 'pending';
-    if (pay && paymentState !== pay) return false;
-    if (type && b.bookingType !== type) return false;
-    if (dateFrom) {
-      const bookingDate = new Date(b.createdAt || b.scheduledDate);
-      if (bookingDate < new Date(dateFrom)) return false;
-    }
-    if (dateTo) {
-      const bookingDate = new Date(b.createdAt || b.scheduledDate);
-      const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59);
-      if (bookingDate > toDate) return false;
-    }
-    return true;
-  }), [apiBookings, q, pay, type, dateFrom, dateTo]);
-
   const stats = {
-    total: apiBookings.length,
-    pending: apiBookings.filter((b: any) => b.status === "pending").length,
-    ongoing: apiBookings.filter((b: any) => b.status === "ongoing").length,
-    completed: apiBookings.filter((b: any) => b.status === "completed").length,
-    cancelled: apiBookings.filter((b: any) => b.status === "cancelled").length,
+    total: data?.pagination.totalItems ?? 0,
+    pending: rows.filter((b: any) => b.status === "pending").length,
+    ongoing: rows.filter((b: any) => b.status === "ongoing").length,
+    completed: rows.filter((b: any) => b.status === "completed").length,
+    cancelled: rows.filter((b: any) => b.status === "cancelled").length,
     revenue: (paymentSummary as any)?.paid?.totalAmount || 0,
     payable: (paymentSummary as any)?.payable?.totalAmount || 0,
   };
@@ -90,11 +85,11 @@ function BookingsPage() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
-        <MiniStat label="Total" value={stats.total.toString()} />
-        <MiniStat label="Pending" value={stats.pending.toString()} color="text-gold" />
-        <MiniStat label="Ongoing" value={stats.ongoing.toString()} color="text-accent" />
-        <MiniStat label="Completed" value={stats.completed.toString()} color="text-success" />
-        <MiniStat label="Cancelled" value={stats.cancelled.toString()} color="text-destructive" />
+        <MiniStat label="Matching" value={stats.total.toString()} />
+        <MiniStat label="Visible Pending" value={stats.pending.toString()} color="text-gold" />
+        <MiniStat label="Visible Ongoing" value={stats.ongoing.toString()} color="text-accent" />
+        <MiniStat label="Visible Completed" value={stats.completed.toString()} color="text-success" />
+        <MiniStat label="Visible Cancelled" value={stats.cancelled.toString()} color="text-destructive" />
         <MiniStat label="Cash Paid" value={fmtPKR(stats.revenue)} color="text-primary" />
         <MiniStat label="Awaiting Cash" value={fmtPKR(stats.payable)} color="text-accent" />
       </div>
@@ -129,18 +124,31 @@ function BookingsPage() {
         </div>
         <button
           onClick={() => {
-            downloadCsv("bookings", rows, [
-              { key: "id", header: "ID" }, { key: "customerName", header: "Customer" }, { key: "workerName", header: "Worker" },
-              { key: "category", header: "Category" }, { key: "scheduledAt", header: "Scheduled" }, { key: "total", header: "Total" },
-              { key: "paymentMethod", header: "Payment" }, { key: "paymentStatus", header: "Paid" }, { key: "status", header: "Status" },
+            const exportRows = rows.map(booking => ({
+              ...booking,
+              customerName: booking.customer?.fullName || "Unknown",
+              workerName: booking.worker?.fullName || "Unknown",
+              scheduledAt: booking.scheduledDate,
+              cashDue: booking.agreement?.cashDue ?? booking.totalAmount ?? 0,
+              paymentState: booking.payment?.status || booking.paymentStatus || "pending",
+            }));
+            downloadCsv("bookings", exportRows, [
+              { key: "_id", header: "ID" }, { key: "customerName", header: "Customer" }, { key: "workerName", header: "Worker" },
+              { key: "category", header: "Category" }, { key: "scheduledAt", header: "Scheduled" }, { key: "cashDue", header: "Cash Due" },
+              { key: "paymentMethod", header: "Payment Method" }, { key: "paymentState", header: "Payment Status" }, { key: "status", header: "Booking Status" },
             ]);
             toast.success(`Exported ${rows.length} bookings`);
           }}
           className="btn-press inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-surface-light hover:bg-primary/15 hover:text-primary border border-border text-sm font-semibold transition"
-        ><Download className="w-4 h-4" /> Export CSV</button>
+        ><Download className="w-4 h-4" /> Export Page CSV</button>
       </div>
 
-      <DataTable isLoading={isLoading} rows={rows} onRowClick={b => setSelected(b)} columns={[
+      <DataTable isLoading={isLoading} rows={rows} pagination={{
+        page,
+        totalPages: data?.pagination.totalPages ?? 1,
+        totalItems: data?.pagination.totalItems ?? 0,
+        onPageChange: setPage,
+      }} onRowClick={b => setSelected(b)} columns={[
         { key: "id", header: "Booking", render: b => <span className="font-mono text-xs text-primary">#{b._id.slice(-6)}</span> },
         {
           key: "c", header: "Customer", render: b => (
@@ -169,7 +177,7 @@ function BookingsPage() {
           )
         },
         { key: "cat", header: "Category", render: b => <Badge variant="orange">{b.category || 'N/A'}</Badge> },
-        { key: "d", header: "Date", render: b => <span className="text-xs text-muted-foreground">{b.createdAt ? format(new Date(b.createdAt), "dd MMM, HH:mm") : 'N/A'}</span> },
+        { key: "d", header: "Scheduled", render: b => <span className="text-xs text-muted-foreground">{b.scheduledDate ? format(new Date(b.scheduledDate), "dd MMM, HH:mm") : 'N/A'}</span> },
         { key: "tot", header: "Cash Due", render: b => <span className="font-semibold">{fmtPKR(b.agreement?.cashDue ?? b.totalAmount ?? 0)}</span> },
         { key: "p", header: "Payment", render: b => {
           const paymentState = b.payment?.status || b.paymentStatus || 'pending';
@@ -187,7 +195,7 @@ function BookingsPage() {
               <Card label="Worker" value={selected.worker?.fullName || 'Unknown'} sub={selected.worker?._id} accent />
               <Card label="Category" value={selected.category || 'N/A'} />
               <Card label="Type" value={selected.bookingType || 'N/A'} />
-              <Card label="Scheduled" value={selected.createdAt ? format(new Date(selected.createdAt), "dd MMM yyyy, HH:mm") : 'N/A'} />
+              <Card label="Scheduled" value={selected.scheduledDate ? format(new Date(selected.scheduledDate), "dd MMM yyyy, HH:mm") : 'N/A'} />
               <Card label="Duration" value={`${selected.estimatedHours || 1} hours`} />
               <Card label="Address" value={selected.address || 'N/A'} className="col-span-2" />
               <Card label="Description" value={selected.description || 'N/A'} className="col-span-2" />

@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useDeferredValue, useMemo } from "react";
-import { useDisputes, useDisputeDetails, useResolveDispute } from "@/lib/api-hooks";
+import { useState, useDeferredValue, useEffect, useMemo } from "react";
+import { useDisputesPage, useDisputeDetails, useResolveDispute } from "@/lib/api-hooks";
 import { Drawer } from "@/components/admin/Drawer";
-import { SearchInput, Select } from "@/components/admin/DataTable";
+import { PaginationBar, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge, Avatar } from "@/components/admin/ui";
 import { 
   Scale, AlertTriangle, Eye, RefreshCw, Landmark, ShieldCheck, 
@@ -21,6 +21,7 @@ function DisputesPage() {
   const [reasonFilter, setReasonFilter] = useState("");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
+  const [page, setPage] = useState(1);
 
   // Selected dispute ID for details drawer
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -34,25 +35,20 @@ function DisputesPage() {
   const [lightbox, setLightbox] = useState<string | null>(null);
 
   // Queries & Mutations
-  const { data: disputesData, isLoading, isFetching } = useDisputes({
+  useEffect(() => { setPage(1); }, [statusFilter, reasonFilter, deferredSearch]);
+
+  const { data: disputesData, isLoading, isFetching } = useDisputesPage({
+    page,
+    limit: 10,
     status: statusFilter || undefined,
-    reason: reasonFilter || undefined
+    reason: reasonFilter || undefined,
+    search: deferredSearch || undefined,
   });
   
   const { data: selectedDispute, isLoading: detailsLoading } = useDisputeDetails(selectedId || "", !!selectedId);
   const resolveMutation = useResolveDispute();
 
-  const rawDisputes = disputesData?.data ?? disputesData;
-  const disputes = Array.isArray(rawDisputes) ? rawDisputes : [];
-
-  // Client side search filtering since backend search parameters are lightweight
-  const filteredDisputes = useMemo(() => {
-    return disputes.filter((d: any) => {
-      if (!deferredSearch) return true;
-      const targetStr = `${d._id} ${d.customer?.fullName} ${d.worker?.fullName} ${d.description} ${d.reason}`.toLowerCase();
-      return targetStr.includes(deferredSearch.toLowerCase());
-    });
-  }, [disputes, deferredSearch]);
+  const disputes = disputesData?.items || [];
 
   const handleResolve = async () => {
     if (!selectedId || !resolutionStatus) return;
@@ -90,12 +86,12 @@ function DisputesPage() {
 
   const stats = useMemo(() => {
     return {
-      total: disputes.length,
+      total: disputesData?.pagination.totalItems ?? 0,
       open: disputes.filter((d: any) => d.status === "open").length,
       review: disputes.filter((d: any) => d.status === "under_review").length,
       resolved: disputes.filter((d: any) => d.status === "resolved" || d.status === "dismissed").length,
     };
-  }, [disputes]);
+  }, [disputes, disputesData?.pagination.totalItems]);
 
   return (
     <div className="space-y-6">
@@ -107,37 +103,37 @@ function DisputesPage() {
           </div>
           <div>
             <div className="text-2xl font-bold text-white">{stats.total}</div>
-            <div className="text-xs text-dim">Total Disputes</div>
+            <div className="text-xs text-dim">Matching Disputes</div>
           </div>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-rose-500/15 flex items-center justify-center text-rose-400">
+          <div className="w-12 h-12 rounded-xl bg-destructive/15 flex items-center justify-center text-destructive">
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-rose-400">{stats.open}</div>
-            <div className="text-xs text-dim">Pending Action</div>
+            <div className="text-2xl font-bold text-destructive">{stats.open}</div>
+            <div className="text-xs text-dim">Visible Pending</div>
           </div>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-400">
+          <div className="w-12 h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold">
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-amber-400">{stats.review}</div>
-            <div className="text-xs text-dim">Under Review</div>
+            <div className="text-2xl font-bold text-gold">{stats.review}</div>
+            <div className="text-xs text-dim">Visible Under Review</div>
           </div>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+          <div className="w-12 h-12 rounded-xl bg-success/15 flex items-center justify-center text-success">
             <CheckCircle2 className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-emerald-400">{stats.resolved}</div>
-            <div className="text-xs text-dim">Resolved / Wiped</div>
+            <div className="text-2xl font-bold text-success">{stats.resolved}</div>
+            <div className="text-xs text-dim">Visible Resolved</div>
           </div>
         </div>
       </div>
@@ -190,7 +186,7 @@ function DisputesPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-3"></div>
             <span>Fetching disputes backlog...</span>
           </div>
-        ) : filteredDisputes.length === 0 ? (
+        ) : disputes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-dim text-center">
             <Inbox className="w-12 h-12 mb-3 opacity-30 text-muted-foreground" />
             <span className="text-sm font-semibold text-white">No disputes raised</span>
@@ -212,7 +208,7 @@ function DisputesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {filteredDisputes.map((dispute: any) => (
+                {disputes.map((dispute: any) => (
                   <tr
                     key={dispute._id}
                     onClick={() => {
@@ -245,11 +241,11 @@ function DisputesPage() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-surface-light text-slate-200 border border-border">
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-surface-light text-foreground/90 border border-border">
                         {getReasonLabel(dispute.reason)}
                       </span>
                     </td>
-                    <td className="p-4 font-extrabold text-rose-400">
+                    <td className="p-4 font-extrabold text-destructive">
                       {fmtPKR(dispute.amountDisputed || 0)}
                     </td>
                     <td className="p-4">
@@ -277,6 +273,14 @@ function DisputesPage() {
             </table>
           </div>
         )}
+        <PaginationBar
+          page={page}
+          totalPages={disputesData?.pagination.totalPages ?? 1}
+          totalItems={disputesData?.pagination.totalItems ?? 0}
+          pageSize={10}
+          visibleItems={disputes.length}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* 🔍 Details Drawer */}
@@ -310,7 +314,7 @@ function DisputesPage() {
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] uppercase text-dim font-bold block mb-1">Disputed Amount</span>
-                  <span className="text-lg font-black text-rose-400">{fmtPKR(selectedDispute.amountDisputed || 0)}</span>
+                  <span className="text-lg font-black text-destructive">{fmtPKR(selectedDispute.amountDisputed || 0)}</span>
                 </div>
               </div>
 
@@ -331,7 +335,7 @@ function DisputesPage() {
             {/* Complaint details */}
             <div className="space-y-2">
               <span className="text-xs uppercase tracking-wider text-dim font-bold">Dispute Description</span>
-              <p className="p-4 bg-input border border-border rounded-xl text-sm text-slate-100 leading-relaxed italic">
+              <p className="p-4 bg-input border border-border rounded-xl text-sm text-foreground/90 leading-relaxed italic">
                 "{selectedDispute.description}"
               </p>
             </div>
@@ -421,7 +425,7 @@ function DisputesPage() {
 
                   {/* Refund Trigger */}
                   {resolutionStatus === "resolved" && selectedDispute.amountDisputed > 0 && (
-                    <div className="p-4 rounded-xl border border-border bg-rose-500/5 space-y-3">
+                    <div className="p-4 rounded-xl border border-border bg-destructive/5 space-y-3">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
@@ -429,7 +433,7 @@ function DisputesPage() {
                           onChange={e => setTriggerRefund(e.target.checked)}
                           className="w-4 h-4 accent-primary rounded cursor-pointer"
                         />
-                        <span className="text-xs font-bold text-rose-300 uppercase">Apply Wallet Adjustment Deduct on Worker</span>
+                        <span className="text-xs font-bold text-destructive uppercase">Apply Wallet Adjustment Deduct on Worker</span>
                       </label>
                       
                       {triggerRefund && (
@@ -490,8 +494,8 @@ function DisputesPage() {
                 </button>
               </div>
             ) : (
-              <div className="p-4 rounded-xl border border-border/80 bg-emerald-500/5 space-y-4">
-                <h4 className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+              <div className="p-4 rounded-xl border border-border/80 bg-success/5 space-y-4">
+                <h4 className="text-sm font-bold text-success flex items-center gap-1.5">
                   <Check className="w-4 h-4" /> Dispute Resolution Logged
                 </h4>
                 
@@ -527,10 +531,13 @@ function DisputesPage() {
       {/* Proof Lightbox */}
       {lightbox && (
         <div 
+          role="dialog"
+          aria-modal="true"
+          aria-label="Dispute evidence preview"
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6 animate-fade-in" 
           onClick={() => setLightbox(null)}
         >
-          <button className="absolute top-4 right-4 p-2 rounded-xl glass text-white"><XCircle className="w-6 h-6" /></button>
+          <button aria-label="Close evidence preview" className="absolute top-4 right-4 p-2 rounded-xl glass text-white"><XCircle className="w-6 h-6" /></button>
           <img src={lightbox} alt="zoom proof" className="max-w-full max-h-full rounded-2xl shadow-2xl" />
         </div>
       )}

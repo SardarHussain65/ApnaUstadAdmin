@@ -13,6 +13,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminWalletsRouteImport } from './routes/_admin.wallets'
+import { Route as AdminVerificationRouteImport } from './routes/_admin.verification'
 import { Route as AdminUsersRouteImport } from './routes/_admin.users'
 import { Route as AdminSupportRouteImport } from './routes/_admin.support'
 import { Route as AdminSettingsRouteImport } from './routes/_admin.settings'
@@ -47,6 +48,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminWalletsRoute = AdminWalletsRouteImport.update({
   id: '/wallets',
   path: '/wallets',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminVerificationRoute = AdminVerificationRouteImport.update({
+  id: '/verification',
+  path: '/verification',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AdminSettingsRoute
   '/support': typeof AdminSupportRoute
   '/users': typeof AdminUsersRoute
+  '/verification': typeof AdminVerificationRoute
   '/wallets': typeof AdminWalletsRoute
   '/workers/$id': typeof AdminWorkersIdRoute
   '/workers/': typeof AdminWorkersIndexRoute
@@ -168,6 +175,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AdminSettingsRoute
   '/support': typeof AdminSupportRoute
   '/users': typeof AdminUsersRoute
+  '/verification': typeof AdminVerificationRoute
   '/wallets': typeof AdminWalletsRoute
   '/workers/$id': typeof AdminWorkersIdRoute
   '/workers': typeof AdminWorkersIndexRoute
@@ -191,6 +199,7 @@ export interface FileRoutesById {
   '/_admin/settings': typeof AdminSettingsRoute
   '/_admin/support': typeof AdminSupportRoute
   '/_admin/users': typeof AdminUsersRoute
+  '/_admin/verification': typeof AdminVerificationRoute
   '/_admin/wallets': typeof AdminWalletsRoute
   '/_admin/workers/$id': typeof AdminWorkersIdRoute
   '/_admin/workers/': typeof AdminWorkersIndexRoute
@@ -214,6 +223,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/support'
     | '/users'
+    | '/verification'
     | '/wallets'
     | '/workers/$id'
     | '/workers/'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/support'
     | '/users'
+    | '/verification'
     | '/wallets'
     | '/workers/$id'
     | '/workers'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/_admin/settings'
     | '/_admin/support'
     | '/_admin/users'
+    | '/_admin/verification'
     | '/_admin/wallets'
     | '/_admin/workers/$id'
     | '/_admin/workers/'
@@ -296,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: '/wallets'
       fullPath: '/wallets'
       preLoaderRoute: typeof AdminWalletsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/verification': {
+      id: '/_admin/verification'
+      path: '/verification'
+      fullPath: '/verification'
+      preLoaderRoute: typeof AdminVerificationRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/users': {
@@ -428,6 +447,7 @@ interface AdminRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminVerificationRoute: typeof AdminVerificationRoute
   AdminWalletsRoute: typeof AdminWalletsRoute
   AdminWorkersIdRoute: typeof AdminWorkersIdRoute
   AdminWorkersIndexRoute: typeof AdminWorkersIndexRoute
@@ -448,6 +468,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminVerificationRoute: AdminVerificationRoute,
   AdminWalletsRoute: AdminWalletsRoute,
   AdminWorkersIdRoute: AdminWorkersIdRoute,
   AdminWorkersIndexRoute: AdminWorkersIndexRoute,

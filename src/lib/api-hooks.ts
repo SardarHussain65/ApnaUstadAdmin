@@ -3,6 +3,7 @@ import { api } from './api';
 import { toast } from 'sonner';
 
 type QueryParam = string | number | boolean | undefined | null;
+const LIST_STALE_TIME = 30_000;
 
 const toQueryString = (params: Record<string, QueryParam>) => {
   const query = new URLSearchParams();
@@ -13,6 +14,19 @@ const toQueryString = (params: Record<string, QueryParam>) => {
   });
   return query.toString();
 };
+
+const paginatedPath = (path: string, params: Record<string, QueryParam>) => {
+  const query = toQueryString(params);
+  return `${path}${query ? `?${query}` : ''}`;
+};
+
+const usePaginatedQuery = <T>(key: string, path: string, params: Record<string, QueryParam>) =>
+  useQuery({
+    queryKey: [key, 'paginated', params],
+    queryFn: () => api.getPaginated<T>(paginatedPath(path, params)),
+    placeholderData: previousData => previousData,
+    staleTime: LIST_STALE_TIME,
+  });
 
 export interface Category {
   _id: string;
@@ -143,13 +157,18 @@ export const useDashboardStats = () => {
 };
 
 // --- Job Queries & Mutations ---
-export const useJobs = (params: { page?: number; limit?: number; search?: string; status?: string } = {}) => {
+type JobQueryParams = { page?: number; limit?: number; search?: string; status?: string; category?: string; urgency?: string };
+
+export const useJobs = (params: JobQueryParams = {}) => {
   const query = toQueryString(params);
   return useQuery({
     queryKey: ['jobs', params],
     queryFn: () => api.get<any>(query ? `/admin/jobs?${query}` : '/admin/jobs'),
   });
 };
+
+export const useJobsPage = (params: JobQueryParams = {}) =>
+  usePaginatedQuery<any>('jobs', '/admin/jobs', params);
 
 export const useJobDetails = (id: string, enabled: boolean = true) => {
   return useQuery({
@@ -206,13 +225,29 @@ export const useCancelJob = () => {
 };
 
 // --- Bookings Queries ---
-export const useBookings = (params: { page?: number; limit?: number; status?: string; workerId?: string; customerId?: string } = {}) => {
+type BookingQueryParams = {
+  page?: number;
+  limit?: number;
+  status?: string;
+  workerId?: string;
+  customerId?: string;
+  search?: string;
+  paymentStatus?: string;
+  bookingType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export const useBookings = (params: BookingQueryParams = {}) => {
   const query = toQueryString(params);
   return useQuery({
     queryKey: ['bookings', params],
     queryFn: () => api.get<AdminBooking[]>(`/admin/bookings${query ? `?${query}` : ''}`),
   });
 };
+
+export const useBookingsPage = (params: BookingQueryParams = {}) =>
+  usePaginatedQuery<AdminBooking>('bookings', '/admin/bookings', params);
 
 export const useBookingDetails = (id: string, enabled: boolean = true) => {
   return useQuery({
@@ -270,13 +305,18 @@ export const usePaymentSummary = () => {
 };
 
 // --- Users Queries ---
-export const useUsers = (params: { page?: number; limit?: number; search?: string } = {}) => {
-  const query = new URLSearchParams(params as any).toString();
+type UserQueryParams = { page?: number; limit?: number; search?: string; status?: string; city?: string; dateFrom?: string };
+
+export const useUsers = (params: UserQueryParams = {}) => {
+  const query = toQueryString(params);
   return useQuery({
     queryKey: ['users', params],
     queryFn: () => api.get<any>(`/admin/users?${query}`),
   });
 };
+
+export const useUsersPage = (params: UserQueryParams = {}) =>
+  usePaginatedQuery<any>('users', '/admin/users', params);
 
 export const useUserDetails = (id: string, enabled: boolean = true) => {
   return useQuery({
@@ -289,10 +329,12 @@ export const useUserDetails = (id: string, enabled: boolean = true) => {
 export const useToggleUserStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.patch(`/admin/users/${id}/status`, {}),
-    onSuccess: () => {
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      api.patch(`/admin/users/${id}/status`, { isActive }),
+    onSuccess: (_, variables) => {
       toast.success('User status updated');
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user', variables.id] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to update user status');
@@ -308,6 +350,9 @@ export const useWorkers = (params: { page?: number; limit?: number; search?: str
     queryFn: () => api.get<Worker[]>(`/admin/workers${query ? `?${query}` : ''}`),
   });
 };
+
+export const useWorkersPage = (params: { page?: number; limit?: number; search?: string; status?: string; verified?: boolean; city?: string; category?: string } = {}) =>
+  usePaginatedQuery<Worker>('workers', '/admin/workers', params);
 
 export const useWorkerDetails = (id: string, enabled: boolean = true) => {
   return useQuery({
@@ -424,13 +469,18 @@ export const useDeleteCategory = () => {
 };
 
 // --- Reviews Queries ---
-export const useReviews = (params: { page?: number; limit?: number } = {}) => {
-  const query = new URLSearchParams(params as any).toString();
+type ReviewQueryParams = { page?: number; limit?: number; search?: string; rating?: number; category?: string; dateFrom?: string };
+
+export const useReviews = (params: ReviewQueryParams = {}) => {
+  const query = toQueryString(params);
   return useQuery({
     queryKey: ['reviews', params],
     queryFn: () => api.get<any>(`/admin/reviews?${query}`),
   });
 };
+
+export const useReviewsPage = (params: ReviewQueryParams = {}) =>
+  usePaginatedQuery<any>('reviews', '/admin/reviews', params);
 
 export const useDeleteReview = () => {
   const queryClient = useQueryClient();
@@ -616,6 +666,9 @@ export const useWorkerWallets = (params: { search?: string; balanceStatus?: 'low
   });
 };
 
+export const useWorkerWalletsPage = (params: { search?: string; balanceStatus?: 'low' | 'zero' | 'sufficient' | ''; page?: number; limit?: number } = {}) =>
+  usePaginatedQuery<WorkerWallet>('worker-wallets', '/admin/wallets', params);
+
 export const useWalletSummary = () => {
   return useQuery({
     queryKey: ['wallet-summary'],
@@ -723,6 +776,16 @@ export const useWalletTopUps = (params: {
     queryFn: () => api.get<WalletTopUpRequest[]>(`/admin/wallet-topups${qs ? `?${qs}` : ''}`),
   });
 };
+
+export const useWalletTopUpsPage = (params: {
+  page?: number;
+  limit?: number;
+  status?: string;
+  method?: string;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+} = {}) => usePaginatedQuery<WalletTopUpRequest>('wallet-topups', '/admin/wallet-topups', params);
 
 export const useWalletTopUpSummary = (params: {
   status?: string;
@@ -849,6 +912,7 @@ export const useSupportRequests = (params: { status?: string; search?: string; p
   return useQuery({
     queryKey: ['support-requests', params],
     queryFn: () => api.get<SupportRequest[]>(`/admin/support/requests${qs ? `?${qs}` : ''}`),
+    staleTime: LIST_STALE_TIME,
   });
 };
 
@@ -1047,13 +1111,16 @@ export interface Dispute {
   updatedAt: string;
 }
 
-export const useDisputes = (params: { page?: number; limit?: number; status?: string; reason?: string } = {}) => {
+export const useDisputes = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string } = {}) => {
   const qs = toQueryString(params);
   return useQuery({
     queryKey: ['disputes', params],
     queryFn: () => api.get<any>(`/admin/disputes${qs ? `?${qs}` : ''}`),
   });
 };
+
+export const useDisputesPage = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string } = {}) =>
+  usePaginatedQuery<Dispute>('disputes', '/admin/disputes', params);
 
 export const useDisputeDetails = (id: string, enabled = true) => {
   return useQuery({
@@ -1097,13 +1164,18 @@ export interface PromoCode {
   updatedAt: string;
 }
 
-export const usePromos = (params: { page?: number; limit?: number } = {}) => {
+type PromoQueryParams = { page?: number; limit?: number; search?: string; status?: string; discountType?: string };
+
+export const usePromos = (params: PromoQueryParams = {}) => {
   const qs = toQueryString(params);
   return useQuery({
     queryKey: ['promos', params],
     queryFn: () => api.get<any>(`/admin/promos${qs ? `?${qs}` : ''}`),
   });
 };
+
+export const usePromosPage = (params: PromoQueryParams = {}) =>
+  usePaginatedQuery<PromoCode>('promos', '/admin/promos', params);
 
 export const useCreatePromo = () => {
   const queryClient = useQueryClient();
@@ -1150,30 +1222,55 @@ export const useDeletePromo = () => {
   });
 };
 
-/**
- * Aggregates badge counts for the sidebar navigation.
- * Polls with a 60-second staleTime to avoid hammering the API.
- */
-export const useNavBadges = () => {
-  const STALE = 60_000;
-
-  const { data: supportData } = useSupportRequests({ status: 'open' });
-  const { data: jobsData } = useJobs({ status: 'open' });
-  const { data: bookingsData } = useBookings({ status: 'pending' });
-  const { data: workersData } = useWorkers({ verified: false, status: 'active' });
-  const { data: topUpsData } = useWalletTopUps({ status: 'pending', limit: 50 });
-  const { data: disputesData } = useDisputes({ status: 'open' });
-
-  const openTickets = (supportData as any[])?.length ?? 0;
-  const openJobs = (jobsData as any[])?.length ?? 0;
-  const pendingBookings = (bookingsData as any[])?.length ?? 0;
-  const unverifiedWorkers = (workersData as any[])?.length ?? 0;
-  const pendingTopUps = (topUpsData as any)?.topUps?.length ?? (Array.isArray(topUpsData) ? (topUpsData as any[]).length : 0);
-  
-  // Safeguard array structure from API response
-  const rawDisputes = disputesData?.data ?? disputesData;
-  const openDisputes = Array.isArray(rawDisputes) ? rawDisputes.length : 0;
-
-  return { openTickets, openJobs, pendingBookings, unverifiedWorkers, pendingTopUps, openDisputes };
+// --- Verification Pipeline Hooks ---
+export const useVerificationRequests = (params: { page?: number; limit?: number; status?: string; search?: string } = {}) => {
+  const query = toQueryString(params);
+  return useQuery({
+    queryKey: ['verification-requests', params],
+    queryFn: () => api.get<any>(`/admin/verification/requests${query ? `?${query}` : ''}`),
+  });
 };
 
+export const useVerificationRequestsPage = (params: { page?: number; limit?: number; status?: string; search?: string } = {}) =>
+  usePaginatedQuery<any>('verification-requests', '/admin/verification/requests', params);
+
+export const useReviewVerificationRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, rejectionReason, adminNotes }: { id: string; status: 'approved' | 'rejected'; rejectionReason?: string; adminNotes?: string }) =>
+      api.patch<any>(`/admin/verification/requests/${id}/review`, { status, rejectionReason, adminNotes }),
+    onSuccess: () => {
+      toast.success('Verification request reviewed successfully');
+      queryClient.invalidateQueries({ queryKey: ['verification-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+      queryClient.invalidateQueries({ queryKey: ['nav-badges'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to review verification request');
+    },
+  });
+};
+
+/**
+ * Aggregates badge counts for the sidebar navigation.
+ * Uses server pagination totals so badges stay accurate beyond the first page.
+ */
+export const useNavBadges = () => {
+  const { data: supportData } = useSupportRequests({ status: 'open' });
+  const { data: jobsData } = useJobsPage({ status: 'open', limit: 1 });
+  const { data: bookingsData } = useBookingsPage({ status: 'pending', limit: 1 });
+  const { data: workersData } = useWorkersPage({ verified: false, status: 'active', limit: 1 });
+  const { data: topUpsData } = useWalletTopUpsPage({ status: 'pending', limit: 1 });
+  const { data: disputesData } = useDisputesPage({ status: 'open', limit: 1 });
+  const { data: verificationsData } = useVerificationRequestsPage({ status: 'pending', limit: 1 });
+
+  const openTickets = (supportData as any[])?.length ?? 0;
+  const openJobs = jobsData?.pagination.totalItems ?? 0;
+  const pendingBookings = bookingsData?.pagination.totalItems ?? 0;
+  const unverifiedWorkers = workersData?.pagination.totalItems ?? 0;
+  const pendingTopUps = topUpsData?.pagination.totalItems ?? 0;
+  const openDisputes = disputesData?.pagination.totalItems ?? 0;
+  const pendingVerifications = verificationsData?.pagination.totalItems ?? 0;
+
+  return { openTickets, openJobs, pendingBookings, unverifiedWorkers, pendingTopUps, openDisputes, pendingVerifications };
+};

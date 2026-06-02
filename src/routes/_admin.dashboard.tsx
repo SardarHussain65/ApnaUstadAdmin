@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Users,
   Wrench,
@@ -29,16 +29,12 @@ import {
   Bar
 } from "recharts";
 import { StatCard, StatusBadge, Avatar, Badge } from "@/components/admin/ui";
-import {
-  dashboardStats as mockStats,
-  bookingStatusDistribution,
-  fmtPKR
-} from "@/lib/mock-data";
+import { fmtPKR } from "@/lib/mock-data";
 import {
   useDashboardStats,
   useBookings,
   useVerifyWorker,
-  useWorkers,
+  useWorkersPage,
   useSupportRequests,
   useWalletTopUpSummary
 } from "@/lib/api-hooks";
@@ -48,10 +44,12 @@ export const Route = createFileRoute("/_admin/dashboard")({
 });
 
 function DashboardPage() {
+  const [timeRange, setTimeRange] = useState<"7d" | "30d">("7d");
+
   // Queries
-  const { data: statsData, isLoading: statsLoading } = useDashboardStats();
+  const { data: statsData, isError: statsError } = useDashboardStats();
   const { data: bookingsData } = useBookings({ limit: 100 }); // fetch more to populate trends and stats
-  const { data: workersData } = useWorkers({ verified: false, limit: 10 });
+  const { data: workersData } = useWorkersPage({ verified: false, limit: 5 });
   const { data: openTickets = [] } = useSupportRequests({ status: "open" });
   const { data: topUpSummary } = useWalletTopUpSummary();
   const verifyWorkerMutation = useVerifyWorker();
@@ -61,8 +59,66 @@ function DashboardPage() {
   }, [bookingsData]);
 
   const pendingWorkers = useMemo(() => {
-    return ((workersData as any) || []).filter((w: any) => !w.isVerified).slice(0, 5);
+    return (workersData?.items || []).filter((w: any) => !w.isVerified).slice(0, 5);
   }, [workersData]);
+
+  // Dynamic Real-time Activity Logs Ticker
+  const liveActivityLogs = useMemo(() => {
+    const logs: { id: string; type: 'booking' | 'user' | 'worker' | 'finance'; text: string; time: string; color: string }[] = [];
+    
+    // Add bookings events
+    const bookings = (bookingsData as any) || [];
+    bookings.slice(0, 5).forEach((b: any) => {
+      const timeStr = b.createdAt ? new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
+      const customer = b.customer?.fullName || "A client";
+      const total = fmtPKR(b.totalAmount || 0);
+      if (b.status === 'completed') {
+        logs.push({
+          id: `b-c-${b._id}`,
+          type: 'finance',
+          text: `Booking completed: ${customer} paid ${total} to worker`,
+          time: timeStr,
+          color: 'text-success'
+        });
+      } else if (b.status === 'ongoing') {
+        logs.push({
+          id: `b-o-${b._id}`,
+          type: 'booking',
+          text: `Ustad assigned: Job #${b._id.slice(-4)} is now in progress`,
+          time: timeStr,
+          color: 'text-accent'
+        });
+      } else {
+        logs.push({
+          id: `b-p-${b._id}`,
+          type: 'booking',
+          text: `New job request: ${customer} requested ${b.category || 'service'}`,
+          time: timeStr,
+          color: 'text-primary'
+        });
+      }
+    });
+
+    // Add support tickets events
+    openTickets.slice(0, 3).forEach((t: any) => {
+      const timeStr = t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '2h ago';
+      logs.push({
+        id: `t-${t._id}`,
+        type: 'user',
+        text: `Support ticket: "${t.subject || 'Dispute raising'}" under review`,
+        time: timeStr,
+        color: 'text-secondary'
+      });
+    });
+
+    if (logs.length === 0) {
+      return [
+        { id: 'empty', type: 'booking', text: 'No recent booking or support activity.', time: 'Now', color: 'text-muted-foreground' }
+      ];
+    }
+
+    return logs;
+  }, [bookingsData, openTickets]);
 
   // Real % Growth Calculation
   const calculateGrowthPct = (total: number, newLastMonth: number) => {
@@ -90,34 +146,47 @@ function DashboardPage() {
         revenueChange: revenueGrowth
       };
     }
-    return mockStats;
+    return {
+      totalUsers: 0,
+      usersChange: 0,
+      totalWorkers: 0,
+      workersChange: 0,
+      totalBookings: 0,
+      bookingsChange: 0,
+      totalRevenue: 0,
+      revenueChange: 0
+    };
   }, [statsData]);
 
   // Dynamic Bookings Trend Chart based on actual bookings
   const bookingsTrendData = useMemo(() => {
     const bookings = (bookingsData as any) || [];
+    const limitDays = timeRange === "7d" ? 7 : 30;
+    
     if (bookings.length === 0) {
-      return [
-        { day: "Mon", bookings: 0 },
-        { day: "Tue", bookings: 0 },
-        { day: "Wed", bookings: 0 },
-        { day: "Thu", bookings: 0 },
-        { day: "Fri", bookings: 0 },
-        { day: "Sat", bookings: 0 },
-        { day: "Sun", bookings: 0 }
-      ];
+      return Array.from({ length: limitDays }).map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (limitDays - 1 - i));
+        return {
+          day: timeRange === "7d" ? d.toLocaleDateString('en-US', { weekday: 'short' }) : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+          bookings: 0
+        };
+      });
     }
 
-    const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const last7Days: { day: string; dateStr: string; count: number }[] = [];
+    const lastNDays: { day: string; dateStr: string; count: number }[] = [];
 
-    // Setup past 7 dates
-    for (let i = 6; i >= 0; i--) {
+    // Setup past N dates
+    for (let i = limitDays - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = d.toDateString();
-      last7Days.push({
-        day: daysOfWeek[d.getDay()],
+      const label = timeRange === "7d" 
+        ? d.toLocaleDateString('en-US', { weekday: 'short' }) 
+        : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+      
+      lastNDays.push({
+        day: label,
         dateStr,
         count: 0
       });
@@ -127,23 +196,23 @@ function DashboardPage() {
     bookings.forEach((b: any) => {
       if (b.createdAt) {
         const bDateStr = new Date(b.createdAt).toDateString();
-        const match = last7Days.find(dayObj => dayObj.dateStr === bDateStr);
+        const match = lastNDays.find(dayObj => dayObj.dateStr === bDateStr);
         if (match) {
           match.count++;
         }
       }
     });
 
-    return last7Days.map(item => ({
+    return lastNDays.map(item => ({
       day: item.day,
       bookings: item.count
     }));
-  }, [bookingsData]);
+  }, [bookingsData, timeRange]);
 
   // Dynamic status distribution from fetched bookings
   const dynamicStatusDistribution = useMemo(() => {
     const bookings = (bookingsData as any) || [];
-    if (bookings.length === 0) return bookingStatusDistribution;
+    if (bookings.length === 0) return [];
 
     const counts: Record<string, number> = {
       completed: 0,
@@ -190,9 +259,15 @@ function DashboardPage() {
   }, [bookingsData]);
 
   const pendingTopUpsCount = topUpSummary?.pending?.count || 0;
+  const pendingWorkersCount = workersData?.pagination.totalItems ?? 0;
 
   return (
     <div className="space-y-6">
+      {statsError && (
+        <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Live dashboard totals are temporarily unavailable. Values remain at zero until the API responds.
+        </div>
+      )}
       
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -237,16 +312,16 @@ function DashboardPage() {
               <div className="text-[10px] text-dim uppercase tracking-wider font-bold">Worker Verification</div>
               <h4 className="text-lg font-bold text-white mt-1">Pending Profiles</h4>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
               <Wrench className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">{pendingWorkers.length}</span>
+            <span className="text-3xl font-extrabold text-white">{pendingWorkersCount}</span>
             <span className="text-xs text-dim">workers waiting</span>
           </div>
           <Link
-            to="/workers"
+            to="/verification"
             className="mt-4 flex items-center gap-1.5 text-xs text-primary font-bold hover:underline self-start"
           >
             Go to Verifications <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -260,7 +335,7 @@ function DashboardPage() {
               <div className="text-[10px] text-dim uppercase tracking-wider font-bold">Financial Overviews</div>
               <h4 className="text-lg font-bold text-white mt-1">Pending Top-ups</h4>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+            <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
@@ -283,7 +358,7 @@ function DashboardPage() {
               <div className="text-[10px] text-dim uppercase tracking-wider font-bold">Customer Tickets</div>
               <h4 className="text-lg font-bold text-white mt-1">Open Support Desk</h4>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400">
+            <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
               <Inbox className="w-5 h-5" />
             </div>
           </div>
@@ -308,12 +383,28 @@ function DashboardPage() {
         <div className="lg:col-span-3 bg-card border border-border rounded-2xl p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-lg text-white">Bookings Trend</h3>
-              <p className="text-xs text-dim">Daily bookings count (past week)</p>
+              <h3 className="font-bold text-lg text-white">Recent Bookings Trend</h3>
+              <p className="text-xs text-dim">Daily count from the latest 100 bookings ({timeRange === "7d" ? "past week" : "past month"})</p>
             </div>
-            <Badge variant="info" pulse>
-              Live Data
-            </Badge>
+            
+            <div className="flex items-center gap-1 bg-surface-light/40 border border-border/60 p-0.5 rounded-xl">
+              <button
+                onClick={() => setTimeRange("7d")}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  timeRange === "7d" ? "bg-primary text-background shadow-md" : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                7 Days
+              </button>
+              <button
+                onClick={() => setTimeRange("30d")}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  timeRange === "30d" ? "bg-primary text-background shadow-md" : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                30 Days
+              </button>
+            </div>
           </div>
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={bookingsTrendData}>
@@ -347,8 +438,11 @@ function DashboardPage() {
 
         {/* Status Distribution */}
         <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-5 shadow-card">
-          <h3 className="font-bold text-lg text-white">Status Distribution</h3>
-          <p className="text-xs text-dim mb-4">Bookings categorized by status</p>
+          <h3 className="font-bold text-lg text-white">Recent Status Distribution</h3>
+          <p className="text-xs text-dim mb-4">Latest 100 bookings categorized by status</p>
+          {dynamicStatusDistribution.length === 0 ? (
+            <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">No booking data available</div>
+          ) : (
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
@@ -375,6 +469,7 @@ function DashboardPage() {
               <Legend wrapperStyle={{ fontSize: 11, color: "#8E8E93" }} />
             </PieChart>
           </ResponsiveContainer>
+          )}
         </div>
 
       </div>
@@ -383,8 +478,8 @@ function DashboardPage() {
       <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-bold text-lg text-white">Revenue by Category</h3>
-            <p className="text-xs text-dim">Completed booking volumes by categories</p>
+            <h3 className="font-bold text-lg text-white">Recent Revenue by Category</h3>
+            <p className="text-xs text-dim">Completed totals from the latest 100 bookings</p>
           </div>
           <Badge variant="orange">PKR ₨</Badge>
         </div>
@@ -420,7 +515,7 @@ function DashboardPage() {
       </div>
 
       {/* Recent bookings + pending workers */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
         
         {/* Recent Bookings */}
         <div className="xl:col-span-2 bg-card border border-border rounded-2xl shadow-card overflow-hidden">
@@ -481,8 +576,8 @@ function DashboardPage() {
         <div className="bg-card border border-border rounded-2xl shadow-card">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h3 className="font-bold text-white">Pending Verifications</h3>
-            <Link to="/workers" className="text-xs text-primary font-semibold hover:underline">
-              All Workers →
+            <Link to="/verification" className="text-xs text-primary font-semibold hover:underline">
+              Review Queue →
             </Link>
           </div>
           <div className="p-3 space-y-2">
@@ -519,6 +614,26 @@ function DashboardPage() {
                 <div className="text-[10px] max-w-[180px]">All worker profiles have been verified.</div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Live Operations Feed Ticker */}
+        <div className="bg-card border border-border rounded-2xl shadow-card flex flex-col h-[380px] xl:h-auto">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+            <h3 className="font-bold text-white flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-success animate-ping" />
+              Live Operations
+            </h3>
+            <Badge variant="info">Telemetry</Badge>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-[11px] leading-relaxed">
+            {liveActivityLogs.map((log) => (
+              <div key={log.id} className="flex gap-2.5 p-2 rounded-lg bg-surface-light/10 border border-white/[0.02] hover:bg-surface-light/20 transition-all">
+                <span className="text-[10px] text-dim flex-shrink-0">{log.time}</span>
+                <span className="text-muted-foreground flex-shrink-0">|</span>
+                <span className={`flex-1 ${log.color} break-all`}>{log.text}</span>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Search, LayoutDashboard, Users, Wrench, ClipboardList, Calendar,
-  FolderKanban, Star, Bell, Settings, ArrowRight,
+  FolderKanban, Star, Bell, Settings, ArrowRight, Wallet, HelpCircle,
+  BarChart3, History, UserCog, Scale, Tag, Fingerprint,
 } from "lucide-react";
-import { users, workers, bookings, jobs } from "@/lib/mock-data";
+import { useAuth } from "@/lib/auth";
 
 type Item = {
   id: string;
@@ -17,6 +18,7 @@ type Item = {
 
 export function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
 
@@ -32,32 +34,26 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { id: "n-dash", label: "Dashboard", group: "Navigate", icon: LayoutDashboard, action: go("/dashboard") },
       { id: "n-users", label: "Users", group: "Navigate", icon: Users, action: go("/users") },
       { id: "n-workers", label: "Workers", group: "Navigate", icon: Wrench, action: go("/workers") },
+      { id: "n-verification", label: "Identity Reviews", group: "Navigate", icon: Fingerprint, action: go("/verification") },
       { id: "n-jobs", label: "Job Posts", group: "Navigate", icon: ClipboardList, action: go("/jobs") },
       { id: "n-bookings", label: "Bookings", group: "Navigate", icon: Calendar, action: go("/bookings") },
+      { id: "n-wallets", label: "Wallets", group: "Navigate", icon: Wallet, action: go("/wallets") },
       { id: "n-cats", label: "Categories", group: "Navigate", icon: FolderKanban, action: go("/categories") },
+      { id: "n-promos", label: "Promos", group: "Navigate", icon: Tag, action: go("/promos") },
       { id: "n-rev", label: "Reviews", group: "Navigate", icon: Star, action: go("/reviews") },
       { id: "n-not", label: "Notifications", group: "Navigate", icon: Bell, action: go("/notifications") },
+      { id: "n-support", label: "Support", group: "Navigate", icon: HelpCircle, action: go("/support") },
+      { id: "n-disputes", label: "Booking Disputes", group: "Navigate", icon: Scale, action: go("/disputes") },
+      { id: "n-reports", label: "Reports & Analytics", group: "Navigate", icon: BarChart3, action: go("/reports") },
+      { id: "n-audit", label: "Audit Logs", group: "Navigate", icon: History, action: go("/audit") },
       { id: "n-set", label: "Settings", group: "Navigate", icon: Settings, action: go("/settings") },
     ];
-    const w: Item[] = workers.map(x => ({
-      id: "w-" + x.id, label: x.name, hint: `${x.id} · ${x.category} · ${x.city}`,
-      group: "Workers", icon: Wrench, action: go("/workers/$id", { id: x.id }),
-    }));
-    const u: Item[] = users.map(x => ({
-      id: "u-" + x.id, label: x.name, hint: `${x.id} · ${x.city}`,
-      group: "Users", icon: Users, action: go("/users"),
-    }));
-    const b: Item[] = bookings.map(x => ({
-      id: "b-" + x.id, label: x.id, hint: `${x.customerName} → ${x.workerName}`,
-      group: "Bookings", icon: Calendar, action: go("/bookings"),
-    }));
-    const j: Item[] = jobs.map(x => ({
-      id: "j-" + x.id, label: x.id, hint: `${x.customerName} · ${x.category}`,
-      group: "Jobs", icon: ClipboardList, action: go("/jobs"),
-    }));
-    return [...nav, ...w, ...u, ...b, ...j];
+    if (user?.role === "superadmin") {
+      nav.splice(nav.length - 1, 0, { id: "n-admins", label: "Admin Users", group: "Navigate", icon: UserCog, action: go("/admins") });
+    }
+    return nav;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user?.role]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -90,37 +86,37 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   let runningIndex = -1;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-start justify-center pt-24 px-4 animate-fade-in" onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden glow-cyan">
-        <div className="flex items-center gap-3 px-4 h-14 border-b border-border">
+    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/72 px-4 pt-20 backdrop-blur-sm animate-fade-in sm:pt-24" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Admin page finder" onClick={e => e.stopPropagation()} className="app-glass w-full max-w-2xl overflow-hidden rounded-[20px] shadow-2xl">
+        <div className="flex h-16 items-center gap-3 border-b border-border bg-white/[0.025] px-4">
           <Search className="w-4 h-4 text-primary" />
           <input
             autoFocus
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Search workers, users, bookings, pages..."
-            className="bg-transparent outline-none text-sm flex-1 placeholder:text-dim"
+            placeholder="Find an admin page..."
+            className="flex-1 border-0! bg-transparent! text-sm outline-none! ring-0! shadow-none! placeholder:text-dim"
           />
           <kbd className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground">ESC</kbd>
         </div>
-        <div className="max-h-[50vh] overflow-y-auto py-2">
+        <div className="max-h-[55vh] overflow-y-auto py-2">
           {filtered.length === 0 && (
             <div className="text-center py-10 text-sm text-muted-foreground">No results for "{q}"</div>
           )}
           {Object.entries(groups).map(([group, items]) => (
             <div key={group} className="mb-2">
-              <div className="px-4 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{group}</div>
+              <div className="px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-dim font-bold">{group}</div>
               {items.map(it => {
-                runningIndex++;
-                const isActive = runningIndex === active;
+                const itemIndex = ++runningIndex;
+                const isActive = itemIndex === active;
                 const Icon = it.icon;
                 return (
                   <button
                     key={it.id}
-                    onMouseEnter={() => setActive(runningIndex)}
+                    onMouseEnter={() => setActive(itemIndex)}
                     onClick={it.action}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition ${
-                      isActive ? "bg-[rgba(0,245,255,0.08)] text-primary" : "hover:bg-surface-light/60"
+                    className={`mx-2 flex w-[calc(100%_-_1rem)] items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                      isActive ? "bg-primary/10 text-primary" : "text-foreground/90 hover:bg-surface-light/60"
                     }`}
                   >
                     <Icon className="w-4 h-4 flex-shrink-0" />
@@ -135,10 +131,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             </div>
           ))}
         </div>
-        <div className="border-t border-border px-4 py-2 flex items-center gap-3 text-[10px] text-muted-foreground">
+        <div className="border-t border-border bg-surface/60 px-4 py-2.5 flex items-center gap-3 text-[10px] text-dim">
           <span><kbd className="px-1.5 py-0.5 rounded border border-border">↑↓</kbd> navigate</span>
           <span><kbd className="px-1.5 py-0.5 rounded border border-border">↵</kbd> select</span>
-          <span className="ml-auto">ApnaUstad Command</span>
+          <span className="ml-auto font-semibold text-muted-foreground">ApnaUstad quick navigation</span>
         </div>
       </div>
     </div>

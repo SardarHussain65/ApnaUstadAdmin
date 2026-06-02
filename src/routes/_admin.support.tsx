@@ -101,24 +101,24 @@ function SupportPage() {
   const getPriorityBadgeClass = (p: string) => {
     switch (p) {
       case "urgent":
-        return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+        return "bg-destructive/10 text-destructive border border-destructive/20";
       case "high":
-        return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        return "bg-gold/10 text-gold border border-gold/20";
       case "medium":
-        return "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20";
+        return "bg-primary/10 text-primary border border-primary/20";
       default:
-        return "bg-slate-500/10 text-slate-400 border border-slate-500/20";
+        return "bg-surface-light/10 text-muted-foreground border border-border/20";
     }
   };
 
   const getStatusBadgeClass = (s: string) => {
     switch (s) {
       case "open":
-        return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        return "bg-success/10 text-success border border-success/20";
       case "pending":
-        return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        return "bg-gold/10 text-gold border border-gold/20";
       default:
-        return "bg-slate-500/10 text-slate-400 border border-slate-500/20";
+        return "bg-surface-light/10 text-muted-foreground border border-border/20";
     }
   };
 
@@ -127,7 +127,7 @@ function SupportPage() {
       {/* 🚀 Header & Quick Statistics */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
             Support Desk
           </h2>
           <p className="text-sm text-dim mt-1">
@@ -138,7 +138,7 @@ function SupportPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+          <div className="w-12 h-12 rounded-xl bg-success/15 flex items-center justify-center text-success">
             <Inbox className="w-6 h-6" />
           </div>
           <div>
@@ -148,7 +148,7 @@ function SupportPage() {
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-400">
+          <div className="w-12 h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold">
             <Clock className="w-6 h-6" />
           </div>
           <div>
@@ -158,7 +158,7 @@ function SupportPage() {
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-rose-500/15 flex items-center justify-center text-rose-400">
+          <div className="w-12 h-12 rounded-xl bg-destructive/15 flex items-center justify-center text-destructive">
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
@@ -168,7 +168,7 @@ function SupportPage() {
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-slate-500/15 flex items-center justify-center text-slate-400">
+          <div className="w-12 h-12 rounded-xl bg-surface-light/15 flex items-center justify-center text-muted-foreground">
             <CheckCircle className="w-6 h-6" />
           </div>
           <div>
@@ -254,7 +254,7 @@ function SupportPage() {
                     className={`w-full text-left p-3.5 rounded-xl border transition-all duration-200 relative group flex flex-col gap-2 ${
                       isActive
                         ? "bg-surface-light/70 border-primary shadow-glow-cyan"
-                        : "bg-surface-light/20 border-border hover:bg-surface-light/40 hover:border-slate-700"
+                        : "bg-surface-light/20 border-border hover:bg-surface-light/40 hover:border-primary/30"
                     }`}
                   >
                     {/* Active side indicator */}
@@ -360,7 +360,7 @@ function SupportPage() {
                     </div>
                     <span>{new Date(selectedRequest.createdAt).toLocaleString()}</span>
                   </div>
-                  <div className="text-sm leading-relaxed whitespace-pre-line text-slate-100">
+                  <div className="text-sm leading-relaxed whitespace-pre-line text-foreground/90">
                     {selectedRequest.message}
                   </div>
                 </div>
@@ -390,7 +390,7 @@ function SupportPage() {
                             </span>
                             <span>{new Date(reply.createdAt).toLocaleTimeString()}</span>
                           </div>
-                          <p className="text-xs leading-relaxed text-slate-200 whitespace-pre-line">
+                          <p className="text-xs leading-relaxed text-foreground/90 whitespace-pre-line">
                             {reply.message}
                           </p>
                         </div>
