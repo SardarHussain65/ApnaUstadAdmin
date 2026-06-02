@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Eye, Power, Download, Filter, Search, Calendar, User, ShieldAlert } from "lucide-react";
-import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
+import { Eye, Power, Download, Search } from "lucide-react";
+import { DataTable } from "@/components/admin/DataTable";
 import { Avatar, Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
 import { CITIES, fmtPKR } from "@/lib/mock-data";
