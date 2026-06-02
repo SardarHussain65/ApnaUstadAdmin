@@ -73,7 +73,6 @@ function SupportPage() {
       await replyMutation.mutateAsync({
         id: selectedId,
         message: replyText.trim(),
-        authorName: "Super Admin"
       });
       setReplyText("");
     } catch (err) {
