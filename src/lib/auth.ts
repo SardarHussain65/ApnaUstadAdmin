@@ -6,6 +6,7 @@ const USER_KEY = "adminUser";
 
 export interface AdminUser {
   name?: string;
+  fullName?: string;
   email: string;
   role: "superadmin" | "admin";
   id?: string;

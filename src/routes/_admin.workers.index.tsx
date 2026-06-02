@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Eye, CheckCircle2, Power, Download } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, RatingStars, StatusBadge } from "@/components/admin/ui";
 import { CITIES, CATEGORY_NAMES, fmtPKR } from "@/lib/mock-data";
 import { downloadCsv } from "@/lib/csv";
 import { toast } from "sonner";
-import { useWorkers, useVerifyWorker, useToggleWorkerStatus, type Worker } from "@/lib/api-hooks";
+import { useWorkersPage, useVerifyWorker, useToggleWorkerStatus, type Worker } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/workers/")({ component: WorkersPage });
 
@@ -15,18 +15,23 @@ function WorkersPage() {
   const [verified, setVerified] = useState("");
   const [cat, setCat] = useState("");
   const [city, setCity] = useState("");
+  const [page, setPage] = useState(1);
+  const deferredQ = useDeferredValue(q);
 
-  const { data, isLoading } = useWorkers({
-    search: q,
+  useEffect(() => { setPage(1); }, [deferredQ, verified, cat, city]);
+
+  const { data, isLoading } = useWorkersPage({
+    page,
+    limit: 10,
+    search: deferredQ,
     verified: verified === "yes" ? true : verified === "no" ? false : undefined,
     category: cat || undefined,
     city: city || undefined,
-    limit: 100,
   });
   const toggleWorkerStatusMutation = useToggleWorkerStatus();
   const verifyWorkerMutation = useVerifyWorker();
 
-  const apiWorkers = data || [];
+  const apiWorkers = data?.items || [];
 
   const rows = useMemo(() => apiWorkers.map((w) => ({ ...w, id: w._id })), [apiWorkers]);
 
@@ -39,7 +44,7 @@ function WorkersPage() {
   };
 
   const stats = {
-    total: apiWorkers.length,
+    total: data?.pagination.totalItems ?? 0,
     verified: apiWorkers.filter((w) => w.isVerified).length,
     unverified: apiWorkers.filter((w) => !w.isVerified).length,
     active: apiWorkers.filter((w) => w.isActive).length,
@@ -48,10 +53,10 @@ function WorkersPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
-        <Badge variant="info">Total: {stats.total}</Badge>
-        <Badge variant="success">Verified: {stats.verified}</Badge>
-        <Badge variant="warning" pulse>Unverified: {stats.unverified}</Badge>
-        <Badge variant="purple">Active: {stats.active}</Badge>
+        <Badge variant="info">Matching: {stats.total}</Badge>
+        <Badge variant="success">Visible Verified: {stats.verified}</Badge>
+        <Badge variant="warning" pulse>Visible Unverified: {stats.unverified}</Badge>
+        <Badge variant="purple">Visible Active: {stats.active}</Badge>
       </div>
       <div className="flex flex-wrap gap-2">
         <SearchInput value={q} onChange={setQ} placeholder="Search by name, phone, CNIC..." />
@@ -69,11 +74,17 @@ function WorkersPage() {
             toast.success(`Exported ${rows.length} workers`);
           }}
           className="btn-press inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-surface-light hover:bg-primary/15 hover:text-primary border border-border text-sm font-semibold transition"
-        ><Download className="w-4 h-4" /> Export CSV</button>
+        ><Download className="w-4 h-4" /> Export Page CSV</button>
       </div>
       <DataTable
         isLoading={isLoading}
         rows={rows}
+        pagination={{
+          page,
+          totalPages: data?.pagination.totalPages ?? 1,
+          totalItems: data?.pagination.totalItems ?? 0,
+          onPageChange: setPage,
+        }}
         columns={[
           { key: "w", header: "Worker", render: w => (
             <Link to="/workers/$id" params={{ id: w._id }} className="flex items-center gap-3 group">

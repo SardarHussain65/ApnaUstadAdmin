@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { AdminPageLoader } from "@/components/admin/AdminPageLoader";
 import { getToken } from "@/lib/auth";
 
 export const Route = createFileRoute("/_admin")({
@@ -17,7 +18,7 @@ function AdminLayout() {
       setReady(true);
     }
   }, [navigate]);
-  if (!ready) return <div className="min-h-screen bg-background" />;
+  if (!ready) return <AdminPageLoader fullScreen />;
   return (
     <AdminShell>
       <Outlet />

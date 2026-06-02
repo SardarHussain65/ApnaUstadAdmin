@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Database, Search, X } from "lucide-react";
 
 export interface Column<T> {
   key: string;
@@ -8,22 +8,59 @@ export interface Column<T> {
   className?: string;
 }
 
-export function DataTable<T extends Record<string, any>>({
-  rows, columns, pageSize = 10, onRowClick, isLoading = false,
-}: { rows: T[]; columns: Column<T>[]; pageSize?: number; onRowClick?: (row: T) => void; isLoading?: boolean }) {
-  const [page, setPage] = useState(1);
-  useEffect(() => { setPage(1); }, [rows.length]);
-  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const view = rows.slice((page - 1) * pageSize, page * pageSize);
+export interface DataTablePagination {
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  onPageChange: (page: number) => void;
+}
+
+export function PaginationBar({ page, totalPages, totalItems, pageSize, visibleItems, onPageChange }: DataTablePagination & { pageSize: number; visibleItems: number }) {
+  if (totalItems <= pageSize) return null;
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-card">
+    <div className="flex flex-col gap-3 border-t border-border bg-surface/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-xs font-medium text-muted-foreground">
+        Showing {(page - 1) * pageSize + 1}–{Math.min((page - 1) * pageSize + visibleItems, totalItems)} of {totalItems}
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          disabled={page === 1}
+          onClick={() => onPageChange(page - 1)}
+          aria-label="Previous page"
+          className="icon-button h-8 w-8 border-border disabled:pointer-events-none disabled:opacity-30"
+        ><ChevronLeft className="w-4 h-4" /></button>
+        <span className="px-3 text-xs font-bold text-foreground">Page {page} of {totalPages}</span>
+        <button
+          disabled={page === totalPages}
+          onClick={() => onPageChange(page + 1)}
+          aria-label="Next page"
+          className="icon-button h-8 w-8 border-border disabled:pointer-events-none disabled:opacity-30"
+        ><ChevronRight className="w-4 h-4" /></button>
+      </div>
+    </div>
+  );
+}
+
+export function DataTable<T extends Record<string, any>>({
+  rows, columns, pageSize = 10, onRowClick, isLoading = false, pagination,
+}: { rows: T[]; columns: Column<T>[]; pageSize?: number; onRowClick?: (row: T) => void; isLoading?: boolean; pagination?: DataTablePagination }) {
+  const [localPage, setLocalPage] = useState(1);
+  useEffect(() => { setLocalPage(1); }, [rows.length]);
+  const page = pagination?.page ?? localPage;
+  const pages = pagination?.totalPages ?? Math.max(1, Math.ceil(rows.length / pageSize));
+  const totalItems = pagination?.totalItems ?? rows.length;
+  const view = pagination ? rows : rows.slice((page - 1) * pageSize, page * pageSize);
+  const changePage = pagination?.onPageChange ?? setLocalPage;
+
+  return (
+    <div className="app-glass overflow-hidden rounded-[18px]">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-surface">
+            <tr className="border-b border-border bg-surface/70">
               {columns.map(c => (
-                <th key={c.key} className={`text-left font-semibold text-[11px] uppercase tracking-wider text-muted-foreground px-4 py-3 ${c.className ?? ""}`}>
+                <th key={c.key} className={`whitespace-nowrap px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground ${c.className ?? ""}`}>
                   {c.header}
                 </th>
               ))}
@@ -31,62 +68,70 @@ export function DataTable<T extends Record<string, any>>({
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={columns.length} className="text-center py-12 text-muted-foreground">Loading...</td></tr>
+              Array.from({ length: 5 }).map((_, rIndex) => (
+                <tr key={rIndex} className="border-b border-border/60">
+                  {columns.map((c, cIndex) => (
+                    <td key={c.key} className="px-4 py-4">
+                      <div 
+                        className="h-4 rounded-lg bg-white/[0.055] animate-pulse"
+                        style={{ 
+                          width: cIndex === 0 ? "50%" : cIndex === columns.length - 1 ? "40%" : "80%",
+                          animationDelay: `${rIndex * 75}ms`
+                        }}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))
             )}
             {!isLoading && view.map((row, i) => (
               <tr
                 key={row.id ?? row._id ?? i}
-                className="border-b border-border/60 hover:bg-surface-light/50 transition cursor-pointer animate-fade-in"
+                className={`border-b border-border/60 transition-colors animate-fade-in hover:bg-primary/[0.035] ${onRowClick ? "cursor-pointer" : ""}`}
                 style={{ animationDelay: `${i * 30}ms` }}
                 onClick={() => onRowClick?.(row)}
+                onKeyDown={event => {
+                  if (onRowClick && (event.key === "Enter" || event.key === " ")) {
+                    event.preventDefault();
+                    onRowClick(row);
+                  }
+                }}
+                tabIndex={onRowClick ? 0 : undefined}
               >
                 {columns.map(c => (
-                  <td key={c.key} className={`px-4 py-3 ${c.className ?? ""}`}>{c.render(row)}</td>
+                  <td key={c.key} className={`px-4 py-4 text-foreground/90 ${c.className ?? ""}`}>{c.render(row)}</td>
                 ))}
               </tr>
             ))}
             {!isLoading && view.length === 0 && (
-              <tr><td colSpan={columns.length} className="text-center py-12 text-muted-foreground">No data found</td></tr>
+              <tr>
+                <td colSpan={columns.length} className="px-4 py-14 text-center text-muted-foreground">
+                  <Database className="mx-auto mb-3 h-7 w-7 text-dim" />
+                  <div className="font-semibold text-foreground">No records found</div>
+                  <div className="mt-1 text-xs text-dim">Try adjusting the filters or search query.</div>
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
-      {rows.length > pageSize && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-surface/50">
-          <div className="text-xs text-muted-foreground">
-            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, rows.length)} of {rows.length}
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-              className="p-1.5 rounded-lg border border-border disabled:opacity-30 hover:bg-surface-light"
-            ><ChevronLeft className="w-4 h-4" /></button>
-            <span className="text-xs px-3">Page {page} of {pages}</span>
-            <button
-              disabled={page === pages}
-              onClick={() => setPage(p => p + 1)}
-              className="p-1.5 rounded-lg border border-border disabled:opacity-30 hover:bg-surface-light"
-            ><ChevronRight className="w-4 h-4" /></button>
-          </div>
-        </div>
-      )}
+      <PaginationBar page={page} totalPages={pages} totalItems={totalItems} pageSize={pageSize} visibleItems={view.length} onPageChange={changePage} />
     </div>
   );
 }
 
 export function SearchInput({ value, onChange, placeholder = "Search..." }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <div className="flex items-center gap-2 px-3 h-10 rounded-xl bg-input border border-border focus-within:border-primary focus-within:glow-cyan transition flex-1 min-w-0">
+    <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-input px-3 transition hover:border-primary/30 focus-within:border-primary/70 focus-within:ring-3 focus-within:ring-primary/10">
       <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
       <input
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="bg-transparent outline-none text-sm flex-1 min-w-0 placeholder:text-dim"
+        className="min-w-0 flex-1 border-0! bg-transparent! text-sm outline-none! ring-0! shadow-none! placeholder:text-dim"
       />
       {value && (
-        <button onClick={() => onChange("")} className="text-muted-foreground hover:text-foreground">
+        <button onClick={() => onChange("")} aria-label="Clear search" className="text-dim transition hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
       )}
@@ -100,12 +145,12 @@ export function Select({ value, onChange, options, label }: { value: string; onC
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="appearance-none h-10 pl-3 pr-9 rounded-xl bg-input border border-border text-sm font-medium hover:border-primary/50 focus:border-primary focus:outline-none cursor-pointer min-w-[140px]"
+        className="h-10 min-w-[140px] cursor-pointer appearance-none rounded-xl border border-border bg-input pl-3 pr-9 text-xs font-semibold text-foreground outline-none transition hover:border-primary/30 focus:border-primary/70"
       >
         {label && <option value="">{label}</option>}
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
-      <ChevronRight className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none text-muted-foreground" />
+      <ChevronRight className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none text-muted-foreground" />
     </div>
   );
 }
