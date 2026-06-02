@@ -96,7 +96,7 @@ function ReportsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-muted-foreground gap-3">
         <div className="w-10 h-10 border-4 border-t-primary border-border rounded-full animate-spin" />
-        <p className="text-sm font-semibold tracking-wider">GeneratingPlatform Reports & Analytics...</p>
+        <p className="text-sm font-semibold tracking-wider">Generating Platform Reports & Analytics...</p>
       </div>
     );
   }
