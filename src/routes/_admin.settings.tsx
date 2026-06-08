@@ -44,11 +44,13 @@ function SettingsPage() {
   // Local state for platform settings
   const [platformFee, setPlatformFee] = useState<number>(10);
   const [minBalance, setMinBalance] = useState<number>(500);
+  const [extraCategoryFee, setExtraCategoryFee] = useState<number>(500);
 
   useEffect(() => {
     if (walletSettings) {
       setPlatformFee(walletSettings.platformFeePercentage ?? 10);
       setMinBalance(walletSettings.minimumWalletBalance ?? 500);
+      setExtraCategoryFee(walletSettings.additionalCategoryMonthlyFee ?? 500);
     }
   }, [walletSettings]);
 
@@ -93,6 +95,7 @@ function SettingsPage() {
       await updateWalletSettingsMutation.mutateAsync({
         platformFeePercentage: Number(platformFee),
         minimumWalletBalance: Number(minBalance),
+        additionalCategoryMonthlyFee: Number(extraCategoryFee),
         commissionEnabled: walletSettings?.commissionEnabled ?? true
       });
     } catch (err) {
@@ -245,7 +248,7 @@ function SettingsPage() {
                 <Sliders className="w-5 h-5 text-accent" />
                 <h3 className="font-bold text-lg text-white">Platform Settings</h3>
               </div>
-              <p className="text-xs text-muted-foreground">Adjust system commission rates and worker eligibility configurations</p>
+              <p className="text-xs text-muted-foreground">Adjust system commission rates, worker eligibility, and paid category subscription fees</p>
             </div>
             <button
               onClick={handleSavePlatformSettings}
@@ -268,7 +271,7 @@ function SettingsPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 
                 {/* Rule 1: Commission */}
                 <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
@@ -315,7 +318,30 @@ function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Rule 3: Platform Constants */}
+                {/* Rule 3: Extra Category Fee */}
+                <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase text-dim font-bold block mb-1">Extra Category Monthly Fee</span>
+                    <p className="text-xs text-muted-foreground leading-relaxed">Amount workers must keep in wallet and pay for each added category</p>
+                  </div>
+                  <div className="mt-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="3000"
+                      step="50"
+                      value={extraCategoryFee}
+                      onChange={(e) => setExtraCategoryFee(Number(e.target.value))}
+                      className="w-full accent-primary bg-surface h-1.5 rounded-lg cursor-pointer"
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs font-black text-primary">{extraCategoryFee} ₨ / month</span>
+                      <span className="text-[9px] text-dim font-mono">Max 3000</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rule 4: Platform Constants */}
                 <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-2.5">
                   <div>
                     <span className="text-[10px] uppercase text-dim font-bold block">Platform Region</span>
@@ -330,7 +356,7 @@ function SettingsPage() {
               </div>
 
               <div className="border-t border-border/60 pt-5 text-xs text-muted-foreground">
-                Category-specific commission overrides are not enabled. The saved global rule applies to all categories.
+                Category-specific commission and extra-category price overrides are not enabled. The saved global rules apply to all categories.
               </div>
             </div>
           )}

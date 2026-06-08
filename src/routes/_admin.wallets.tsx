@@ -425,6 +425,7 @@ function CommissionSettingsPanel() {
   const [form, setForm] = useState<WalletSettings>({
     platformFeePercentage: 10,
     minimumWalletBalance: 500,
+    additionalCategoryMonthlyFee: 500,
     commissionEnabled: true,
   });
 
@@ -433,6 +434,7 @@ function CommissionSettingsPanel() {
     setForm({
       platformFeePercentage: settings.platformFeePercentage,
       minimumWalletBalance: settings.minimumWalletBalance,
+      additionalCategoryMonthlyFee: settings.additionalCategoryMonthlyFee ?? 500,
       commissionEnabled: settings.commissionEnabled !== false,
     });
   }, [settings]);
@@ -452,10 +454,15 @@ function CommissionSettingsPanel() {
       toast.error("Minimum wallet balance cannot be negative");
       return;
     }
+    if (Number(form.additionalCategoryMonthlyFee) < 0) {
+      toast.error("Extra category monthly fee cannot be negative");
+      return;
+    }
 
     updateMutation.mutate({
       platformFeePercentage: Number(form.platformFeePercentage),
       minimumWalletBalance: Number(form.minimumWalletBalance),
+      additionalCategoryMonthlyFee: Number(form.additionalCategoryMonthlyFee),
       commissionEnabled: form.commissionEnabled,
     });
   };
@@ -494,7 +501,7 @@ function CommissionSettingsPanel() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label className="space-y-1.5">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Commission %</span>
               <input
@@ -518,11 +525,23 @@ function CommissionSettingsPanel() {
                 className="w-full h-11 bg-input border border-border rounded-xl px-3 text-sm font-extrabold focus:outline-none focus:border-primary"
               />
             </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Extra Category Monthly Fee</span>
+              <input
+                type="number"
+                min={0}
+                step={50}
+                value={form.additionalCategoryMonthlyFee}
+                onChange={(e) => setForm((current) => ({ ...current, additionalCategoryMonthlyFee: Number(e.target.value) }))}
+                className="w-full h-11 bg-input border border-border rounded-xl px-3 text-sm font-extrabold focus:outline-none focus:border-primary"
+              />
+            </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <InfoBox label="Rs. 5,000 job commission" value={fmtPKR(previewCommission)} accent={form.commissionEnabled ? "text-gold" : "text-muted-foreground"} />
             <InfoBox label="Required wallet balance" value={fmtPKR(previewRequired)} accent="text-primary" />
+            <InfoBox label="Extra category charge" value={fmtPKR(form.additionalCategoryMonthlyFee || 0)} accent="text-accent" />
           </div>
 
           <button

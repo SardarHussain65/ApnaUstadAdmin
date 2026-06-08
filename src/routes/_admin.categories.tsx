@@ -96,6 +96,8 @@ function CategoriesPage() {
       description: "",
       sortOrder: cats.length + 1,
       isActive: true,
+      additionalCategoryMonthlyFee: 0,
+      additionalCategoryGraceDays: 3,
     });
   };
 
@@ -108,6 +110,8 @@ function CategoriesPage() {
       description: category.description || "",
       sortOrder: category.sortOrder ?? 0,
       isActive: category.isActive,
+      additionalCategoryMonthlyFee: category.additionalCategoryMonthlyFee ?? 0,
+      additionalCategoryGraceDays: category.additionalCategoryGraceDays ?? 3,
     });
   };
 
@@ -159,6 +163,11 @@ function CategoriesPage() {
                 <div className="w-3 h-3 rounded-full" style={{ background: c.color }} />
               </div>
               <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{c.description}</p>
+              <div className="mt-3 rounded-xl bg-surface-light border border-border/60 px-3 py-2">
+                <div className="text-[10px] uppercase text-muted-foreground">Additional specialty</div>
+                <div className="mt-0.5 text-sm font-bold">Global monthly fee</div>
+                <div className="text-[10px] text-muted-foreground">Configured in Wallets/Settings · {c.additionalCategoryGraceDays || 0}-day renewal grace</div>
+              </div>
               <div className="mt-4 flex items-center justify-between">
                 {c.isActive ? <Badge variant="success" pulse>Active</Badge> : <Badge variant="muted">Inactive</Badge>}
                 <div className="flex gap-1">
@@ -216,6 +225,7 @@ function toCategoryPayload(value: CategoryFormState): CategoryInput | null {
     description: value.description.trim(),
     sortOrder: Number.isFinite(value.sortOrder) ? value.sortOrder : 0,
     isActive: value.isActive,
+    additionalCategoryGraceDays: Math.max(0, Number(value.additionalCategoryGraceDays || 0)),
   };
 }
 
@@ -277,6 +287,18 @@ function CategoryForm({ value, onChange, onSave, loading }: { value: CategoryFor
           className="w-full h-24 p-4 rounded-xl bg-surface-light border border-border focus:border-primary focus:outline-none resize-none" 
         />
       </Field>
+
+      <div className="rounded-xl bg-surface-light border border-border/60 p-4">
+        <div className="text-sm font-bold">Additional Specialty Subscription</div>
+        <p className="mt-1 text-[11px] text-muted-foreground">The worker's first approved specialty remains free. The monthly fee for every additional specialty is configured globally in Wallets or Settings.</p>
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          <Field label="Grace Days">
+            <input type="number" min={0} max={30} value={value.additionalCategoryGraceDays ?? 0}
+              onChange={e => onChange({ ...value, additionalCategoryGraceDays: +e.target.value })}
+              className="w-full h-11 px-3 rounded-xl bg-input border border-border focus:border-primary focus:outline-none" />
+          </Field>
+        </div>
+      </div>
 
       <label className="flex items-center justify-between p-4 rounded-xl bg-surface-light border border-border/50 cursor-pointer hover:bg-surface transition-colors">
         <div>

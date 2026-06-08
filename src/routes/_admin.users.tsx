@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Eye, Power, Download, Filter, Search, Calendar, User, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Eye, Power, Download, Search } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, StatusBadge } from "@/components/admin/ui";
-import { Drawer } from "@/components/admin/Drawer";
+import { Drawer, Modal } from "@/components/admin/Drawer";
 import { CITIES, fmtPKR } from "@/lib/mock-data";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
@@ -20,6 +20,8 @@ function UsersPage() {
   const [city, setCity] = useState("");
   const [dateFilter, setDateFilter] = useState(""); // "today", "week", "month", ""
   const [selected, setSelected] = useState<any | null>(null);
+  const [statusTarget, setStatusTarget] = useState<any | null>(null);
+  const [statusReason, setStatusReason] = useState("");
   const [page, setPage] = useState(1);
   const deferredQ = useDeferredValue(q);
 
@@ -46,15 +48,32 @@ function UsersPage() {
 
   const rows = data?.items || [];
 
-  const toggleStatus = (user: any) => {
+  const applyStatusChange = (user: any, reason?: string) => {
     toggleUserMutation.mutate(
-      { id: user._id, isActive: !user.isActive },
+      { id: user._id, isActive: !user.isActive, reason },
       {
-        onSuccess: () => {
-          setSelected((current: any | null) => current?._id === user._id ? { ...current, isActive: !current.isActive } : current);
+        onSuccess: (updated: any) => {
+          const next = updated?.data || updated;
+          setSelected((current: any | null) => current?._id === user._id ? { ...current, ...next } : current);
+          setStatusTarget(null);
+          setStatusReason("");
         },
       }
     );
+  };
+
+  const requestStatusChange = (user: any) => {
+    if (user.isActive) {
+      setStatusTarget(user);
+      setStatusReason("");
+      return;
+    }
+    applyStatusChange(user);
+  };
+
+  const confirmDeactivate = () => {
+    if (!statusTarget || !statusReason.trim()) return;
+    applyStatusChange(statusTarget, statusReason.trim());
   };
 
   const stats = {
@@ -225,7 +244,7 @@ function UsersPage() {
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => toggleStatus(u)}
+                    onClick={() => requestStatusChange(u)}
                     className="p-2 rounded-lg hover:bg-accent/15 hover:text-accent text-dim transition"
                     title="Suspend / Activate"
                   >
@@ -243,10 +262,45 @@ function UsersPage() {
         {selected && (
           <UserDetail
             user={selected}
-            onToggle={() => toggleStatus(selected)}
+            onToggle={() => requestStatusChange(selected)}
           />
         )}
       </Drawer>
+
+      <Modal open={!!statusTarget} onClose={() => setStatusTarget(null)} title="Deactivate User Account">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
+              <div>
+                <div className="font-bold text-white">This user will be locked out of app actions.</div>
+                <p className="mt-1 text-sm text-muted-foreground">They will see this reason and can only contact support until an admin activates the account again.</p>
+              </div>
+            </div>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-muted-foreground">Reason shown to user</span>
+            <textarea
+              value={statusReason}
+              onChange={(event) => setStatusReason(event.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="Explain why this account is being deactivated..."
+              className="w-full resize-none rounded-xl border border-border bg-input px-3 py-2 text-sm outline-none focus:border-destructive"
+            />
+          </label>
+          <div className="flex justify-end gap-3 border-t border-border pt-4">
+            <button onClick={() => setStatusTarget(null)} className="h-10 rounded-xl border border-border px-4 text-sm font-semibold text-muted-foreground hover:bg-surface-light">Cancel</button>
+            <button
+              disabled={!statusReason.trim() || toggleUserMutation.isPending}
+              onClick={confirmDeactivate}
+              className="h-10 rounded-xl bg-destructive px-5 text-sm font-bold text-white disabled:opacity-50"
+            >
+              Deactivate Account
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -289,6 +343,15 @@ function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
       {/* Account Control */}
       <div className="space-y-2">
         <div className="text-xs uppercase tracking-wider text-dim font-bold">Moderation Controls</div>
+        {!user.isActive && (
+          <div className="rounded-xl border border-destructive/25 bg-destructive/10 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-destructive">Suspension reason</div>
+            <p className="mt-1 text-sm text-white">{user.deactivationReason || "Account deactivated by admin. Please contact support for details."}</p>
+            {user.deactivatedAt && (
+              <p className="mt-1 text-xs text-muted-foreground">Deactivated {format(new Date(user.deactivatedAt), "dd MMM yyyy, h:mm a")}</p>
+            )}
+          </div>
+        )}
         <button
           onClick={onToggle}
           className={`btn-press w-full h-11 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${user.isActive

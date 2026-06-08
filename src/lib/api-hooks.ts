@@ -36,6 +36,8 @@ export interface Category {
   description: string;
   sortOrder: number;
   isActive: boolean;
+  additionalCategoryMonthlyFee: number;
+  additionalCategoryGraceDays: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -47,7 +49,29 @@ export type CategoryInput = {
   description?: string;
   sortOrder?: number;
   isActive?: boolean;
+  additionalCategoryMonthlyFee?: number;
+  additionalCategoryGraceDays?: number;
 };
+
+export interface WorkerSpecialty {
+  _id: string;
+  categoryId: Category | string;
+  priority: number;
+  skills: string[];
+  hourlyRate: number;
+  experience: number;
+  bio?: string;
+  isActive: boolean;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  subscriptionStatus: 'free' | 'pending_activation' | 'active' | 'payment_due' | 'expired';
+  monthlyFeeSnapshot: number;
+  autoRenew: boolean;
+  requestedAt?: string;
+  approvedAt?: string | null;
+  currentPeriodEnd?: string | null;
+  nextBillingAt?: string | null;
+  graceEndsAt?: string | null;
+}
 
 export interface Worker {
   _id: string;
@@ -60,6 +84,7 @@ export interface Worker {
   cnicFrontImage?: string;
   cnicBackImage?: string;
   category: string;
+  specialties?: WorkerSpecialty[];
   skills: string[];
   hourlyRate: number;
   bio?: string;
@@ -69,6 +94,11 @@ export interface Worker {
   isAvailable: boolean;
   isVerified: boolean;
   isActive: boolean;
+  deactivationReason?: string;
+  deactivatedAt?: string | null;
+  deactivatedBy?: string | null;
+  reactivatedAt?: string | null;
+  reactivatedBy?: string | null;
   rating: number;
   totalReviews: number;
   totalJobs: number;
@@ -329,8 +359,8 @@ export const useUserDetails = (id: string, enabled: boolean = true) => {
 export const useToggleUserStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
-      api.patch(`/admin/users/${id}/status`, { isActive }),
+    mutationFn: ({ id, isActive, reason }: { id: string; isActive: boolean; reason?: string }) =>
+      api.patch(`/admin/users/${id}/status`, { isActive, reason }),
     onSuccess: (_, variables) => {
       toast.success('User status updated');
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -365,7 +395,8 @@ export const useWorkerDetails = (id: string, enabled: boolean = true) => {
 export const useToggleWorkerStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => api.patch<Worker>(`/admin/workers/${id}/status`, { isActive }),
+    mutationFn: ({ id, isActive, reason }: { id: string; isActive: boolean; reason?: string }) =>
+      api.patch<Worker>(`/admin/workers/${id}/status`, { isActive, reason }),
     onSuccess: (_data, variables) => {
       toast.success('Worker status updated');
       queryClient.invalidateQueries({ queryKey: ['workers'] });
@@ -395,7 +426,7 @@ export const useVerifyWorker = () => {
 export const useUpdateWorkerProfile = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; fullName?: string; phone?: string; email?: string; category?: string; hourlyRate?: number; bio?: string; experience?: number; city?: string; address?: string }) =>
+    mutationFn: ({ id, ...data }: { id: string; fullName?: string; phone?: string; email?: string; city?: string; address?: string }) =>
       api.patch<Worker>(`/admin/workers/${id}`, data),
     onSuccess: (_data, variables) => {
       toast.success('Worker profile updated successfully');
@@ -404,6 +435,41 @@ export const useUpdateWorkerProfile = () => {
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to update worker profile');
+    },
+  });
+};
+
+export const useReviewWorkerSpecialty = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      workerId,
+      categoryId,
+      approvalStatus,
+      reason,
+    }: {
+      workerId: string;
+      categoryId: string;
+      approvalStatus: 'approved' | 'rejected';
+      reason?: string;
+    }) => api.patch(`/admin/workers/${workerId}/specialties/${categoryId}/review`, {
+      approvalStatus,
+      reason,
+    }),
+    onSuccess: (_data, variables) => {
+      toast.success(
+        variables.approvalStatus === 'approved'
+          ? 'Specialty approved, wallet charged, and category activated'
+          : 'Specialty request rejected'
+      );
+      queryClient.invalidateQueries({ queryKey: ['worker', variables.workerId] });
+      queryClient.invalidateQueries({ queryKey: ['specialty-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['worker-wallets'] });
+      queryClient.invalidateQueries({ queryKey: ['worker-wallet-details', variables.workerId] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-summary'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to review specialty request');
     },
   });
 };
@@ -520,6 +586,7 @@ export interface WorkerWallet {
   availableBalance?: number;
   totalRecharged: number;
   totalCommissionDeducted: number;
+  totalSubscriptionDeducted?: number;
   isActive: boolean;
   lastRechargedAt?: string;
   createdAt: string;
@@ -530,7 +597,7 @@ export interface WalletTransaction {
   _id: string;
   wallet: string;
   worker: string;
-  type: 'recharge' | 'commission_deduction' | 'refund' | 'adjustment';
+  type: 'recharge' | 'commission_deduction' | 'specialty_subscription' | 'refund' | 'adjustment';
   amount: number;
   balanceBefore: number;
   balanceAfter: number;
@@ -542,7 +609,7 @@ export interface WalletTransaction {
   };
   performedBy: {
     actor: string;
-    actorType: 'worker' | 'admin';
+    actorType: 'worker' | 'admin' | 'system';
   };
   createdAt: string;
   updatedAt: string;
@@ -604,6 +671,7 @@ export interface WalletSummary {
 export interface WalletSettings {
   platformFeePercentage: number;
   minimumWalletBalance: number;
+  additionalCategoryMonthlyFee: number;
   commissionEnabled: boolean;
   updatedAt?: string;
 }
@@ -643,6 +711,7 @@ export interface WorkerWalletDetails {
     availableBalance?: number;
     totalRecharged: number;
     totalCommissionDeducted: number;
+    totalSubscriptionDeducted?: number;
     isActive: boolean;
     lastRechargedAt?: string;
     createdAt: string;
