@@ -30,19 +30,20 @@ export function StatCard({
   const positive = (change ?? 0) >= 0;
 
   return (
-    <div className="app-glass card-hover relative min-h-[164px] overflow-hidden rounded-[18px] p-5 group">
-      <div className={`absolute -right-9 -top-10 h-28 w-28 rounded-full opacity-[0.1] blur-2xl transition-transform duration-500 group-hover:scale-125 ${gradient}`} />
+    <div className="app-glass card-hover relative min-h-[164px] overflow-hidden rounded-[20px] p-5 group">
+      <div className={`absolute -right-10 -top-12 h-32 w-32 rounded-full opacity-[0.18] blur-2xl transition-all duration-500 group-hover:opacity-30 group-hover:scale-125 ${gradient}`} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       <div className="flex items-start justify-between relative z-10">
-        <div className={`w-11 h-11 rounded-xl ${gradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-105 shadow-lg`}>
+        <div className={`w-12 h-12 rounded-2xl ${gradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 shadow-[0_8px_24px_rgba(0,0,0,0.4)]`}>
           {icon}
         </div>
         {change !== undefined && (
-          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${positive ? "bg-success/10 text-success border-success/20" : "bg-destructive/10 text-destructive border-destructive/20"}`}>
+          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${positive ? "bg-success/10 text-success border-success/25" : "bg-destructive/10 text-destructive border-destructive/25"}`}>
             <ArrowUpRight className={`w-3 h-3 ${positive ? "" : "rotate-90"}`} /> {Math.abs(change)}%
           </span>
         )}
       </div>
-      <div className="mt-5 text-[28px] font-extrabold tracking-[-0.04em] text-white relative z-10">{display}</div>
+      <div className="mt-5 font-display text-[30px] font-extrabold tracking-[-0.04em] text-white relative z-10">{display}</div>
       <div className="text-[13px] font-semibold text-muted-foreground mt-1 group-hover:text-foreground transition-colors relative z-10">{label}</div>
     </div>
   );
