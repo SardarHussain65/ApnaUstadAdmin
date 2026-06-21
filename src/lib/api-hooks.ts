@@ -327,6 +327,9 @@ export const usePayments = (params: { page?: number; limit?: number; status?: st
   });
 };
 
+export const usePaymentsPage = (params: { page?: number; limit?: number; status?: string; workerId?: string; customerId?: string } = {}) =>
+  usePaginatedQuery<AdminPayment>('payments', '/admin/payments', params);
+
 export const usePaymentSummary = () => {
   return useQuery({
     queryKey: ['payments-summary'],
@@ -477,8 +480,70 @@ export const useReviewWorkerSpecialty = () => {
 export const useWorkerReviews = (workerId: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: ['worker-reviews', workerId],
-    queryFn: () => api.get<any>(`/reviews/worker/${workerId}`),
+    queryFn: () => api.getPaginated<any>(`/admin/reviews?workerId=${workerId}&limit=50`),
     enabled: !!workerId && enabled,
+    select: (data) => data.items,
+  });
+};
+
+export const useAdminCities = () => {
+  return useQuery({
+    queryKey: ['admin-cities'],
+    queryFn: () => api.get<string[]>('/admin/meta/cities'),
+    staleTime: 5 * 60_000,
+  });
+};
+
+export const useSpecialtyRequestsPage = (params: { page?: number; limit?: number; search?: string } = {}) =>
+  usePaginatedQuery<Worker>('specialty-requests', '/admin/specialty-requests', params);
+
+export const useWorkerOnboardingPage = (params: { page?: number; limit?: number; search?: string } = {}) =>
+  usePaginatedQuery<any>('worker-onboarding', '/admin/workers/onboarding', params);
+
+export interface PlatformSettings {
+  urgentPricingRates: Record<string, { baseRatePerHour: number; minimumPrice: number }>;
+  defaultUrgentRate: { baseRatePerHour: number; minimumPrice: number };
+  instantJobInitialRadiusKm: number;
+  instantJobExpandedRadiusKm: number;
+  instantJobExpansionMinutes: number;
+  instantJobTimeoutMinutes: number;
+  updatedAt?: string;
+}
+
+export const usePlatformSettings = () => {
+  return useQuery({
+    queryKey: ['platform-settings'],
+    queryFn: () => api.get<PlatformSettings>('/admin/platform-settings'),
+  });
+};
+
+export const useUpdatePlatformSettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<PlatformSettings>) => api.patch<PlatformSettings>('/admin/platform-settings', payload),
+    onSuccess: () => {
+      toast.success('Platform settings updated');
+      queryClient.invalidateQueries({ queryKey: ['platform-settings'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update platform settings');
+    },
+  });
+};
+
+export const useAdminProfile = (enabled = true) => {
+  return useQuery({
+    queryKey: ['admin-profile'],
+    queryFn: () => api.get<any>('/admin/me'),
+    enabled: enabled && typeof window !== 'undefined' && !!localStorage.getItem('adminToken'),
+  });
+};
+
+export const useBookingMessages = (bookingId: string, enabled = true) => {
+  return useQuery({
+    queryKey: ['booking-messages', bookingId],
+    queryFn: () => api.get<any[]>(`/admin/bookings/${bookingId}/messages`),
+    enabled: !!bookingId && enabled,
   });
 };
 
@@ -976,14 +1041,18 @@ export interface SupportRequest {
   createdAt: string;
 }
 
-export const useSupportRequests = (params: { status?: string; search?: string; priority?: string } = {}) => {
+export const useSupportRequests = (params: { page?: number; limit?: number; status?: string; search?: string; priority?: string } = {}) => {
   const qs = toQueryString(params);
   return useQuery({
     queryKey: ['support-requests', params],
-    queryFn: () => api.get<SupportRequest[]>(`/admin/support/requests${qs ? `?${qs}` : ''}`),
+    queryFn: () => api.getPaginated<SupportRequest>(`/admin/support/requests${qs ? `?${qs}` : ''}`),
     staleTime: LIST_STALE_TIME,
+    select: (data) => data.items,
   });
 };
+
+export const useSupportRequestsPage = (params: { page?: number; limit?: number; status?: string; search?: string; priority?: string } = {}) =>
+  usePaginatedQuery<SupportRequest>('support-requests', '/admin/support/requests', params);
 
 export const useReplySupportRequest = () => {
   const queryClient = useQueryClient();
@@ -1038,6 +1107,7 @@ export const useUpdateAdminProfile = () => {
     onSuccess: (data) => {
       toast.success('Profile updated successfully');
       localStorage.setItem('adminUser', JSON.stringify(data));
+      window.dispatchEvent(new Event('admin:user-updated'));
       queryClient.invalidateQueries({ queryKey: ['admin-profile'] });
     },
     onError: (error: any) => {
@@ -1202,7 +1272,21 @@ export const useDisputeDetails = (id: string, enabled = true) => {
 export const useResolveDispute = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; status: 'resolved' | 'dismissed' | 'under_review'; adminNotes?: string; resolutionDetails?: string; refundAmount?: number }) =>
+    mutationFn: ({ id, ...data }: {
+      id: string;
+      status: 'resolved' | 'dismissed' | 'under_review';
+      adminNotes?: string;
+      resolutionDetails?: string;
+      refundAmount?: number;
+      moderation?: {
+        warnCustomer?: boolean;
+        warnWorker?: boolean;
+        workerPenalty?: number;
+        blockCustomer?: boolean;
+        blockWorker?: boolean;
+        blockReason?: string;
+      };
+    }) =>
       api.patch<any>(`/admin/disputes/${id}/resolve`, data),
     onSuccess: (data: any) => {
       toast.success('Dispute resolution saved');
@@ -1325,21 +1409,32 @@ export const useReviewVerificationRequest = () => {
  * Uses server pagination totals so badges stay accurate beyond the first page.
  */
 export const useNavBadges = () => {
-  const { data: supportData } = useSupportRequests({ status: 'open' });
+  const { data: supportData } = useSupportRequestsPage({ status: 'open', limit: 1 });
   const { data: jobsData } = useJobsPage({ status: 'open', limit: 1 });
   const { data: bookingsData } = useBookingsPage({ status: 'pending', limit: 1 });
   const { data: workersData } = useWorkersPage({ verified: false, status: 'active', limit: 1 });
   const { data: topUpsData } = useWalletTopUpsPage({ status: 'pending', limit: 1 });
   const { data: disputesData } = useDisputesPage({ status: 'open', limit: 1 });
   const { data: verificationsData } = useVerificationRequestsPage({ status: 'pending', limit: 1 });
+  const { data: specialtyData } = useSpecialtyRequestsPage({ limit: 1 });
 
-  const openTickets = (supportData as any[])?.length ?? 0;
+  const openTickets = supportData?.pagination.totalItems ?? 0;
   const openJobs = jobsData?.pagination.totalItems ?? 0;
   const pendingBookings = bookingsData?.pagination.totalItems ?? 0;
   const unverifiedWorkers = workersData?.pagination.totalItems ?? 0;
   const pendingTopUps = topUpsData?.pagination.totalItems ?? 0;
   const openDisputes = disputesData?.pagination.totalItems ?? 0;
   const pendingVerifications = verificationsData?.pagination.totalItems ?? 0;
+  const pendingSpecialties = specialtyData?.pagination.totalItems ?? 0;
 
-  return { openTickets, openJobs, pendingBookings, unverifiedWorkers, pendingTopUps, openDisputes, pendingVerifications };
+  return {
+    openTickets,
+    openJobs,
+    pendingBookings,
+    unverifiedWorkers,
+    pendingTopUps,
+    openDisputes,
+    pendingVerifications,
+    pendingSpecialties,
+  };
 };

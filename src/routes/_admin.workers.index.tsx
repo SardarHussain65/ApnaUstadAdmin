@@ -4,7 +4,8 @@ import { AlertTriangle, Eye, CheckCircle2, Power, Download } from "lucide-react"
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, RatingStars, StatusBadge } from "@/components/admin/ui";
 import { Modal } from "@/components/admin/Drawer";
-import { CITIES, CATEGORY_NAMES, fmtPKR } from "@/lib/mock-data";
+import { fmtPKR } from "@/lib/format";
+import { useCategoryFilterOptions, useCityFilterOptions } from "@/lib/filter-options";
 import { downloadCsv } from "@/lib/csv";
 import { toast } from "sonner";
 import { useWorkersPage, useVerifyWorker, useToggleWorkerStatus, type Worker } from "@/lib/api-hooks";
@@ -33,6 +34,9 @@ function WorkersPage() {
   });
   const toggleWorkerStatusMutation = useToggleWorkerStatus();
   const verifyWorkerMutation = useVerifyWorker();
+
+  const { options: categoryOptions } = useCategoryFilterOptions();
+  const { options: cityOptions } = useCityFilterOptions();
 
   const apiWorkers = data?.items || [];
 
@@ -86,8 +90,8 @@ function WorkersPage() {
       <div className="flex flex-wrap gap-2">
         <SearchInput value={q} onChange={setQ} placeholder="Search by name, phone, CNIC..." />
         <Select value={verified} onChange={setVerified} label="All" options={[{value:"yes",label:"Verified"},{value:"no",label:"Unverified"}]} />
-        <Select value={cat} onChange={setCat} label="All Categories" options={CATEGORY_NAMES.map(c=>({value:c,label:c}))} />
-        <Select value={city} onChange={setCity} label="All Cities" options={CITIES.map(c=>({value:c,label:c}))} />
+        <Select value={cat} onChange={setCat} label="All Categories" options={[{ value: "", label: "All Categories" }, ...categoryOptions]} />
+        <Select value={city} onChange={setCity} label="All Cities" options={[{ value: "", label: "All Cities" }, ...cityOptions]} />
         <button
           onClick={() => {
             downloadCsv("workers", rows, [

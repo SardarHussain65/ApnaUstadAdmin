@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { Badge } from "@/components/admin/ui";
@@ -6,10 +6,8 @@ import { toast } from "sonner";
 import {
   useUpdateAdminProfile,
   useChangeAdminPassword,
-  useWalletSettings,
-  useUpdateWalletSettings
 } from "@/lib/api-hooks";
-import { Shield, Lock, Sliders, Check, Settings2, RefreshCw } from "lucide-react";
+import { Shield, Lock, Sliders, Settings2, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/_admin/settings")({ component: SettingsPage });
 
@@ -36,23 +34,6 @@ function SettingsPage() {
   // Mutations
   const updateProfileMutation = useUpdateAdminProfile();
   const changePasswordMutation = useChangeAdminPassword();
-
-  // Wallet/Platform Settings
-  const { data: walletSettings, isLoading: isLoadingSettings } = useWalletSettings();
-  const updateWalletSettingsMutation = useUpdateWalletSettings();
-
-  // Local state for platform settings
-  const [platformFee, setPlatformFee] = useState<number>(10);
-  const [minBalance, setMinBalance] = useState<number>(500);
-  const [extraCategoryFee, setExtraCategoryFee] = useState<number>(500);
-
-  useEffect(() => {
-    if (walletSettings) {
-      setPlatformFee(walletSettings.platformFeePercentage ?? 10);
-      setMinBalance(walletSettings.minimumWalletBalance ?? 500);
-      setExtraCategoryFee(walletSettings.additionalCategoryMonthlyFee ?? 500);
-    }
-  }, [walletSettings]);
 
   // Handlers
   const handleSaveProfile = async () => {
@@ -85,19 +66,6 @@ function SettingsPage() {
       setCur("");
       setNpw("");
       setConf("");
-    } catch (err) {
-      // toast is handled in mutation
-    }
-  };
-
-  const handleSavePlatformSettings = async () => {
-    try {
-      await updateWalletSettingsMutation.mutateAsync({
-        platformFeePercentage: Number(platformFee),
-        minimumWalletBalance: Number(minBalance),
-        additionalCategoryMonthlyFee: Number(extraCategoryFee),
-        commissionEnabled: walletSettings?.commissionEnabled ?? true
-      });
     } catch (err) {
       // toast is handled in mutation
     }
@@ -240,126 +208,18 @@ function SettingsPage() {
           </button>
         </div>
 
-        {/* Card 3: Platform Settings */}
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-card lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between border-b border-border pb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Sliders className="w-5 h-5 text-accent" />
-                <h3 className="font-bold text-lg text-white">Platform Settings</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">Adjust system commission rates, worker eligibility, and paid category subscription fees</p>
-            </div>
-            <button
-              onClick={handleSavePlatformSettings}
-              disabled={updateWalletSettingsMutation.isPending || isLoadingSettings}
-              className="btn-press px-5 h-10 rounded-xl bg-accent text-background font-bold flex items-center gap-2 border border-accent/20 hover:brightness-110 active:scale-95 transition"
-            >
-              {updateWalletSettingsMutation.isPending ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Check className="w-4 h-4" />
-              )}
-              Apply Platform Rules
-            </button>
+        {/* Card 3: Platform settings moved to dedicated page */}
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-card lg:col-span-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Sliders className="w-5 h-5 text-accent" />
+            <h3 className="font-bold text-lg text-white">Platform Configuration</h3>
           </div>
-
-          {isLoadingSettings ? (
-            <div className="flex items-center justify-center py-6 text-dim gap-2">
-              <RefreshCw className="w-5 h-5 animate-spin text-primary" />
-              <span>Fetching live system rules...</span>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                
-                {/* Rule 1: Commission */}
-                <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase text-dim font-bold block mb-1">Platform Commission Fee</span>
-                    <p className="text-xs text-muted-foreground leading-relaxed">Percentage deducted from completed service bookings</p>
-                  </div>
-                  <div className="mt-4">
-                    <input
-                      type="range"
-                      min="0"
-                      max="40"
-                      value={platformFee}
-                      onChange={(e) => setPlatformFee(Number(e.target.value))}
-                      className="w-full accent-primary bg-surface h-1.5 rounded-lg cursor-pointer"
-                    />
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs font-black text-primary">{platformFee}% platform fee</span>
-                      <span className="text-[9px] text-dim font-mono">Max 40%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Rule 2: Minimum Balance */}
-                <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase text-dim font-bold block mb-1">Minimum Wallet Balance</span>
-                    <p className="text-xs text-muted-foreground leading-relaxed">Minimum funds worker needs to accept direct booking requests</p>
-                  </div>
-                  <div className="mt-4">
-                    <input
-                      type="range"
-                      min="0"
-                      max="1500"
-                      step="50"
-                      value={minBalance}
-                      onChange={(e) => setMinBalance(Number(e.target.value))}
-                      className="w-full accent-accent bg-surface h-1.5 rounded-lg cursor-pointer"
-                    />
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs font-black text-accent">{minBalance} ₨ min balance</span>
-                      <span className="text-[9px] text-dim font-mono">Max 1500</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Rule 3: Extra Category Fee */}
-                <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-3 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase text-dim font-bold block mb-1">Extra Category Monthly Fee</span>
-                    <p className="text-xs text-muted-foreground leading-relaxed">Amount workers must keep in wallet and pay for each added category</p>
-                  </div>
-                  <div className="mt-4">
-                    <input
-                      type="range"
-                      min="0"
-                      max="3000"
-                      step="50"
-                      value={extraCategoryFee}
-                      onChange={(e) => setExtraCategoryFee(Number(e.target.value))}
-                      className="w-full accent-primary bg-surface h-1.5 rounded-lg cursor-pointer"
-                    />
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs font-black text-primary">{extraCategoryFee} ₨ / month</span>
-                      <span className="text-[9px] text-dim font-mono">Max 3000</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Rule 4: Platform Constants */}
-                <div className="p-5 rounded-2xl bg-surface-light/10 border border-border/40 space-y-2.5">
-                  <div>
-                    <span className="text-[10px] uppercase text-dim font-bold block">Platform Region</span>
-                    <div className="text-lg font-bold text-white mt-1">Pakistan (PKR ₨)</div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase text-dim font-bold block">Commission Scope</span>
-                    <div className="text-lg font-bold text-white mt-1">Global Rules</div>
-                  </div>
-                </div>
-
-              </div>
-
-              <div className="border-t border-border/60 pt-5 text-xs text-muted-foreground">
-                Category-specific commission and extra-category price overrides are not enabled. The saved global rules apply to all categories.
-              </div>
-            </div>
-          )}
+          <p className="text-sm text-muted-foreground mb-4">
+            Commission rules, urgent pricing, geo matching, and payout accounts now live in the dedicated platform configuration page.
+          </p>
+          <Link to="/platform-config" className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-bold text-background">
+            Open Platform Config
+          </Link>
         </div>
 
       </div>

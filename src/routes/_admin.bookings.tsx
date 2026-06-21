@@ -4,7 +4,8 @@ import { Banknote, Download, ReceiptText, XCircle, ExternalLink, CalendarIcon } 
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
-import { fmtPKR } from "@/lib/mock-data";
+import { BookingContextPanel } from "@/components/admin/BookingContextPanel";
+import { fmtPKR } from "@/lib/format";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -212,6 +213,7 @@ function BookingsPage() {
               {selected.payment?.receiptNumber && <Line label="Receipt" value={selected.payment.receiptNumber} />}
               {selected.payment?.paidAt && <Line label="Paid At" value={format(new Date(selected.payment.paidAt), "dd MMM yyyy, HH:mm")} />}
             </div>
+            <BookingContextPanel bookingId={selected._id} />
             <div>
               <div className="text-xs uppercase text-muted-foreground font-semibold mb-2">Status Timeline</div>
               <div className="flex items-center justify-between">

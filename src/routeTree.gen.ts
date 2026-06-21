@@ -16,10 +16,14 @@ import { Route as AdminWalletsRouteImport } from './routes/_admin.wallets'
 import { Route as AdminVerificationRouteImport } from './routes/_admin.verification'
 import { Route as AdminUsersRouteImport } from './routes/_admin.users'
 import { Route as AdminSupportRouteImport } from './routes/_admin.support'
+import { Route as AdminSpecialtyRequestsRouteImport } from './routes/_admin.specialty-requests'
 import { Route as AdminSettingsRouteImport } from './routes/_admin.settings'
 import { Route as AdminReviewsRouteImport } from './routes/_admin.reviews'
 import { Route as AdminReportsRouteImport } from './routes/_admin.reports'
 import { Route as AdminPromosRouteImport } from './routes/_admin.promos'
+import { Route as AdminPlatformConfigRouteImport } from './routes/_admin.platform-config'
+import { Route as AdminPaymentsRouteImport } from './routes/_admin.payments'
+import { Route as AdminOnboardingRouteImport } from './routes/_admin.onboarding'
 import { Route as AdminNotificationsRouteImport } from './routes/_admin.notifications'
 import { Route as AdminJobsRouteImport } from './routes/_admin.jobs'
 import { Route as AdminDisputesRouteImport } from './routes/_admin.disputes'
@@ -65,6 +69,11 @@ const AdminSupportRoute = AdminSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSpecialtyRequestsRoute = AdminSpecialtyRequestsRouteImport.update({
+  id: '/specialty-requests',
+  path: '/specialty-requests',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -83,6 +92,21 @@ const AdminReportsRoute = AdminReportsRouteImport.update({
 const AdminPromosRoute = AdminPromosRouteImport.update({
   id: '/promos',
   path: '/promos',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPlatformConfigRoute = AdminPlatformConfigRouteImport.update({
+  id: '/platform-config',
+  path: '/platform-config',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOnboardingRoute = AdminOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
@@ -147,10 +171,14 @@ export interface FileRoutesByFullPath {
   '/disputes': typeof AdminDisputesRoute
   '/jobs': typeof AdminJobsRoute
   '/notifications': typeof AdminNotificationsRoute
+  '/onboarding': typeof AdminOnboardingRoute
+  '/payments': typeof AdminPaymentsRoute
+  '/platform-config': typeof AdminPlatformConfigRoute
   '/promos': typeof AdminPromosRoute
   '/reports': typeof AdminReportsRoute
   '/reviews': typeof AdminReviewsRoute
   '/settings': typeof AdminSettingsRoute
+  '/specialty-requests': typeof AdminSpecialtyRequestsRoute
   '/support': typeof AdminSupportRoute
   '/users': typeof AdminUsersRoute
   '/verification': typeof AdminVerificationRoute
@@ -169,10 +197,14 @@ export interface FileRoutesByTo {
   '/disputes': typeof AdminDisputesRoute
   '/jobs': typeof AdminJobsRoute
   '/notifications': typeof AdminNotificationsRoute
+  '/onboarding': typeof AdminOnboardingRoute
+  '/payments': typeof AdminPaymentsRoute
+  '/platform-config': typeof AdminPlatformConfigRoute
   '/promos': typeof AdminPromosRoute
   '/reports': typeof AdminReportsRoute
   '/reviews': typeof AdminReviewsRoute
   '/settings': typeof AdminSettingsRoute
+  '/specialty-requests': typeof AdminSpecialtyRequestsRoute
   '/support': typeof AdminSupportRoute
   '/users': typeof AdminUsersRoute
   '/verification': typeof AdminVerificationRoute
@@ -193,10 +225,14 @@ export interface FileRoutesById {
   '/_admin/disputes': typeof AdminDisputesRoute
   '/_admin/jobs': typeof AdminJobsRoute
   '/_admin/notifications': typeof AdminNotificationsRoute
+  '/_admin/onboarding': typeof AdminOnboardingRoute
+  '/_admin/payments': typeof AdminPaymentsRoute
+  '/_admin/platform-config': typeof AdminPlatformConfigRoute
   '/_admin/promos': typeof AdminPromosRoute
   '/_admin/reports': typeof AdminReportsRoute
   '/_admin/reviews': typeof AdminReviewsRoute
   '/_admin/settings': typeof AdminSettingsRoute
+  '/_admin/specialty-requests': typeof AdminSpecialtyRequestsRoute
   '/_admin/support': typeof AdminSupportRoute
   '/_admin/users': typeof AdminUsersRoute
   '/_admin/verification': typeof AdminVerificationRoute
@@ -217,10 +253,14 @@ export interface FileRouteTypes {
     | '/disputes'
     | '/jobs'
     | '/notifications'
+    | '/onboarding'
+    | '/payments'
+    | '/platform-config'
     | '/promos'
     | '/reports'
     | '/reviews'
     | '/settings'
+    | '/specialty-requests'
     | '/support'
     | '/users'
     | '/verification'
@@ -239,10 +279,14 @@ export interface FileRouteTypes {
     | '/disputes'
     | '/jobs'
     | '/notifications'
+    | '/onboarding'
+    | '/payments'
+    | '/platform-config'
     | '/promos'
     | '/reports'
     | '/reviews'
     | '/settings'
+    | '/specialty-requests'
     | '/support'
     | '/users'
     | '/verification'
@@ -262,10 +306,14 @@ export interface FileRouteTypes {
     | '/_admin/disputes'
     | '/_admin/jobs'
     | '/_admin/notifications'
+    | '/_admin/onboarding'
+    | '/_admin/payments'
+    | '/_admin/platform-config'
     | '/_admin/promos'
     | '/_admin/reports'
     | '/_admin/reviews'
     | '/_admin/settings'
+    | '/_admin/specialty-requests'
     | '/_admin/support'
     | '/_admin/users'
     | '/_admin/verification'
@@ -331,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSupportRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/specialty-requests': {
+      id: '/_admin/specialty-requests'
+      path: '/specialty-requests'
+      fullPath: '/specialty-requests'
+      preLoaderRoute: typeof AdminSpecialtyRequestsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/settings': {
       id: '/_admin/settings'
       path: '/settings'
@@ -357,6 +412,27 @@ declare module '@tanstack/react-router' {
       path: '/promos'
       fullPath: '/promos'
       preLoaderRoute: typeof AdminPromosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/platform-config': {
+      id: '/_admin/platform-config'
+      path: '/platform-config'
+      fullPath: '/platform-config'
+      preLoaderRoute: typeof AdminPlatformConfigRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/payments': {
+      id: '/_admin/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/onboarding': {
+      id: '/_admin/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AdminOnboardingRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/notifications': {
@@ -441,10 +517,14 @@ interface AdminRouteChildren {
   AdminDisputesRoute: typeof AdminDisputesRoute
   AdminJobsRoute: typeof AdminJobsRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
+  AdminOnboardingRoute: typeof AdminOnboardingRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminPlatformConfigRoute: typeof AdminPlatformConfigRoute
   AdminPromosRoute: typeof AdminPromosRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSpecialtyRequestsRoute: typeof AdminSpecialtyRequestsRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVerificationRoute: typeof AdminVerificationRoute
@@ -462,10 +542,14 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminDisputesRoute: AdminDisputesRoute,
   AdminJobsRoute: AdminJobsRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
+  AdminOnboardingRoute: AdminOnboardingRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminPlatformConfigRoute: AdminPlatformConfigRoute,
   AdminPromosRoute: AdminPromosRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminReviewsRoute: AdminReviewsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
+  AdminSpecialtyRequestsRoute: AdminSpecialtyRequestsRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVerificationRoute: AdminVerificationRoute,

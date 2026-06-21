@@ -39,29 +39,38 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Try again
-          </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
-          </a>
+      <div className="relative max-w-lg overflow-hidden rounded-[28px] border border-border/80 bg-gradient-to-br from-card via-card to-destructive/[0.08] p-8 text-center shadow-card">
+        <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-destructive/10 blur-3xl" />
+        <div className="relative">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/10 text-2xl">
+            ⚠️
+          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-white">This page didn&apos;t load</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Something went wrong on our end. You can try refreshing or head back home.
+          </p>
+          {import.meta.env.DEV && error?.message && (
+            <p className="mt-3 rounded-xl border border-border/60 bg-black/20 px-3 py-2 text-left font-mono text-[11px] text-destructive">
+              {error.message}
+            </p>
+          )}
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => {
+                router.invalidate();
+                reset();
+              }}
+              className="btn-press inline-flex items-center justify-center rounded-xl gradient-cyan px-5 py-2.5 text-sm font-bold text-background shadow-lg"
+            >
+              Try again
+            </button>
+            <a
+              href="/"
+              className="inline-flex items-center justify-center rounded-xl border border-border bg-surface-light/10 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-surface-light/20"
+            >
+              Go home
+            </a>
+          </div>
         </div>
       </div>
     </div>

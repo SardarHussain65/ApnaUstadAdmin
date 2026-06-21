@@ -29,7 +29,8 @@ import {
   Bar
 } from "recharts";
 import { StatCard, StatusBadge, Avatar, Badge } from "@/components/admin/ui";
-import { fmtPKR } from "@/lib/mock-data";
+import { fmtPKR } from "@/lib/format";
+import { ActionCenter } from "@/components/admin/ActionCenter";
 import {
   useDashboardStats,
   useBookings,
@@ -302,79 +303,7 @@ function DashboardPage() {
         />
       </div>
 
-      {/* 🚀 Quick Action / Critical Alert Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-        {/* Card 1: Verifications */}
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-card flex flex-col justify-between group hover:border-primary/50 transition-colors">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-[10px] text-dim uppercase tracking-wider font-bold">Worker Verification</div>
-              <h4 className="text-lg font-bold text-white mt-1">Pending Profiles</h4>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
-              <Wrench className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">{pendingWorkersCount}</span>
-            <span className="text-xs text-dim">workers waiting</span>
-          </div>
-          <Link
-            to="/verification"
-            className="mt-4 flex items-center gap-1.5 text-xs text-primary font-bold hover:underline self-start"
-          >
-            Go to Verifications <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
-
-        {/* Card 2: Wallet Top-ups */}
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-card flex flex-col justify-between group hover:border-primary/50 transition-colors">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-[10px] text-dim uppercase tracking-wider font-bold">Financial Overviews</div>
-              <h4 className="text-lg font-bold text-white mt-1">Pending Top-ups</h4>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">{pendingTopUpsCount}</span>
-            <span className="text-xs text-dim">recharges in queue</span>
-          </div>
-          <Link
-            to="/wallets"
-            className="mt-4 flex items-center gap-1.5 text-xs text-primary font-bold hover:underline self-start"
-          >
-            Verify Wallet Recharges <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
-
-        {/* Card 3: Support Requests */}
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-card flex flex-col justify-between group hover:border-primary/50 transition-colors">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-[10px] text-dim uppercase tracking-wider font-bold">Customer Tickets</div>
-              <h4 className="text-lg font-bold text-white mt-1">Open Support Desk</h4>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
-              <Inbox className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">{openTickets.length}</span>
-            <span className="text-xs text-dim">active complaints</span>
-          </div>
-          <Link
-            to="/support"
-            className="mt-4 flex items-center gap-1.5 text-xs text-primary font-bold hover:underline self-start"
-          >
-            Open Support Panel <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
-
-      </div>
+      <ActionCenter />
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

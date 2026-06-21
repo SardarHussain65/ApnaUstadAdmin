@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useDeferredValue } from "react";
+import { useState, useDeferredValue, useEffect } from "react";
 import {
-  useSupportRequests,
+  useSupportRequestsPage,
   useReplySupportRequest,
   useUpdateSupportStatus,
   useUpdateSupportPriority,
   SupportRequest
 } from "@/lib/api-hooks";
+import { BookingContextPanel } from "@/components/admin/BookingContextPanel";
+import { AdminPageHeader, StatChip } from "@/components/admin/AdminPageHeader";
+import { PaginationBar, SearchInput } from "@/components/admin/DataTable";
 import {
-  Search,
   MessageSquare,
   Clock,
   AlertTriangle,
@@ -41,6 +43,8 @@ function SupportPage() {
   const [search, setSearch] = useState<string>("");
   const deferredSearch = useDeferredValue(search);
 
+  const [page, setPage] = useState(1);
+
   // Selected ticket
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -48,11 +52,16 @@ function SupportPage() {
   const [replyText, setReplyText] = useState("");
 
   // Queries & Mutations
-  const { data: requests = [], isLoading } = useSupportRequests({
+  useEffect(() => { setPage(1); }, [status, priority, deferredSearch]);
+
+  const { data: supportData, isLoading } = useSupportRequestsPage({
+    page,
+    limit: 20,
     status: status || undefined,
     priority: priority || undefined,
     search: deferredSearch || undefined
   });
+  const requests = supportData?.items || [];
 
   const replyMutation = useReplySupportRequest();
   const statusMutation = useUpdateSupportStatus();
@@ -124,80 +133,32 @@ function SupportPage() {
 
   return (
     <div className="space-y-6">
-      {/* 🚀 Header & Quick Statistics */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
-            Support Desk
-          </h2>
-          <p className="text-sm text-dim mt-1">
-            Manage customer complaints, feedback, and system support tickets.
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Support Desk"
+        description="Resolve customer and worker tickets with quick replies, priority controls, and linked booking context."
+        icon={<MessageSquare className="h-3.5 w-3.5" />}
+        stats={
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatChip icon={<Inbox className="h-5 w-5" />} label="Open" value={totalOpen} tone="success" />
+            <StatChip icon={<Clock className="h-5 w-5" />} label="Pending" value={totalPending} tone="gold" />
+            <StatChip icon={<AlertCircle className="h-5 w-5" />} label="Urgent" value={totalUrgent} tone="danger" />
+            <StatChip icon={<CheckCircle className="h-5 w-5" />} label="Closed (page)" value={totalClosed} tone="muted" />
+          </div>
+        }
+      />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-success/15 flex items-center justify-center text-success">
-            <Inbox className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold">{totalOpen}</div>
-            <div className="text-xs text-dim">Open Tickets</div>
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gold/15 flex items-center justify-center text-gold">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold">{totalPending}</div>
-            <div className="text-xs text-dim">Pending Tickets</div>
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-destructive/15 flex items-center justify-center text-destructive">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold">{totalUrgent}</div>
-            <div className="text-xs text-dim">Urgent Issues</div>
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-surface-light/15 flex items-center justify-center text-muted-foreground">
-            <CheckCircle className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold">{totalClosed}</div>
-            <div className="text-xs text-dim">Resolved Tickets</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 💼 Main Interactive Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[650px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 min-h-[650px]">
         
         {/* Left Side: Ticket List & Filters */}
-        <div className="lg:col-span-5 flex flex-col bg-card border border-border rounded-2xl p-4 shadow-card overflow-hidden h-[680px]">
+        <div className="lg:col-span-5 flex flex-col app-glass rounded-[22px] p-4 overflow-hidden h-[680px]">
           
-          {/* Search bar */}
-          <div className="relative mb-3">
-            <Search className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-dim" />
-            <input
-              type="text"
-              placeholder="Search by user name, email, topic..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-input border border-border focus:border-primary/50 text-sm outline-none transition"
-            />
-          </div>
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by user name, email, topic..."
+          />
 
-          {/* Quick Filters */}
-          <div className="flex gap-2 mb-4">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="flex-1">
               <label className="text-[10px] text-dim font-semibold uppercase block mb-1">Status</label>
               <select
@@ -228,7 +189,7 @@ function SupportPage() {
             </div>
           </div>
 
-          <hr className="border-border mb-3" />
+          <hr className="my-4 border-white/8" />
 
           {/* Scrollable list */}
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
@@ -251,10 +212,10 @@ function SupportPage() {
                   <button
                     key={r._id}
                     onClick={() => setSelectedId(r._id)}
-                    className={`w-full text-left p-3.5 rounded-xl border transition-all duration-200 relative group flex flex-col gap-2 ${
+                    className={`w-full text-left rounded-2xl border p-4 transition-all duration-200 relative group flex flex-col gap-2 ${
                       isActive
-                        ? "bg-surface-light/70 border-primary shadow-glow-cyan"
-                        : "bg-surface-light/20 border-border hover:bg-surface-light/40 hover:border-primary/30"
+                        ? "border-primary/40 bg-primary/10 shadow-[0_0_24px_rgba(0,245,255,0.12)]"
+                        : "border-white/8 bg-white/[0.02] hover:border-primary/25 hover:bg-white/[0.04]"
                     }`}
                   >
                     {/* Active side indicator */}
@@ -301,10 +262,18 @@ function SupportPage() {
               })
             )}
           </div>
+          <PaginationBar
+            page={page}
+            totalPages={supportData?.pagination.totalPages ?? 1}
+            totalItems={supportData?.pagination.totalItems ?? 0}
+            pageSize={20}
+            visibleItems={requests.length}
+            onPageChange={setPage}
+          />
         </div>
 
         {/* Right Side: Conversation Thread & Action Drawer */}
-        <div className="lg:col-span-7 flex flex-col bg-card border border-border rounded-2xl shadow-card overflow-hidden h-[680px]">
+        <div className="lg:col-span-7 flex flex-col app-glass rounded-[22px] overflow-hidden h-[680px]">
           {selectedRequest ? (
             <div className="flex flex-col h-full">
               
@@ -364,6 +333,8 @@ function SupportPage() {
                     {selectedRequest.message}
                   </div>
                 </div>
+
+                <BookingContextPanel bookingId={selectedRequest.metadata?.bookingId || selectedRequest.metadata?.booking} />
 
                 {/* Replies Thread */}
                 {selectedRequest.replies && selectedRequest.replies.length > 0 ? (
@@ -451,13 +422,13 @@ function SupportPage() {
 
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-dim text-center p-8">
-              <div className="w-16 h-16 rounded-2xl bg-surface-light/20 flex items-center justify-center text-dim opacity-40 mb-4 animate-bounce">
-                <MessageSquare className="w-8 h-8" />
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-10">
+              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[22px] border border-primary/20 bg-primary/10 text-primary">
+                <MessageSquare className="h-9 w-9" />
               </div>
-              <h4 className="text-base font-semibold text-white">No Ticket Selected</h4>
-              <p className="text-xs max-w-xs mt-1">
-                Select a support ticket from the sidebar to review the full details, update the ticket status, and send replies.
+              <h4 className="text-lg font-bold text-white">No ticket selected</h4>
+              <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                Pick a support ticket from the list to review details, update status, and send replies.
               </p>
             </div>
           )}

@@ -4,7 +4,8 @@ import { Trash2, Download, ExternalLink, ChevronDown, Users, XCircle } from "luc
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Badge, StatusBadge } from "@/components/admin/ui";
 import { Drawer, Modal } from "@/components/admin/Drawer";
-import { CATEGORY_NAMES, fmtPKR } from "@/lib/mock-data";
+import { fmtPKR } from "@/lib/format";
+import { useCategoryFilterOptions } from "@/lib/filter-options";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -40,6 +41,7 @@ function JobsPage() {
   const cancelJobMutation = useCancelJob();
   const updateStatusMutation = useUpdateJobStatus();
 
+  const { options: categoryOptions } = useCategoryFilterOptions();
   const rows = data?.items || [];
 
   const enrichedJob = (jobDetails as any) || sel;
@@ -73,7 +75,7 @@ function JobsPage() {
         <SearchInput value={q} onChange={setQ} placeholder="Search jobs..." />
         <Select value={status} onChange={setStatus} label="All Status" options={["open","assigned","reviewing","closed","cancelled"].map(s=>({value:s,label:s}))} />
         <Select value={urg} onChange={setUrg} label="Urgency" options={[{value:"instant",label:"Instant"},{value:"scheduled",label:"Scheduled"}]} />
-        <Select value={cat} onChange={setCat} label="Category" options={CATEGORY_NAMES.map(c=>({value:c,label:c}))} />
+        <Select value={cat} onChange={setCat} label="Category" options={[{ value: "", label: "All categories" }, ...categoryOptions]} />
         <button
           onClick={() => {
             downloadCsv("jobs", rows, [
