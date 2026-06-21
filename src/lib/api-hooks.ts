@@ -1172,7 +1172,7 @@ export interface AdminUser {
   _id: string;
   fullName: string;
   email: string;
-  role: 'superadmin' | 'admin';
+  role: 'superadmin' | 'admin' | 'support' | 'verifier' | 'finance';
   status: 'active' | 'inactive';
   lastLogin?: string;
   createdAt: string;
