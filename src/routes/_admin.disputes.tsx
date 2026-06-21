@@ -651,8 +651,8 @@ function DisputesPage() {
                       <span className="text-[10px] uppercase text-dim font-bold block">Actions applied</span>
                       {selectedDispute.moderationApplied.warnedCustomer ? <div>• Customer warned</div> : null}
                       {selectedDispute.moderationApplied.warnedWorker ? <div>• Ustad warned</div> : null}
-                      {(selectedDispute.moderationApplied.customerRefund ?? 0) > 0 ? <div>• Refund {fmtPKR(selectedDispute.moderationApplied.customerRefund)}</div> : null}
-                      {(selectedDispute.moderationApplied.workerPenalty ?? 0) > 0 ? <div>• Ustad penalty {fmtPKR(selectedDispute.moderationApplied.workerPenalty)}</div> : null}
+                      {(selectedDispute.moderationApplied.customerRefund ?? 0) > 0 ? <div>• Refund {fmtPKR(selectedDispute.moderationApplied.customerRefund ?? 0)}</div> : null}
+                      {(selectedDispute.moderationApplied.workerPenalty ?? 0) > 0 ? <div>• Ustad penalty {fmtPKR(selectedDispute.moderationApplied.workerPenalty ?? 0)}</div> : null}
                       {selectedDispute.moderationApplied.customerBlocked ? <div className="text-destructive">• Customer blocked</div> : null}
                       {selectedDispute.moderationApplied.workerBlocked ? <div className="text-destructive">• Ustad blocked</div> : null}
                     </div>
