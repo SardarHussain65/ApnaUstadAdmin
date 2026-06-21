@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
-  ArrowLeft, CalendarDays, CheckCircle2, Mail, MapPin, Phone, Power,
-  RotateCcw, X, XCircle, Wallet, Star, Edit, Save, Loader
+  AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Mail, MapPin, Phone, Power,
+  RotateCcw, X, XCircle, Wallet, Star, Edit, Save, Loader, Layers3
 } from "lucide-react";
 import { format } from "date-fns";
 import { Avatar, Badge, StatusBadge, RatingStars } from "@/components/admin/ui";
@@ -11,7 +11,7 @@ import { fmtPKR } from "@/lib/mock-data";
 import {
   useBookings, useToggleWorkerStatus, useVerifyWorker,
   useWorkerDetails, useWorkerWalletDetails, useWorkerReviews,
-  useUpdateWorkerProfile, useCategories
+  useUpdateWorkerProfile, useReviewWorkerSpecialty, useWalletSettings
 } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/workers/$id")({ component: WorkerDetail });
@@ -23,25 +23,33 @@ function WorkerDetail() {
   const [confirm, setConfirm] = useState<"verify" | "reject" | null>(null);
   const [reason, setReason] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  const [statusReason, setStatusReason] = useState("");
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
 
   // Edit form state
   const [editForm, setEditForm] = useState({
-    fullName: "", phone: "", email: "", category: "", hourlyRate: "",
-    bio: "", experience: "", city: "", address: ""
+    fullName: "", phone: "", email: "", city: "", address: ""
   });
 
   const { data: worker, isLoading, isError, error, refetch } = useWorkerDetails(id, !!id);
   const { data: bookings = [], isLoading: bookingsLoading } = useBookings({ workerId: id, limit: 10 });
   const { data: walletData, isLoading: walletLoading } = useWorkerWalletDetails(id, 1, 10);
   const { data: reviewsData, isLoading: reviewsLoading } = useWorkerReviews(id, activeTab === "reviews");
-  const { data: categories = [] } = useCategories({ limit: 100 });
+  const { data: walletSettings } = useWalletSettings();
 
   const verifyWorkerMutation = useVerifyWorker();
   const toggleWorkerStatusMutation = useToggleWorkerStatus();
   const updateProfileMutation = useUpdateWorkerProfile();
+  const reviewSpecialtyMutation = useReviewWorkerSpecialty();
 
   const recentBookings = useMemo(() => (bookings as any[]).slice(0, 10), [bookings]);
   const reviews = useMemo(() => (reviewsData as any)?.data || (Array.isArray(reviewsData) ? reviewsData : []), [reviewsData]);
+  const activeSpecialties = useMemo(() => (
+    (worker?.specialties || [])
+      .filter(specialty => specialty.approvalStatus === "approved" && specialty.isActive)
+      .slice()
+      .sort((a, b) => a.priority - b.priority)
+  ), [worker?.specialties]);
 
   if (isLoading) {
     return (
@@ -82,10 +90,6 @@ function WorkerDetail() {
       fullName: worker.fullName || "",
       phone: worker.phone || "",
       email: worker.email || "",
-      category: worker.category || "",
-      hourlyRate: String(worker.hourlyRate || ""),
-      bio: worker.bio || "",
-      experience: String(worker.experience || ""),
       city: worker.city || "",
       address: worker.address || ""
     });
@@ -100,10 +104,6 @@ function WorkerDetail() {
         fullName: editForm.fullName || undefined,
         phone: editForm.phone || undefined,
         email: editForm.email || undefined,
-        category: editForm.category || undefined,
-        hourlyRate: editForm.hourlyRate ? Number(editForm.hourlyRate) : undefined,
-        bio: editForm.bio !== undefined ? editForm.bio : undefined,
-        experience: editForm.experience ? Number(editForm.experience) : undefined,
         city: editForm.city || undefined,
         address: editForm.address !== undefined ? editForm.address : undefined
       },
@@ -120,7 +120,25 @@ function WorkerDetail() {
   };
 
   const toggleActiveStatus = () => {
-    toggleWorkerStatusMutation.mutate({ id: worker._id, isActive: !worker.isActive });
+    if (worker.isActive) {
+      setStatusConfirmOpen(true);
+      setStatusReason("");
+      return;
+    }
+    toggleWorkerStatusMutation.mutate({ id: worker._id, isActive: true });
+  };
+
+  const confirmDeactivateWorker = () => {
+    if (!statusReason.trim()) return;
+    toggleWorkerStatusMutation.mutate(
+      { id: worker._id, isActive: false, reason: statusReason.trim() },
+      {
+        onSuccess: () => {
+          setStatusConfirmOpen(false);
+          setStatusReason("");
+        }
+      }
+    );
   };
 
   return (
@@ -142,10 +160,15 @@ function WorkerDetail() {
           </div>
           <h2 className="text-2xl font-bold mt-4">{worker.fullName || "Unnamed Worker"}</h2>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-            <Badge variant="orange">{worker.category || "No category"}</Badge>
+            {activeSpecialties.length > 0
+              ? activeSpecialties.slice(0, 3).map((specialty) => {
+                const category = typeof specialty.categoryId === "string" ? null : specialty.categoryId;
+                return <Badge key={specialty._id} variant={specialty.priority === 1 ? "info" : "orange"}>{category?.name || "Category"}</Badge>;
+              })
+              : <Badge variant="orange">{worker.category || "No category"}</Badge>}
+            {activeSpecialties.length > 3 && <Badge variant="purple">+{activeSpecialties.length - 3} more</Badge>}
             <StatusBadge status={worker.isActive ? "active" : "inactive"} />
           </div>
-          <p className="text-sm text-muted-foreground mt-3">{worker.bio || "No bio provided."}</p>
 
           <div className="mt-4 space-y-2 text-sm text-left">
             <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> {worker.phone || "N/A"}</div>
@@ -153,22 +176,55 @@ function WorkerDetail() {
             <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> {worker.city || "N/A"}</div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="p-3 rounded-xl bg-surface-light">
-              <div className="text-[10px] uppercase text-muted-foreground">Rate</div>
-              <div className="text-accent font-bold">{fmtPKR(worker.hourlyRate || 0)}/hr</div>
+          {!worker.isActive && (
+            <div className="mt-4 rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-left">
+              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5" /> Suspended
+              </div>
+              <p className="mt-2 text-sm text-white">{worker.deactivationReason || "Account deactivated by admin. Please contact support for details."}</p>
+              {worker.deactivatedAt && <p className="mt-1 text-xs text-muted-foreground">Deactivated {formatDate(worker.deactivatedAt)}</p>}
             </div>
-            <div className="p-3 rounded-xl bg-surface-light">
-              <div className="text-[10px] uppercase text-muted-foreground">Experience</div>
-              <div className="font-bold">{worker.experience || 0} years</div>
-            </div>
-          </div>
+          )}
 
-          <div className="mt-3 flex flex-wrap gap-1.5 justify-center">
-            {(worker.skills || []).length > 0
-              ? worker.skills.map((skill: string) => <span key={skill} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">{skill}</span>)
-              : <span className="text-xs text-muted-foreground">No skills listed</span>}
-          </div>
+          {activeSpecialties.length > 0 && (
+            <div className="mt-4 rounded-2xl bg-surface-light/70 border border-border p-3 text-left">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mb-2">Active service categories</div>
+              <div className="space-y-3">
+                {activeSpecialties.map((specialty) => {
+                  const category = typeof specialty.categoryId === "string" ? null : specialty.categoryId;
+                  return (
+                    <div key={specialty._id} className="rounded-xl bg-card/80 border border-border/70 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-extrabold truncate">{category?.name || "Category"}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{specialty.priority === 1 ? "Primary service" : "Additional service"}</div>
+                        </div>
+                        <Badge variant={specialty.subscriptionStatus === "active" || specialty.subscriptionStatus === "free" ? "success" : "warning"}>
+                          {specialty.subscriptionStatus.replace(/_/g, " ")}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="rounded-lg bg-surface-light/80 border border-border/60 px-3 py-2">
+                          <div className="text-[10px] uppercase text-muted-foreground font-bold">Rate</div>
+                          <div className="text-sm font-extrabold text-accent">{fmtPKR(specialty.hourlyRate || 0)}/hr</div>
+                        </div>
+                        <div className="rounded-lg bg-surface-light/80 border border-border/60 px-3 py-2">
+                          <div className="text-[10px] uppercase text-muted-foreground font-bold">Experience</div>
+                          <div className="text-sm font-extrabold">{specialty.experience || 0} years</div>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground leading-relaxed">{specialty.bio || "No category description submitted."}</p>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {(specialty.skills || []).length > 0
+                          ? specialty.skills.slice(0, 6).map(skill => <span key={skill} className="px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">{skill}</span>)
+                          : <span className="text-[11px] text-muted-foreground">No skills submitted</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Action buttons */}
           <button
@@ -232,6 +288,75 @@ function WorkerDetail() {
               >
                 <XCircle className="w-4 h-4" /> {worker.isVerified ? "Revoke Verification" : "Reject"}
               </button>
+            </div>
+          </div>
+
+          {/* Specialty subscriptions */}
+          <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="font-bold flex items-center gap-2"><Layers3 className="w-4 h-4 text-primary" /> Specialty Subscriptions</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Only the primary category is free. Approving an additional category immediately deducts the monthly fee and activates it for matching.</p>
+              </div>
+              <Badge variant="info">{worker.specialties?.length || 0}/5</Badge>
+            </div>
+            <div className="space-y-2">
+              {(worker.specialties || []).slice().sort((a, b) => a.priority - b.priority).map(specialty => {
+                const category = typeof specialty.categoryId === "string" ? null : specialty.categoryId;
+                const categoryId = typeof specialty.categoryId === "string" ? specialty.categoryId : specialty.categoryId._id;
+                const tier = specialty.priority === 1 ? "Primary" : "Additional";
+                const configuredFee = specialty.priority === 1
+                  ? 0
+                  : Number(walletSettings?.additionalCategoryMonthlyFee ?? specialty.monthlyFeeSnapshot ?? 500);
+                return (
+                  <div key={specialty._id} className="rounded-xl bg-surface border border-border px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold">{category?.name || "Category"}</span>
+                          <Badge variant={specialty.priority === 1 ? "info" : "orange"}>{tier}</Badge>
+                          <Badge variant={specialty.approvalStatus === "approved" ? "success" : specialty.approvalStatus === "rejected" ? "danger" : "warning"}>
+                            {specialty.approvalStatus}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {specialty.priority === 1 ? "Included free" : `${fmtPKR(configuredFee)} / month`} · {specialty.subscriptionStatus.replace(/_/g, " ")}
+                          {specialty.nextBillingAt ? ` · renews ${formatDate(specialty.nextBillingAt)}` : ""}
+                        </div>
+                      </div>
+                      {specialty.approvalStatus === "pending" && (
+                        <div className="flex gap-2">
+                          <button disabled={reviewSpecialtyMutation.isPending}
+                            onClick={() => reviewSpecialtyMutation.mutate({ workerId: worker._id, categoryId, approvalStatus: "approved" })}
+                            className="px-3 h-9 rounded-lg bg-success/15 text-success border border-success/30 text-xs font-bold disabled:opacity-50">
+                            Approve & Charge
+                          </button>
+                          <button disabled={reviewSpecialtyMutation.isPending}
+                            onClick={() => reviewSpecialtyMutation.mutate({ workerId: worker._id, categoryId, approvalStatus: "rejected" })}
+                            className="px-3 h-9 rounded-lg bg-destructive/15 text-destructive border border-destructive/30 text-xs font-bold disabled:opacity-50">
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-3 rounded-xl bg-card/70 border border-border/70 p-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div><span className="text-muted-foreground">Worker rate:</span> <span className="font-bold text-accent">{fmtPKR(specialty.hourlyRate || 0)}/hr</span></div>
+                        <div><span className="text-muted-foreground">Experience:</span> <span className="font-bold">{specialty.experience || 0} years</span></div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {(specialty.skills || []).length > 0
+                          ? specialty.skills.map(skill => <span key={skill} className="px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">{skill}</span>)
+                          : <span className="text-[11px] text-muted-foreground">No skills submitted</span>}
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{specialty.bio || "No category description submitted."}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              {(worker.specialties || []).length === 0 && (
+                <div className="rounded-xl bg-surface border border-border px-4 py-5 text-sm text-muted-foreground">Run the worker specialty migration to initialize this legacy profile.</div>
+              )}
             </div>
           </div>
 
@@ -306,6 +431,10 @@ function WorkerDetail() {
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Commission Deducted</div>
                         <div className="text-2xl font-extrabold text-destructive mt-1">{fmtPKR(walletData.wallet?.totalCommissionDeducted || 0)}</div>
                       </div>
+                      <div className="p-4 rounded-xl bg-surface border border-border">
+                        <div className="text-xs text-muted-foreground uppercase font-semibold">Specialty Renewals</div>
+                        <div className="text-2xl font-extrabold text-accent mt-1">{fmtPKR(walletData.wallet?.totalSubscriptionDeducted || 0)}</div>
+                      </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
@@ -322,13 +451,13 @@ function WorkerDetail() {
                           {(walletData.transactions || []).map((tx: any) => (
                             <tr key={tx._id} className="border-b border-border/60 hover:bg-surface-light/40 transition">
                               <td className="px-4 py-2.5">
-                                <Badge variant={tx.type === 'recharge' ? 'success' : tx.type === 'commission_deduction' ? 'danger' : 'info'}>
+                                <Badge variant={tx.type === 'recharge' ? 'success' : ['commission_deduction', 'specialty_subscription'].includes(tx.type) ? 'danger' : 'info'}>
                                   {tx.type?.replace(/_/g, ' ')}
                                 </Badge>
                               </td>
                               <td className="px-4 py-2.5 text-muted-foreground truncate max-w-[200px]">{tx.description || "—"}</td>
-                              <td className={`px-4 py-2.5 text-right font-bold ${tx.type === 'commission_deduction' ? 'text-destructive' : 'text-success'}`}>
-                                {tx.type === 'commission_deduction' ? '-' : '+'}{fmtPKR(tx.amount || 0)}
+                              <td className={`px-4 py-2.5 text-right font-bold ${['commission_deduction', 'specialty_subscription'].includes(tx.type) ? 'text-destructive' : 'text-success'}`}>
+                                {['commission_deduction', 'specialty_subscription'].includes(tx.type) ? '-' : '+'}{fmtPKR(tx.amount || 0)}
                               </td>
                               <td className="px-4 py-2.5 text-right font-semibold">{fmtPKR(tx.balanceAfter || 0)}</td>
                               <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(tx.createdAt)}</td>
@@ -423,9 +552,55 @@ function WorkerDetail() {
         </div>
       </Modal>
 
+      <Modal open={statusConfirmOpen} onClose={() => setStatusConfirmOpen(false)} title="Deactivate Worker Account">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
+              <div>
+                <div className="font-bold text-white">This worker will be locked out of app actions.</div>
+                <p className="mt-1 text-sm text-muted-foreground">Active bookings are not cancelled automatically. Admin/support should resolve any active cases manually.</p>
+              </div>
+            </div>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-muted-foreground">Reason shown to worker</span>
+            <textarea
+              value={statusReason}
+              onChange={(event) => setStatusReason(event.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="Explain why this worker account is being deactivated..."
+              className="w-full resize-none rounded-xl border border-border bg-input px-3 py-2 text-sm outline-none focus:border-destructive"
+            />
+          </label>
+          <div className="flex justify-end gap-3 border-t border-border pt-4">
+            <button onClick={() => setStatusConfirmOpen(false)} className="h-10 rounded-xl border border-border px-4 text-sm font-semibold text-muted-foreground hover:bg-surface-light">Cancel</button>
+            <button
+              disabled={!statusReason.trim() || toggleWorkerStatusMutation.isPending}
+              onClick={confirmDeactivateWorker}
+              className="h-10 rounded-xl bg-destructive px-5 text-sm font-bold text-white disabled:opacity-50"
+            >
+              Deactivate Worker
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Edit Profile Modal */}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Worker Profile" width="max-w-2xl">
         <form onSubmit={handleEditSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-start gap-3">
+              <Layers3 className="w-5 h-5 text-primary mt-0.5" />
+              <div>
+                <div className="text-sm font-extrabold text-white">Service details are category-specific</div>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  Category, hourly rate, experience, bio, and skills are managed in the Active Service Categories and pending approval sections, not from this general profile form.
+                </p>
+              </div>
+            </div>
+          </div>
           <div>
             <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Full Name</label>
             <input value={editForm.fullName} onChange={e => setEditForm(f => ({ ...f, fullName: e.target.value }))}
@@ -442,24 +617,6 @@ function WorkerDetail() {
               className="w-full bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Category</label>
-            <select value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
-              className="w-full bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary cursor-pointer">
-              <option value="">Select category</option>
-              {(categories as any[]).map((c: any) => <option key={c._id} value={c.name}>{c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Hourly Rate (PKR)</label>
-            <input type="number" value={editForm.hourlyRate} onChange={e => setEditForm(f => ({ ...f, hourlyRate: e.target.value }))}
-              className="w-full bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Experience (years)</label>
-            <input type="number" value={editForm.experience} onChange={e => setEditForm(f => ({ ...f, experience: e.target.value }))}
-              className="w-full bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
-          </div>
-          <div>
             <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">City</label>
             <input value={editForm.city} onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))}
               className="w-full bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
@@ -468,11 +625,6 @@ function WorkerDetail() {
             <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Address</label>
             <input value={editForm.address} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))}
               className="w-full bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Bio</label>
-            <textarea value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} rows={3}
-              className="w-full bg-input border border-border rounded-xl px-3 py-2 text-sm outline-none focus:border-primary resize-none" />
           </div>
           <div className="sm:col-span-2 flex gap-3 justify-end pt-2 border-t border-border mt-2">
             <button type="button" onClick={() => setEditOpen(false)} className="px-4 h-10 border border-border rounded-xl text-sm font-semibold text-muted-foreground hover:bg-surface-light">Cancel</button>

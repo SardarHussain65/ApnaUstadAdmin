@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Eye, CheckCircle2, Power, Download } from "lucide-react";
+import { AlertTriangle, Eye, CheckCircle2, Power, Download } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, RatingStars, StatusBadge } from "@/components/admin/ui";
-import { CITIES, CATEGORY_NAMES, fmtPKR } from "@/lib/mock-data";
+import { Modal } from "@/components/admin/Drawer";
+import { fmtPKR } from "@/lib/format";
+import { useCategoryFilterOptions, useCityFilterOptions } from "@/lib/filter-options";
 import { downloadCsv } from "@/lib/csv";
 import { toast } from "sonner";
 import { useWorkersPage, useVerifyWorker, useToggleWorkerStatus, type Worker } from "@/lib/api-hooks";
@@ -15,6 +17,8 @@ function WorkersPage() {
   const [verified, setVerified] = useState("");
   const [cat, setCat] = useState("");
   const [city, setCity] = useState("");
+  const [statusTarget, setStatusTarget] = useState<Worker | null>(null);
+  const [statusReason, setStatusReason] = useState("");
   const [page, setPage] = useState(1);
   const deferredQ = useDeferredValue(q);
 
@@ -31,6 +35,9 @@ function WorkersPage() {
   const toggleWorkerStatusMutation = useToggleWorkerStatus();
   const verifyWorkerMutation = useVerifyWorker();
 
+  const { options: categoryOptions } = useCategoryFilterOptions();
+  const { options: cityOptions } = useCityFilterOptions();
+
   const apiWorkers = data?.items || [];
 
   const rows = useMemo(() => apiWorkers.map((w) => ({ ...w, id: w._id })), [apiWorkers]);
@@ -39,8 +46,30 @@ function WorkersPage() {
     verifyWorkerMutation.mutate({ id: worker._id, isVerified: true });
   };
   
+  const applyStatusChange = (worker: Worker, reason?: string) => {
+    toggleWorkerStatusMutation.mutate(
+      { id: worker._id, isActive: !worker.isActive, reason },
+      {
+        onSuccess: () => {
+          setStatusTarget(null);
+          setStatusReason("");
+        }
+      }
+    );
+  };
+
   const toggle = (worker: Worker) => {
-    toggleWorkerStatusMutation.mutate({ id: worker._id, isActive: !worker.isActive });
+    if (worker.isActive) {
+      setStatusTarget(worker);
+      setStatusReason("");
+      return;
+    }
+    applyStatusChange(worker);
+  };
+
+  const confirmDeactivate = () => {
+    if (!statusTarget || !statusReason.trim()) return;
+    applyStatusChange(statusTarget, statusReason.trim());
   };
 
   const stats = {
@@ -61,8 +90,8 @@ function WorkersPage() {
       <div className="flex flex-wrap gap-2">
         <SearchInput value={q} onChange={setQ} placeholder="Search by name, phone, CNIC..." />
         <Select value={verified} onChange={setVerified} label="All" options={[{value:"yes",label:"Verified"},{value:"no",label:"Unverified"}]} />
-        <Select value={cat} onChange={setCat} label="All Categories" options={CATEGORY_NAMES.map(c=>({value:c,label:c}))} />
-        <Select value={city} onChange={setCity} label="All Cities" options={CITIES.map(c=>({value:c,label:c}))} />
+        <Select value={cat} onChange={setCat} label="All Categories" options={[{ value: "", label: "All Categories" }, ...categoryOptions]} />
+        <Select value={city} onChange={setCity} label="All Cities" options={[{ value: "", label: "All Cities" }, ...cityOptions]} />
         <button
           onClick={() => {
             downloadCsv("workers", rows, [
@@ -111,6 +140,40 @@ function WorkersPage() {
           )},
         ]}
       />
+      <Modal open={!!statusTarget} onClose={() => setStatusTarget(null)} title="Deactivate Worker Account">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-destructive/25 bg-destructive/10 p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
+              <div>
+                <div className="font-bold text-white">This worker will be locked out of app actions.</div>
+                <p className="mt-1 text-sm text-muted-foreground">The reason will be shown in the worker app until the account is activated again.</p>
+              </div>
+            </div>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-muted-foreground">Reason shown to worker</span>
+            <textarea
+              value={statusReason}
+              onChange={(event) => setStatusReason(event.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="Explain why this worker account is being deactivated..."
+              className="w-full resize-none rounded-xl border border-border bg-input px-3 py-2 text-sm outline-none focus:border-destructive"
+            />
+          </label>
+          <div className="flex justify-end gap-3 border-t border-border pt-4">
+            <button onClick={() => setStatusTarget(null)} className="h-10 rounded-xl border border-border px-4 text-sm font-semibold text-muted-foreground hover:bg-surface-light">Cancel</button>
+            <button
+              disabled={!statusReason.trim() || toggleWorkerStatusMutation.isPending}
+              onClick={confirmDeactivate}
+              className="h-10 rounded-xl bg-destructive px-5 text-sm font-bold text-white disabled:opacity-50"
+            >
+              Deactivate Worker
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -3,9 +3,10 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   Search, LayoutDashboard, Users, Wrench, ClipboardList, Calendar,
   FolderKanban, Star, Bell, Settings, ArrowRight, Wallet, HelpCircle,
-  BarChart3, History, UserCog, Scale, Tag, Fingerprint,
+  BarChart3, History, UserCog, Scale, Tag, Fingerprint, Banknote, Layers, Route,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { canAccessRoute } from "@/lib/admin-permissions";
 
 type Item = {
   id: string;
@@ -24,42 +25,66 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   useEffect(() => { if (open) { setQ(""); setActive(0); } }, [open]);
 
-  const go = (to: string, params?: Record<string, string>) => () => {
+  const go = (to: string) => () => {
     onClose();
-    navigate({ to, params } as never);
+    navigate({ to } as never);
   };
 
   const allItems: Item[] = useMemo(() => {
     const nav: Item[] = [
       { id: "n-dash", label: "Dashboard", group: "Navigate", icon: LayoutDashboard, action: go("/dashboard") },
-      { id: "n-users", label: "Users", group: "Navigate", icon: Users, action: go("/users") },
-      { id: "n-workers", label: "Workers", group: "Navigate", icon: Wrench, action: go("/workers") },
+      { id: "n-users", label: "Customers", group: "Navigate", icon: Users, action: go("/users") },
+      { id: "n-workers", label: "Professionals", group: "Navigate", icon: Wrench, action: go("/workers") },
+      { id: "n-onboarding", label: "Onboarding Queue", group: "Navigate", icon: Route, action: go("/onboarding") },
       { id: "n-verification", label: "Identity Reviews", group: "Navigate", icon: Fingerprint, action: go("/verification") },
+      { id: "n-specialty", label: "Specialty Requests", group: "Navigate", icon: Layers, action: go("/specialty-requests") },
       { id: "n-jobs", label: "Job Posts", group: "Navigate", icon: ClipboardList, action: go("/jobs") },
       { id: "n-bookings", label: "Bookings", group: "Navigate", icon: Calendar, action: go("/bookings") },
+      { id: "n-payments", label: "Payments Ledger", group: "Navigate", icon: Banknote, action: go("/payments") },
       { id: "n-wallets", label: "Wallets", group: "Navigate", icon: Wallet, action: go("/wallets") },
-      { id: "n-cats", label: "Categories", group: "Navigate", icon: FolderKanban, action: go("/categories") },
-      { id: "n-promos", label: "Promos", group: "Navigate", icon: Tag, action: go("/promos") },
+      { id: "n-cats", label: "Services", group: "Navigate", icon: FolderKanban, action: go("/categories") },
+      { id: "n-promos", label: "Promotions", group: "Navigate", icon: Tag, action: go("/promos") },
       { id: "n-rev", label: "Reviews", group: "Navigate", icon: Star, action: go("/reviews") },
       { id: "n-not", label: "Notifications", group: "Navigate", icon: Bell, action: go("/notifications") },
-      { id: "n-support", label: "Support", group: "Navigate", icon: HelpCircle, action: go("/support") },
+      { id: "n-support", label: "Support Desk", group: "Navigate", icon: HelpCircle, action: go("/support") },
       { id: "n-disputes", label: "Booking Disputes", group: "Navigate", icon: Scale, action: go("/disputes") },
       { id: "n-reports", label: "Reports & Analytics", group: "Navigate", icon: BarChart3, action: go("/reports") },
       { id: "n-audit", label: "Audit Logs", group: "Navigate", icon: History, action: go("/audit") },
-      { id: "n-set", label: "Settings", group: "Navigate", icon: Settings, action: go("/settings") },
+      { id: "n-platform", label: "Platform Configuration", group: "Navigate", icon: Settings, action: go("/platform-config") },
+      { id: "n-set", label: "My Settings", group: "Navigate", icon: Settings, action: go("/settings") },
+      { id: "q-topups", label: "Pending wallet top-ups", hint: "Finance queue", group: "Queues", icon: Wallet, action: go("/wallets") },
+      { id: "q-verification", label: "Pending identity reviews", hint: "Verifier queue", group: "Queues", icon: Fingerprint, action: go("/verification") },
+      { id: "q-specialty", label: "Pending specialty requests", hint: "Verifier queue", group: "Queues", icon: Layers, action: go("/specialty-requests") },
+      { id: "q-support", label: "Open support tickets", hint: "Support queue", group: "Queues", icon: HelpCircle, action: go("/support") },
+      { id: "q-disputes", label: "Open booking disputes", hint: "Ops queue", group: "Queues", icon: Scale, action: go("/disputes") },
     ];
     if (user?.role === "superadmin") {
-      nav.splice(nav.length - 1, 0, { id: "n-admins", label: "Admin Users", group: "Navigate", icon: UserCog, action: go("/admins") });
+      nav.splice(nav.length - 6, 0, { id: "n-admins", label: "Admin Users", group: "Navigate", icon: UserCog, action: go("/admins") });
     }
-    return nav;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return nav.filter((item) => {
+      const path = item.action.toString();
+      void path;
+      const route = item.id.startsWith("q-")
+        ? item.action
+        : go;
+      const target = {
+        "n-dash": "/dashboard", "n-users": "/users", "n-workers": "/workers", "n-onboarding": "/onboarding",
+        "n-verification": "/verification", "n-specialty": "/specialty-requests", "n-jobs": "/jobs",
+        "n-bookings": "/bookings", "n-payments": "/payments", "n-wallets": "/wallets", "n-cats": "/categories",
+        "n-promos": "/promos", "n-rev": "/reviews", "n-not": "/notifications", "n-support": "/support",
+        "n-disputes": "/disputes", "n-reports": "/reports", "n-audit": "/audit", "n-platform": "/platform-config",
+        "n-set": "/settings", "n-admins": "/admins", "q-topups": "/wallets", "q-verification": "/verification",
+        "q-specialty": "/specialty-requests", "q-support": "/support", "q-disputes": "/disputes",
+      }[item.id];
+      return target ? canAccessRoute(user?.role, target) : true;
+    });
   }, [user?.role]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return allItems.slice(0, 10);
+    if (!term) return allItems.slice(0, 12);
     return allItems
-      .filter(i => i.label.toLowerCase().includes(term) || i.hint?.toLowerCase().includes(term))
+      .filter(i => i.label.toLowerCase().includes(term) || i.hint?.toLowerCase().includes(term) || i.group.toLowerCase().includes(term))
       .slice(0, 30);
   }, [q, allItems]);
 
@@ -94,7 +119,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             autoFocus
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Find an admin page..."
+            placeholder="Find a page or queue..."
             className="flex-1 border-0! bg-transparent! text-sm outline-none! ring-0! shadow-none! placeholder:text-dim"
           />
           <kbd className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground">ESC</kbd>
@@ -130,11 +155,6 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
               })}
             </div>
           ))}
-        </div>
-        <div className="border-t border-border bg-surface/60 px-4 py-2.5 flex items-center gap-3 text-[10px] text-dim">
-          <span><kbd className="px-1.5 py-0.5 rounded border border-border">↑↓</kbd> navigate</span>
-          <span><kbd className="px-1.5 py-0.5 rounded border border-border">↵</kbd> select</span>
-          <span className="ml-auto font-semibold text-muted-foreground">ApnaUstad quick navigation</span>
         </div>
       </div>
     </div>

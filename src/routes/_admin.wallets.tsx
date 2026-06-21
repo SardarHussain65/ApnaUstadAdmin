@@ -23,11 +23,12 @@ import {
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
-import { Avatar, Badge } from "@/components/admin/ui";
-import { Drawer, Modal } from "@/components/admin/Drawer";
+import { Avatar, Badge, Button, FormField, Input } from "@/components/admin/ui";
+import { Drawer, Modal, ModalBody, ModalFooter } from "@/components/admin/Drawer";
 import { downloadCsv } from "@/lib/csv";
 import {
   useAdminAdjustWallet,
+  useAdminRechargeWallet,
   useApproveWalletTopUp,
   useRejectWalletTopUp,
   useUpdateWalletPaymentMethodSettings,
@@ -97,6 +98,10 @@ function WalletsPage() {
   const approveMutation = useApproveWalletTopUp();
   const rejectMutation = useRejectWalletTopUp();
   const adjustMutation = useAdminAdjustWallet();
+  const rechargeMutation = useAdminRechargeWallet();
+  const [rechargeModalOpen, setRechargeModalOpen] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState("");
+  const [rechargeDescription, setRechargeDescription] = useState("");
 
   const topUps = topUpData?.items || [];
   const wallets = walletData?.items || [];
@@ -112,6 +117,35 @@ function WalletsPage() {
     adminNotes: request.adminNotes || "",
     rejectionReason: request.rejectionReason || "",
   })), [topUps]);
+
+  const handleOpenRecharge = (wallet: any, e: MouseEvent) => {
+    e.stopPropagation();
+    setActiveWallet(wallet);
+    setRechargeAmount("");
+    setRechargeDescription("");
+    setRechargeModalOpen(true);
+  };
+
+  const handleConfirmRecharge = () => {
+    const parsedAmount = parseFloat(rechargeAmount);
+    if (!activeWallet?.worker?._id || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      toast.error("Enter a valid recharge amount");
+      return;
+    }
+    rechargeMutation.mutate(
+      {
+        workerId: activeWallet.worker._id,
+        amount: parsedAmount,
+        description: rechargeDescription.trim() || "Manual wallet recharge by admin",
+      },
+      {
+        onSuccess: () => {
+          setRechargeModalOpen(false);
+          setActiveWallet(null);
+        },
+      }
+    );
+  };
 
   const handleOpenAdjust = (wallet: any, e: MouseEvent) => {
     e.stopPropagation();
@@ -310,9 +344,14 @@ function WalletsPage() {
               </span>
             ) },
             { key: "actions", header: "", render: (wallet) => (
-              <button onClick={(e) => handleOpenAdjust(wallet, e)} className="p-2 rounded-lg hover:bg-primary/15 text-primary transition" title="Manual correction">
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              <div className="flex justify-end gap-1">
+                <button onClick={(e) => handleOpenRecharge(wallet, e)} className="p-2 rounded-lg hover:bg-success/15 text-success transition" title="Manual recharge">
+                  <Banknote className="w-4 h-4" />
+                </button>
+                <button onClick={(e) => handleOpenAdjust(wallet, e)} className="p-2 rounded-lg hover:bg-primary/15 text-primary transition" title="Manual correction">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
             ) },
           ]}
             />
@@ -339,26 +378,68 @@ function WalletsPage() {
       <Modal
         open={adjustModalOpen && !!activeWallet}
         onClose={() => { setAdjustModalOpen(false); setActiveWallet(null); }}
-        title="Manual Wallet Correction"
+        title="Manual wallet correction"
+        description="Use only for admin corrections, refunds, or balance fixes."
+        variant="warning"
+        footer={
+          activeWallet ? (
+            <ModalFooter>
+              <Button variant="ghost" onClick={() => { setAdjustModalOpen(false); setActiveWallet(null); }}>Cancel</Button>
+              <Button variant="primary" loading={adjustMutation.isPending} onClick={handleConfirmAdjust}>
+                Apply correction
+              </Button>
+            </ModalFooter>
+          ) : undefined
+        }
       >
         {activeWallet && (
-          <div className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              Use this only for admin corrections, refunds, or balance fixes for <strong className="text-foreground">{activeWallet.worker.fullName}</strong>.
+          <ModalBody>
+            <p className="text-sm text-muted-foreground">
+              Adjusting wallet for <strong className="text-white">{activeWallet.worker.fullName}</strong>
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setAdjustType("adjustment")} className={`h-10 rounded-lg text-xs font-bold border transition ${adjustType === "adjustment" ? "bg-primary/10 border-primary text-primary" : "bg-surface-light border-sidebar-border text-muted-foreground"}`}>Correction</button>
-              <button type="button" onClick={() => setAdjustType("refund")} className={`h-10 rounded-lg text-xs font-bold border transition ${adjustType === "refund" ? "bg-success/10 border-success text-success" : "bg-surface-light border-sidebar-border text-muted-foreground"}`}>Refund</button>
+              <Button type="button" variant={adjustType === "adjustment" ? "primary" : "outline"} onClick={() => setAdjustType("adjustment")}>Correction</Button>
+              <Button type="button" variant={adjustType === "refund" ? "success" : "outline"} onClick={() => setAdjustType("refund")}>Refund</Button>
             </div>
-            <input type="number" placeholder="Amount, e.g. -500 or 250" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} className="w-full h-11 bg-surface-light rounded-xl border border-sidebar-border px-3 text-sm focus:outline-none focus:border-primary font-bold" />
-            <input type="text" placeholder="Required reason" value={adjustDescription} onChange={(e) => setAdjustDescription(e.target.value)} className="w-full h-11 bg-surface-light rounded-xl border border-sidebar-border px-3 text-sm focus:outline-none focus:border-primary" />
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => { setAdjustModalOpen(false); setActiveWallet(null); }} className="flex-1 h-11 rounded-xl bg-surface-light hover:bg-surface-light/80 font-bold transition text-sm">Cancel</button>
-              <button onClick={handleConfirmAdjust} disabled={adjustMutation.isPending} className="flex-1 h-11 rounded-xl gradient-purple text-foreground font-bold glow-purple transition text-sm flex items-center justify-center">
-                {adjustMutation.isPending ? "Saving..." : "Apply Correction"}
-              </button>
-            </div>
-          </div>
+            <FormField label="Amount" hint="Use negative values to deduct balance.">
+              <Input type="number" placeholder="e.g. -500 or 250" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} />
+            </FormField>
+            <FormField label="Reason" hint="Required for audit trail.">
+              <Input type="text" placeholder="Why is this correction needed?" value={adjustDescription} onChange={(e) => setAdjustDescription(e.target.value)} />
+            </FormField>
+          </ModalBody>
+        )}
+      </Modal>
+
+      <Modal
+        open={rechargeModalOpen && !!activeWallet}
+        onClose={() => { setRechargeModalOpen(false); setActiveWallet(null); }}
+        title="Manual wallet recharge"
+        description="Credit wallet balance after verifying offline payment."
+        variant="success"
+        footer={
+          activeWallet ? (
+            <ModalFooter>
+              <Button variant="ghost" onClick={() => { setRechargeModalOpen(false); setActiveWallet(null); }}>Cancel</Button>
+              <Button variant="success" loading={rechargeMutation.isPending} onClick={handleConfirmRecharge}>
+                Recharge wallet
+              </Button>
+            </ModalFooter>
+          ) : undefined
+        }
+      >
+        {activeWallet && (
+          <ModalBody>
+            <p className="text-sm text-muted-foreground">
+              Crediting wallet for <strong className="text-white">{activeWallet.worker?.fullName}</strong>
+            </p>
+            <FormField label="Amount">
+              <Input type="number" placeholder="e.g. 1000" value={rechargeAmount} onChange={(e) => setRechargeAmount(e.target.value)} />
+            </FormField>
+            <FormField label="Description">
+              <Input type="text" placeholder="Optional note for ledger" value={rechargeDescription} onChange={(e) => setRechargeDescription(e.target.value)} />
+            </FormField>
+          </ModalBody>
         )}
       </Modal>
     </div>
@@ -425,6 +506,7 @@ function CommissionSettingsPanel() {
   const [form, setForm] = useState<WalletSettings>({
     platformFeePercentage: 10,
     minimumWalletBalance: 500,
+    additionalCategoryMonthlyFee: 500,
     commissionEnabled: true,
   });
 
@@ -433,6 +515,7 @@ function CommissionSettingsPanel() {
     setForm({
       platformFeePercentage: settings.platformFeePercentage,
       minimumWalletBalance: settings.minimumWalletBalance,
+      additionalCategoryMonthlyFee: settings.additionalCategoryMonthlyFee ?? 500,
       commissionEnabled: settings.commissionEnabled !== false,
     });
   }, [settings]);
@@ -452,10 +535,15 @@ function CommissionSettingsPanel() {
       toast.error("Minimum wallet balance cannot be negative");
       return;
     }
+    if (Number(form.additionalCategoryMonthlyFee) < 0) {
+      toast.error("Extra category monthly fee cannot be negative");
+      return;
+    }
 
     updateMutation.mutate({
       platformFeePercentage: Number(form.platformFeePercentage),
       minimumWalletBalance: Number(form.minimumWalletBalance),
+      additionalCategoryMonthlyFee: Number(form.additionalCategoryMonthlyFee),
       commissionEnabled: form.commissionEnabled,
     });
   };
@@ -494,7 +582,7 @@ function CommissionSettingsPanel() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label className="space-y-1.5">
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Commission %</span>
               <input
@@ -518,11 +606,23 @@ function CommissionSettingsPanel() {
                 className="w-full h-11 bg-input border border-border rounded-xl px-3 text-sm font-extrabold focus:outline-none focus:border-primary"
               />
             </label>
+            <label className="space-y-1.5">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Extra Category Monthly Fee</span>
+              <input
+                type="number"
+                min={0}
+                step={50}
+                value={form.additionalCategoryMonthlyFee}
+                onChange={(e) => setForm((current) => ({ ...current, additionalCategoryMonthlyFee: Number(e.target.value) }))}
+                className="w-full h-11 bg-input border border-border rounded-xl px-3 text-sm font-extrabold focus:outline-none focus:border-primary"
+              />
+            </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <InfoBox label="Rs. 5,000 job commission" value={fmtPKR(previewCommission)} accent={form.commissionEnabled ? "text-gold" : "text-muted-foreground"} />
             <InfoBox label="Required wallet balance" value={fmtPKR(previewRequired)} accent="text-primary" />
+            <InfoBox label="Extra category charge" value={fmtPKR(form.additionalCategoryMonthlyFee || 0)} accent="text-accent" />
           </div>
 
           <button

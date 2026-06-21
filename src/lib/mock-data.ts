@@ -272,4 +272,4 @@ export const notifications: Notification[] = [
   { id: "N3", title: "Eid Special Discount", body: "Get 20% off on all bookings this week.", target: "All Users", sentAt: daysAgo(6), status: "delivered" },
 ];
 
-export const fmtPKR = (n: number) => `₨${n.toLocaleString("en-PK")}`;
+export { fmtPKR } from "./format";

@@ -105,10 +105,14 @@ export function DataTable<T extends Record<string, any>>({
             ))}
             {!isLoading && view.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-14 text-center text-muted-foreground">
-                  <Database className="mx-auto mb-3 h-7 w-7 text-dim" />
-                  <div className="font-semibold text-foreground">No records found</div>
-                  <div className="mt-1 text-xs text-dim">Try adjusting the filters or search query.</div>
+                <td colSpan={columns.length} className="px-4 py-16 text-center">
+                  <div className="mx-auto flex max-w-sm flex-col items-center">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                      <Database className="h-6 w-6" />
+                    </div>
+                    <div className="font-bold text-white">No records found</div>
+                    <div className="mt-1.5 text-sm leading-relaxed text-dim">Try adjusting the filters or search query.</div>
+                  </div>
                 </td>
               </tr>
             )}
@@ -122,7 +126,7 @@ export function DataTable<T extends Record<string, any>>({
 
 export function SearchInput({ value, onChange, placeholder = "Search..." }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-input px-3 transition hover:border-primary/30 focus-within:border-primary/70 focus-within:ring-3 focus-within:ring-primary/10">
+    <div className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-border/80 bg-input/90 px-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:border-primary/25 focus-within:border-primary/60 focus-within:ring-3 focus-within:ring-primary/10">
       <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
       <input
         value={value}
@@ -131,12 +135,16 @@ export function SearchInput({ value, onChange, placeholder = "Search..." }: { va
         className="min-w-0 flex-1 border-0! bg-transparent! text-sm outline-none! ring-0! shadow-none! placeholder:text-dim"
       />
       {value && (
-        <button onClick={() => onChange("")} aria-label="Clear search" className="text-dim transition hover:text-foreground">
+        <button onClick={() => onChange("")} aria-label="Clear search" className="rounded-lg p-1 text-dim transition hover:bg-white/5 hover:text-foreground">
           <X className="w-4 h-4" />
         </button>
       )}
     </div>
   );
+}
+
+export function FilterToolbar({ children }: { children: ReactNode }) {
+  return <div className="filter-toolbar">{children}</div>;
 }
 
 export function Select({ value, onChange, options, label }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; label?: string }) {

@@ -4,21 +4,25 @@ import {
   LayoutDashboard, Users, Wrench, ClipboardList, Calendar, FolderKanban,
   Star, Bell, Settings, LogOut, Search, Wallet,
   HelpCircle, BarChart3, History, UserCog, Scale, Tag, Fingerprint, Menu,
-  PanelLeftClose, Sparkles
+  PanelLeftClose, Sparkles, Layers, Banknote, Route
 } from "lucide-react";
 import { logout, useAuth } from "@/lib/auth";
 import { CommandPalette } from "@/components/admin/CommandPalette";
 import { useNavBadges } from "@/lib/api-hooks";
+import { canAccessRoute, type AdminPermission } from "@/lib/admin-permissions";
 
 const PAGE_META: Record<string, { title: string; description: string }> = {
   "/dashboard": { title: "Dashboard", description: "A live view of marketplace health and priority work." },
   "/users": { title: "Customers", description: "Manage customer accounts, access, and booking activity." },
   "/workers": { title: "Service Professionals", description: "Review worker profiles, availability, and performance." },
+  "/onboarding": { title: "Onboarding Pipeline", description: "Track worker verification, specialty, and wallet readiness." },
   "/verification": { title: "Identity Reviews", description: "Audit submitted documents and approve trusted professionals." },
+  "/specialty-requests": { title: "Specialty Requests", description: "Approve paid category add-ons requested by workers." },
   "/jobs": { title: "Job Posts", description: "Monitor customer requests, bids, and marketplace fulfillment." },
   "/bookings": { title: "Bookings", description: "Track service delivery, payments, and booking outcomes." },
+  "/payments": { title: "Payments Ledger", description: "Reconcile cash payments, commissions, and worker earnings." },
   "/wallets": { title: "Wallets & Commission", description: "Manage balances, top-ups, and platform commission rules." },
-  "/categories": { title: "Service Categories", description: "Curate the service catalog presented to customers." },
+  "/categories": { title: "Services", description: "Manage service types customers can book — Plumber, Electrician, AC repair, and more." },
   "/reviews": { title: "Reviews & Ratings", description: "Moderate feedback and monitor service quality." },
   "/notifications": { title: "Notifications", description: "Compose targeted announcements and review delivery history." },
   "/support": { title: "Support Desk", description: "Resolve customer and professional support requests." },
@@ -28,47 +32,70 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
   "/admins": { title: "Admin Access", description: "Control administrative accounts and permissions." },
   "/promos": { title: "Promotions", description: "Create offers and manage checkout incentives." },
   "/settings": { title: "Settings", description: "Update your account and platform operating rules." },
+  "/platform-config": { title: "Platform Configuration", description: "Manage commission, urgent pricing, and geo matching rules." },
 };
 
-const NAV_GROUPS = [
+type NavItem = {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission: AdminPermission;
+  superAdminOnly?: boolean;
+};
+
+const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Overview",
     items: [
-      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/reports", label: "Reports & Analytics", icon: BarChart3 },
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "dashboard" },
+      { to: "/reports", label: "Reports & Analytics", icon: BarChart3, permission: "reports" },
+    ],
+  },
+  {
+    label: "People",
+    items: [
+      { to: "/users", label: "Customers", icon: Users, permission: "users" },
+      { to: "/workers", label: "Professionals", icon: Wrench, permission: "workers" },
+      { to: "/onboarding", label: "Onboarding Queue", icon: Route, permission: "onboarding" },
+      { to: "/verification", label: "Identity Reviews", icon: Fingerprint, permission: "verification" },
+      { to: "/specialty-requests", label: "Specialty Requests", icon: Layers, permission: "specialty-requests" },
     ],
   },
   {
     label: "Marketplace",
     items: [
-      { to: "/users", label: "Customers", icon: Users },
-      { to: "/workers", label: "Professionals", icon: Wrench },
-      { to: "/verification", label: "Identity Reviews", icon: Fingerprint },
-      { to: "/jobs", label: "Job Posts", icon: ClipboardList },
-      { to: "/bookings", label: "Bookings", icon: Calendar },
-      { to: "/wallets", label: "Wallets", icon: Wallet },
+      { to: "/jobs", label: "Job Posts", icon: ClipboardList, permission: "jobs" },
+      { to: "/bookings", label: "Bookings", icon: Calendar, permission: "bookings" },
+      { to: "/disputes", label: "Disputes", icon: Scale, permission: "disputes" },
     ],
   },
   {
-    label: "Experience",
+    label: "Finance",
     items: [
-      { to: "/categories", label: "Categories", icon: FolderKanban },
-      { to: "/promos", label: "Promotions", icon: Tag },
-      { to: "/reviews", label: "Reviews", icon: Star },
-      { to: "/notifications", label: "Notifications", icon: Bell },
+      { to: "/payments", label: "Payments", icon: Banknote, permission: "payments" },
+      { to: "/wallets", label: "Wallets & Top-ups", icon: Wallet, permission: "wallets" },
+      { to: "/promos", label: "Promotions", icon: Tag, permission: "promos" },
     ],
   },
   {
-    label: "Operations",
+    label: "Platform",
     items: [
-      { to: "/support", label: "Support Desk", icon: HelpCircle },
-      { to: "/disputes", label: "Disputes", icon: Scale },
-      { to: "/audit", label: "Audit Trail", icon: History },
-      { to: "/admins", label: "Admin Access", icon: UserCog, superAdminOnly: true },
-      { to: "/settings", label: "Settings", icon: Settings },
+      { to: "/categories", label: "Services", icon: FolderKanban, permission: "categories" },
+      { to: "/reviews", label: "Reviews", icon: Star, permission: "reviews" },
+      { to: "/notifications", label: "Notifications", icon: Bell, permission: "notifications" },
+      { to: "/platform-config", label: "Platform Config", icon: Settings, permission: "platform-config" },
     ],
   },
-] as const;
+  {
+    label: "System",
+    items: [
+      { to: "/support", label: "Support Desk", icon: HelpCircle, permission: "support" },
+      { to: "/audit", label: "Audit Trail", icon: History, permission: "audit" },
+      { to: "/admins", label: "Admin Access", icon: UserCog, permission: "admins", superAdminOnly: true },
+      { to: "/settings", label: "My Settings", icon: Settings, permission: "settings" },
+    ],
+  },
+];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -92,13 +119,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     "/jobs": badges.openJobs,
     "/bookings": badges.pendingBookings,
     "/workers": badges.unverifiedWorkers,
+    "/onboarding": badges.unverifiedWorkers,
     "/verification": badges.pendingVerifications,
+    "/specialty-requests": badges.pendingSpecialties,
     "/wallets": badges.pendingTopUps,
     "/disputes": badges.openDisputes,
   };
 
-  // Total actionable badge for the header bell
-  const totalBadge = badges.openTickets + badges.pendingTopUps + badges.openDisputes + badges.pendingVerifications;
+  const totalBadge = badges.openTickets + badges.pendingTopUps + badges.openDisputes + badges.pendingVerifications + badges.pendingSpecialties;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -155,7 +183,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               {!collapsed && <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-dim">{group.label}</div>}
               <div className="space-y-1">
                 {group.items.map(item => {
-                  if ("superAdminOnly" in item && item.superAdminOnly && user?.role !== "superadmin") return null;
+                  if (item.superAdminOnly && user?.role !== "superadmin") return null;
+                  if (!canAccessRoute(user?.role, item.to)) return null;
                   const active = path.startsWith(item.to);
                   const Icon = item.icon;
                   const count = badgeMap[item.to] ?? 0;
@@ -276,7 +305,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             {showNotifications && (
               <>
                 <div className="fixed inset-0 z-30" aria-hidden="true" onClick={() => setShowNotifications(false)} />
-                <div className="absolute right-0 mt-2.5 w-80 app-glass rounded-2xl p-4 shadow-2xl z-40 animate-fade-in divide-y divide-border/60">
+                <div className="absolute right-0 mt-2.5 w-80 overlay-panel rounded-[22px] p-4 z-40 animate-fade-in divide-y divide-white/8">
                   <div className="pb-3 flex items-center justify-between">
                     <span className="font-bold text-sm text-white flex items-center gap-1.5">
                       <Bell className="w-4 h-4 text-primary" /> Action Center

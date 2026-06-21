@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Eye, Power, Download, Filter, Search, Calendar, User, ShieldAlert } from "lucide-react";
+import { AlertTriangle, Eye, Power, Download, Search, Star } from "lucide-react";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
-import { Avatar, Badge, StatusBadge } from "@/components/admin/ui";
-import { Drawer } from "@/components/admin/Drawer";
-import { CITIES, fmtPKR } from "@/lib/mock-data";
+import { Avatar, Badge, Button, FormField, InfoCard, StatusBadge, Textarea } from "@/components/admin/ui";
+import { Drawer, DrawerSection, Modal, ModalBody, ModalFooter } from "@/components/admin/Drawer";
+import { fmtPKR } from "@/lib/format";
+import { useCityFilterOptions } from "@/lib/filter-options";
 import { downloadCsv } from "@/lib/csv";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -20,6 +21,8 @@ function UsersPage() {
   const [city, setCity] = useState("");
   const [dateFilter, setDateFilter] = useState(""); // "today", "week", "month", ""
   const [selected, setSelected] = useState<any | null>(null);
+  const [statusTarget, setStatusTarget] = useState<any | null>(null);
+  const [statusReason, setStatusReason] = useState("");
   const [page, setPage] = useState(1);
   const deferredQ = useDeferredValue(q);
 
@@ -44,17 +47,35 @@ function UsersPage() {
   });
   const toggleUserMutation = useToggleUserStatus();
 
+  const { options: cityOptions } = useCityFilterOptions();
   const rows = data?.items || [];
 
-  const toggleStatus = (user: any) => {
+  const applyStatusChange = (user: any, reason?: string) => {
     toggleUserMutation.mutate(
-      { id: user._id, isActive: !user.isActive },
+      { id: user._id, isActive: !user.isActive, reason },
       {
-        onSuccess: () => {
-          setSelected((current: any | null) => current?._id === user._id ? { ...current, isActive: !current.isActive } : current);
+        onSuccess: (updated: any) => {
+          const next = updated?.data || updated;
+          setSelected((current: any | null) => current?._id === user._id ? { ...current, ...next } : current);
+          setStatusTarget(null);
+          setStatusReason("");
         },
       }
     );
+  };
+
+  const requestStatusChange = (user: any) => {
+    if (user.isActive) {
+      setStatusTarget(user);
+      setStatusReason("");
+      return;
+    }
+    applyStatusChange(user);
+  };
+
+  const confirmDeactivate = () => {
+    if (!statusTarget || !statusReason.trim()) return;
+    applyStatusChange(statusTarget, statusReason.trim());
   };
 
   const stats = {
@@ -115,9 +136,9 @@ function UsersPage() {
             className="p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50"
           >
             <option value="">All Cities</option>
-            {CITIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
+            {cityOptions.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
               </option>
             ))}
           </select>
@@ -225,7 +246,7 @@ function UsersPage() {
                     <Eye className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => toggleStatus(u)}
+                    onClick={() => requestStatusChange(u)}
                     className="p-2 rounded-lg hover:bg-accent/15 hover:text-accent text-dim transition"
                     title="Suspend / Activate"
                   >
@@ -239,14 +260,56 @@ function UsersPage() {
       </div>
 
       {/* 🔍 Details Drawer */}
-      <Drawer open={!!selected} onClose={() => setSelected(null)} title="User Details">
+      <Drawer
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        title="Customer profile"
+        description="View account details, moderation controls, and recent booking history."
+        eyebrow="Customer"
+        width="max-w-2xl"
+      >
         {selected && (
           <UserDetail
             user={selected}
-            onToggle={() => toggleStatus(selected)}
+            onToggle={() => requestStatusChange(selected)}
           />
         )}
       </Drawer>
+
+      <Modal
+        open={!!statusTarget}
+        onClose={() => setStatusTarget(null)}
+        title="Deactivate user account"
+        description="The user will be locked out until an admin reactivates their account."
+        variant="danger"
+        footer={
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setStatusTarget(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              disabled={!statusReason.trim() || toggleUserMutation.isPending}
+              loading={toggleUserMutation.isPending}
+              onClick={confirmDeactivate}
+            >
+              Deactivate account
+            </Button>
+          </ModalFooter>
+        }
+      >
+        <ModalBody>
+          <InfoCard tone="danger" title="Before you continue">
+            This user will lose access to bookings and app actions. They will see your reason and can only contact support.
+          </InfoCard>
+          <FormField label="Reason shown to user">
+            <Textarea
+              value={statusReason}
+              onChange={(event) => setStatusReason(event.target.value)}
+              maxLength={500}
+              placeholder="Explain why this account is being deactivated..."
+            />
+          </FormField>
+        </ModalBody>
+      </Modal>
     </div>
   );
 }
@@ -275,20 +338,30 @@ function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
       </div>
 
       {/* Profile Fields */}
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <Field label="Phone" value={user.phone} />
-        <Field label="Email" value={user.email || "N/A"} />
-        <Field label="City" value={user.city || "N/A"} />
-        <Field
-          label="Joined"
-          value={user.createdAt ? format(new Date(user.createdAt), "dd MMM yyyy") : "N/A"}
-        />
-        <Field label="Address" value={user.address || "N/A"} className="col-span-2" />
-      </div>
+      <DrawerSection title="Contact & location">
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <DetailField label="Phone" value={user.phone} />
+          <DetailField label="Email" value={user.email || "Not provided"} />
+          <DetailField label="City" value={user.city || "Not set"} />
+          <DetailField
+            label="Joined"
+            value={user.createdAt ? format(new Date(user.createdAt), "dd MMM yyyy") : "—"}
+          />
+          <DetailField label="Address" value={user.address || "Not provided"} className="col-span-2" />
+        </div>
+      </DrawerSection>
 
       {/* Account Control */}
-      <div className="space-y-2">
-        <div className="text-xs uppercase tracking-wider text-dim font-bold">Moderation Controls</div>
+      <DrawerSection title="Account actions">
+        {!user.isActive && (
+          <div className="rounded-xl border border-destructive/25 bg-destructive/10 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-destructive">Suspension reason</div>
+            <p className="mt-1 text-sm text-white">{user.deactivationReason || "Account deactivated by admin. Please contact support for details."}</p>
+            {user.deactivatedAt && (
+              <p className="mt-1 text-xs text-muted-foreground">Deactivated {format(new Date(user.deactivatedAt), "dd MMM yyyy, h:mm a")}</p>
+            )}
+          </div>
+        )}
         <button
           onClick={onToggle}
           className={`btn-press w-full h-11 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${user.isActive
@@ -297,23 +370,53 @@ function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
             }`}
         >
           <Power className="w-4 h-4" />
-          {user.isActive ? "Deactivate / Suspend Account" : "Activate Account"}
+          {user.isActive ? "Deactivate account" : "Reactivate account"}
         </button>
-      </div>
+      </DrawerSection>
 
-      {/* Recent Bookings Section */}
-      <div className="space-y-3 pt-2">
-        <div className="text-xs uppercase tracking-wider text-dim font-bold flex items-center justify-between">
-          <span>Recent Bookings</span>
-          <span className="text-[10px] text-primary">{userBookings.length} recent</span>
-        </div>
+      {/* Favorite Ustads Section */}
+      {(() => {
+        const favs = (user.favorites || []).filter((w: any) => w && typeof w === 'object' && w.fullName);
+        if (favs.length === 0) return null;
+        return (
+          <div className="space-y-3 pt-2">
+            <div className="text-xs uppercase tracking-wider text-dim font-bold flex items-center justify-between">
+              <span>Favorite Ustads</span>
+              <span className="text-[10px] text-primary">{favs.length} saved</span>
+            </div>
+            <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+              {favs.map((w: any) => (
+                <div
+                  key={w._id}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-surface-light/20 border border-border hover:bg-surface-light/35 transition"
+                >
+                  <Avatar src={w.profileImage} name={w.fullName} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-white truncate">{w.fullName}</div>
+                    <div className="text-[10px] text-dim mt-0.5 uppercase tracking-wider">
+                      {w.category} • Rs. {w.hourlyRate}/hr
+                    </div>
+                  </div>
+                  {w.rating > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-yellow font-bold bg-yellow/10 px-2 py-1 rounded-lg flex-shrink-0">
+                      <Star className="w-3.5 h-3.5 fill-current" />
+                      {w.rating.toFixed(1)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
+      <DrawerSection title="Recent bookings">
         <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
           {bookingsLoading ? (
-            <div className="text-center py-6 text-xs text-dim">Loading booking history...</div>
+            <div className="py-6 text-center text-xs text-dim">Loading booking history…</div>
           ) : userBookings.length === 0 ? (
-            <div className="text-xs text-dim py-6 text-center bg-surface-light/10 border border-border/40 rounded-xl">
-              This customer hasn't placed any bookings yet.
+            <div className="rounded-xl border border-border/40 bg-surface-light/10 py-8 text-center text-sm text-muted-foreground">
+              No bookings yet — this customer hasn&apos;t requested any services.
             </div>
           ) : (
             userBookings.map((b: any) => (
@@ -337,12 +440,12 @@ function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
             ))
           )}
         </div>
-      </div>
+      </DrawerSection>
     </div>
   );
 }
 
-function Field({ label, value, className = "" }: { label: string; value: string; className?: string }) {
+function DetailField({ label, value, className = "" }: { label: string; value: string; className?: string }) {
   return (
     <div className={`p-3.5 rounded-xl bg-surface-light/20 border border-border/50 ${className}`}>
       <div className="text-[10px] uppercase tracking-wider text-dim font-bold">{label}</div>

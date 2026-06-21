@@ -37,7 +37,7 @@ function AdminsManagementPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "superadmin">("admin");
+  const [role, setRole] = useState<"admin" | "superadmin" | "support" | "verifier" | "finance">("admin");
 
   // React Query Queries & Mutations
   const { data: admins = [], isLoading } = useAdmins();
@@ -289,8 +289,11 @@ function AdminsManagementPage() {
               onChange={(e) => setRole(e.target.value as any)}
               className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary cursor-pointer text-white"
             >
-              <option value="admin">Admin (Standard Dashboard Access)</option>
-              <option value="superadmin">Super Admin (Full System Controls & Config)</option>
+              <option value="admin">Admin (Full legacy access)</option>
+              <option value="support">Support (Tickets, users, bookings, disputes)</option>
+              <option value="verifier">Verifier (Identity, onboarding, specialties)</option>
+              <option value="finance">Finance (Payments, wallets, promos, reports)</option>
+              <option value="superadmin">Super Admin (Full system controls)</option>
             </select>
           </div>
 
