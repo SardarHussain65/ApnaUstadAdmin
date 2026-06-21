@@ -1247,6 +1247,14 @@ export interface Dispute {
   resolvedBy?: any;
   resolvedAt?: string;
   createdAt: string;
+  moderationApplied?: {
+    warnedCustomer?: boolean;
+    warnedWorker?: boolean;
+    customerRefund?: number;
+    workerPenalty?: number;
+    customerBlocked?: boolean;
+    workerBlocked?: boolean;
+  };
   updatedAt: string;
 }
 
