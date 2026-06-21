@@ -57,18 +57,18 @@ const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[] | ['*']> = {
 
 export const hasAdminPermission = (role: string | undefined, permission: AdminPermission): boolean => {
   if (!role) return false;
-  const permissions = ROLE_PERMISSIONS[role as AdminRole];
+  const permissions = ROLE_PERMISSIONS[role as AdminRole] as readonly (AdminPermission | '*')[] | undefined;
   if (!permissions) return false;
   if (permissions.includes('*')) return true;
-  return permissions.includes(permission);
+  return (permissions as readonly AdminPermission[]).includes(permission);
 };
 
 export const getPermissionsForRole = (role: string | undefined): AdminPermission[] => {
   if (!role) return [];
-  const permissions = ROLE_PERMISSIONS[role as AdminRole];
+  const permissions = ROLE_PERMISSIONS[role as AdminRole] as readonly (AdminPermission | '*')[] | undefined;
   if (!permissions) return [];
   if (permissions.includes('*')) return ALL_PERMISSIONS;
-  return permissions;
+  return [...(permissions as readonly AdminPermission[])];
 };
 
 export const canAccessRoute = (role: string | undefined, path: string): boolean => {
