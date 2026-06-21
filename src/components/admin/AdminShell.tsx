@@ -159,28 +159,31 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex admin-workspace">
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 z-40 h-screen bg-sidebar/92 border-r border-sidebar-border backdrop-blur-xl shadow-2xl flex flex-col transition-all duration-300 ${
+        className={`fixed lg:sticky top-0 z-40 h-screen bg-[linear-gradient(180deg,rgba(10,10,30,0.96),rgba(6,6,20,0.96))] border-r border-white/[0.06] backdrop-blur-2xl shadow-[8px_0_40px_rgba(0,0,0,0.4)] flex flex-col transition-all duration-300 ${
           collapsed ? "w-[80px]" : "w-[280px]"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
+        {/* Top accent line */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+
         {/* Logo */}
-        <div className="h-[76px] flex items-center px-4 border-b border-sidebar-border">
-          <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/20 flex items-center justify-center flex-shrink-0 shadow-lg overflow-hidden">
+        <div className="h-[80px] flex items-center px-4 border-b border-white/[0.05]">
+          <div className="relative w-12 h-12 rounded-2xl border border-white/10 bg-[linear-gradient(145deg,rgba(0,245,255,0.12),rgba(191,90,242,0.10))] flex items-center justify-center flex-shrink-0 shadow-[0_0_18px_rgba(0,245,255,0.18)] overflow-hidden">
             <img src="/images/logo_premium.png" alt="ApnaUstad" className="w-12 h-12 object-contain scale-[1.32]" />
           </div>
           {!collapsed && (
             <div className="ml-3 overflow-hidden">
-              <div className="font-extrabold text-lg leading-tight tracking-tight text-white">ApnaUstad</div>
-              <div className="mt-0.5 text-[10px] font-bold text-primary tracking-[0.2em]">CONTROL CENTER</div>
+              <div className="font-display font-extrabold text-[17px] leading-tight tracking-tight text-white">ApnaUstad</div>
+              <div className="mt-1 text-[9px] font-bold text-gradient-aurora tracking-[0.24em]">CONTROL CENTER</div>
             </div>
           )}
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 overflow-y-auto px-3 py-5">
           {NAV_GROUPS.map(group => (
             <div key={group.label} className="mb-5">
-              {!collapsed && <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-dim">{group.label}</div>}
+              {!collapsed && <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-dim">{group.label}</div>}
               <div className="space-y-1">
                 {group.items.map(item => {
                   if (item.superAdminOnly && user?.role !== "superadmin") return null;
@@ -196,15 +199,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       onClick={() => setMobileOpen(false)}
                       className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 border ${
                         active
-                          ? "bg-primary/10 text-primary border-primary/20 shadow-[0_0_18px_rgba(0,245,255,0.08)]"
-                          : "border-transparent text-muted-foreground hover:bg-white/[0.045] hover:text-foreground"
+                          ? "bg-[linear-gradient(135deg,rgba(0,245,255,0.14),rgba(191,90,242,0.10))] text-white border-primary/30 shadow-[0_0_22px_rgba(0,245,255,0.16)]"
+                          : "border-transparent text-muted-foreground hover:bg-white/[0.04] hover:text-foreground hover:border-white/[0.06]"
                       } ${collapsed ? "justify-center" : ""}`}
                     >
-                      {active && <span className="absolute left-0 top-2.5 bottom-2.5 w-[3px] rounded-r bg-primary" />}
+                      {active && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full gradient-aurora shadow-[0_0_12px_rgba(0,245,255,0.6)]" />}
                       <span className="relative flex-shrink-0">
-                        <Icon className={`w-[18px] h-[18px] ${active ? "text-primary" : "group-hover:text-foreground"}`} />
+                        <Icon className={`w-[18px] h-[18px] transition ${active ? "text-primary" : "group-hover:text-foreground"}`} />
                         {collapsed && count > 0 && (
-                          <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                          <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none shadow">
                             {count > 99 ? "99+" : count}
                           </span>
                         )}
@@ -213,7 +216,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         <>
                           <span className="truncate flex-1">{item.label}</span>
                           {count > 0 && (
-                            <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-destructive/15 border border-destructive/20 text-destructive text-[10px] font-bold flex items-center justify-center leading-none">
+                            <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-destructive/15 border border-destructive/30 text-destructive text-[10px] font-bold flex items-center justify-center leading-none">
                               {count > 99 ? "99+" : count}
                             </span>
                           )}
