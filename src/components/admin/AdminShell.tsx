@@ -265,24 +265,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-20 min-h-[76px] glass flex items-center px-4 lg:px-7 gap-3 lg:gap-4">
+        <header className="sticky top-0 z-20 min-h-[76px] glass flex items-center px-4 lg:px-7 gap-3 lg:gap-4 relative">
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
           <button aria-label="Open navigation" className="icon-button lg:hidden" onClick={() => setMobileOpen(true)}>
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] font-bold text-primary">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] font-bold text-primary">
               <Sparkles className="w-3 h-3" /> Admin workspace
             </div>
-            <h1 className="mt-1 text-[17px] lg:text-xl font-extrabold tracking-tight truncate">{pageMeta.title}</h1>
+            <h1 className="mt-1 font-display text-[18px] lg:text-[22px] font-extrabold tracking-tight truncate">{pageMeta.title}</h1>
             <p className="hidden xl:block mt-0.5 text-xs text-muted-foreground truncate">{pageMeta.description}</p>
           </div>
           <button
             onClick={() => setPaletteOpen(true)}
-            className="hidden md:flex items-center gap-2 px-3 h-10 w-64 xl:w-72 rounded-xl bg-input border border-border hover:border-primary/50 transition text-left"
+            className="hidden md:flex items-center gap-2 px-3 h-10 w-64 xl:w-72 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-primary/45 hover:bg-primary/[0.05] transition text-left"
           >
             <Search className="w-4 h-4 text-muted-foreground" />
             <span className="text-xs flex-1 text-muted-foreground">Quick navigation...</span>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border text-muted-foreground">⌘K</kbd>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.04] text-muted-foreground">⌘K</kbd>
           </button>
           
           {/* Notification Popover Center */}
