@@ -1172,7 +1172,7 @@ export interface AdminUser {
   _id: string;
   fullName: string;
   email: string;
-  role: 'superadmin' | 'admin';
+  role: 'superadmin' | 'admin' | 'support' | 'verifier' | 'finance';
   status: 'active' | 'inactive';
   lastLogin?: string;
   createdAt: string;
@@ -1247,6 +1247,14 @@ export interface Dispute {
   resolvedBy?: any;
   resolvedAt?: string;
   createdAt: string;
+  moderationApplied?: {
+    warnedCustomer?: boolean;
+    warnedWorker?: boolean;
+    customerRefund?: number;
+    workerPenalty?: number;
+    customerBlocked?: boolean;
+    workerBlocked?: boolean;
+  };
   updatedAt: string;
 }
 
