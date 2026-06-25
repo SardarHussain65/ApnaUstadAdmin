@@ -159,29 +159,32 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex admin-workspace">
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ${
-          collapsed ? "w-[76px]" : "w-[260px]"
+        className={`fixed lg:sticky top-0 z-40 h-screen bg-[linear-gradient(180deg,rgba(10,10,30,0.96),rgba(6,6,20,0.96))] border-r border-white/[0.06] backdrop-blur-2xl shadow-[8px_0_40px_rgba(0,0,0,0.4)] flex flex-col transition-all duration-300 ${
+          collapsed ? "w-[80px]" : "w-[280px]"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
+        {/* Top accent line */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+
         {/* Logo */}
-        <div className="h-[72px] flex items-center px-4 border-b border-sidebar-border">
-          <div className="relative w-10 h-10 rounded-xl border border-white/8 bg-[linear-gradient(145deg,rgba(129,140,248,0.18),rgba(167,139,250,0.12))] flex items-center justify-center flex-shrink-0 overflow-hidden">
-            <img src="/images/logo_premium.png" alt="ApnaUstad" className="w-10 h-10 object-contain scale-[1.32]" />
+        <div className="h-[80px] flex items-center px-4 border-b border-white/[0.05]">
+          <div className="relative w-12 h-12 rounded-2xl border border-white/10 bg-[linear-gradient(145deg,rgba(0,245,255,0.12),rgba(191,90,242,0.10))] flex items-center justify-center flex-shrink-0 shadow-[0_0_18px_rgba(0,245,255,0.18)] overflow-hidden">
+            <img src="/images/logo_premium.png" alt="ApnaUstad" className="w-12 h-12 object-contain scale-[1.32]" />
           </div>
           {!collapsed && (
             <div className="ml-3 overflow-hidden">
-              <div className="font-display font-bold text-[16px] leading-tight tracking-tight text-foreground">ApnaUstad</div>
-              <div className="mt-0.5 text-[10px] font-semibold text-muted-foreground tracking-[0.2em] uppercase">Admin</div>
+              <div className="font-display font-extrabold text-[17px] leading-tight tracking-tight text-white">ApnaUstad</div>
+              <div className="mt-1 text-[9px] font-bold text-gradient-aurora tracking-[0.24em]">CONTROL CENTER</div>
             </div>
           )}
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 overflow-y-auto px-3 py-5">
           {NAV_GROUPS.map(group => (
-            <div key={group.label} className="mb-4">
-              {!collapsed && <div className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-dim">{group.label}</div>}
-              <div className="space-y-0.5">
+            <div key={group.label} className="mb-5">
+              {!collapsed && <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-dim">{group.label}</div>}
+              <div className="space-y-1">
                 {group.items.map(item => {
                   if (item.superAdminOnly && user?.role !== "superadmin") return null;
                   if (!canAccessRoute(user?.role, item.to)) return null;
@@ -194,17 +197,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       to={item.to}
                       title={collapsed ? item.label : undefined}
                       onClick={() => setMobileOpen(false)}
-                      className={`group relative flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 border ${
                         active
-                          ? "bg-primary/10 text-foreground"
-                          : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                          ? "bg-[linear-gradient(135deg,rgba(0,245,255,0.14),rgba(191,90,242,0.10))] text-white border-primary/30 shadow-[0_0_22px_rgba(0,245,255,0.16)]"
+                          : "border-transparent text-muted-foreground hover:bg-white/[0.04] hover:text-foreground hover:border-white/[0.06]"
                       } ${collapsed ? "justify-center" : ""}`}
                     >
-                      {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary" />}
+                      {active && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full gradient-aurora shadow-[0_0_12px_rgba(0,245,255,0.6)]" />}
                       <span className="relative flex-shrink-0">
-                        <Icon className={`w-[17px] h-[17px] transition ${active ? "text-primary" : ""}`} />
+                        <Icon className={`w-[18px] h-[18px] transition ${active ? "text-primary" : "group-hover:text-foreground"}`} />
                         {collapsed && count > 0 && (
-                          <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                          <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center leading-none shadow">
                             {count > 99 ? "99+" : count}
                           </span>
                         )}
@@ -213,7 +216,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         <>
                           <span className="truncate flex-1">{item.label}</span>
                           {count > 0 && (
-                            <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-destructive/15 border border-destructive/25 text-destructive text-[10px] font-semibold flex items-center justify-center leading-none">
+                            <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-destructive/15 border border-destructive/30 text-destructive text-[10px] font-bold flex items-center justify-center leading-none">
                               {count > 99 ? "99+" : count}
                             </span>
                           )}
@@ -229,18 +232,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         {/* Footer */}
         <div className="border-t border-sidebar-border p-3">
-          <div className={`flex items-center gap-3 p-2 rounded-xl border border-sidebar-border bg-white/[0.025] ${collapsed ? "justify-center" : ""}`}>
-            <div className="w-9 h-9 rounded-lg bg-primary/15 text-primary border border-primary/25 flex items-center justify-center text-sm font-bold flex-shrink-0">
+          <div className={`flex items-center gap-3 p-2 rounded-xl border border-sidebar-border bg-white/[0.035] ${collapsed ? "justify-center" : ""}`}>
+            <div className="w-9 h-9 rounded-xl gradient-purple flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-lg">
               {displayName[0]?.toUpperCase() ?? "A"}
             </div>
             {!collapsed && (
               <div className="flex-1 overflow-hidden">
-                <div className="text-sm font-semibold truncate text-foreground">{displayName}</div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{user?.role ?? "admin"}</div>
+                <div className="text-sm font-semibold truncate">{displayName}</div>
+                <div className="text-[10px] uppercase tracking-wider text-secondary">{user?.role ?? "admin"}</div>
               </div>
             )}
             {!collapsed && (
-              <button onClick={handleLogout} aria-label="Log out" className="p-1.5 rounded-lg hover:bg-destructive/15 text-muted-foreground hover:text-destructive transition" title="Logout">
+              <button onClick={handleLogout} aria-label="Log out" className="p-1.5 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition" title="Logout">
                 <LogOut className="w-4 h-4" />
               </button>
             )}
@@ -248,10 +251,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => setCollapsed(c => !c)}
             aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-            className="hidden lg:flex w-full mt-2 items-center justify-center gap-2 p-2 rounded-lg text-muted-foreground hover:bg-white/[0.04] hover:text-foreground transition text-xs font-medium"
+            className="hidden lg:flex w-full mt-3 items-center justify-center gap-2 p-2 rounded-lg text-muted-foreground hover:bg-surface-light hover:text-foreground transition text-xs font-semibold"
           >
             <PanelLeftClose className={`w-4 h-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
-            {!collapsed && <span>Collapse</span>}
+            {!collapsed && <span>Collapse navigation</span>}
           </button>
         </div>
       </aside>
@@ -262,23 +265,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-20 min-h-[64px] bg-background/85 backdrop-blur-xl border-b border-border flex items-center px-4 lg:px-6 gap-3 lg:gap-4">
+        <header className="sticky top-0 z-20 min-h-[76px] glass flex items-center px-4 lg:px-7 gap-3 lg:gap-4 relative">
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
           <button aria-label="Open navigation" className="icon-button lg:hidden" onClick={() => setMobileOpen(true)}>
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">
-              <Sparkles className="w-3 h-3" /> Workspace
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] font-bold text-primary">
+              <Sparkles className="w-3 h-3" /> Admin workspace
             </div>
-            <h1 className="mt-0.5 font-display text-[17px] lg:text-[20px] font-bold tracking-tight text-foreground truncate">{pageMeta.title}</h1>
+            <h1 className="mt-1 font-display text-[18px] lg:text-[22px] font-extrabold tracking-tight truncate">{pageMeta.title}</h1>
+            <p className="hidden xl:block mt-0.5 text-xs text-muted-foreground truncate">{pageMeta.description}</p>
           </div>
           <button
             onClick={() => setPaletteOpen(true)}
-            className="hidden md:flex items-center gap-2 px-3 h-9 w-60 xl:w-72 rounded-lg bg-white/[0.025] border border-border hover:border-primary/40 hover:bg-primary/[0.05] transition text-left"
+            className="hidden md:flex items-center gap-2 px-3 h-10 w-64 xl:w-72 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-primary/45 hover:bg-primary/[0.05] transition text-left"
           >
             <Search className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs flex-1 text-muted-foreground">Search or jump to…</span>
-            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border bg-white/[0.04] text-muted-foreground">⌘K</kbd>
+            <span className="text-xs flex-1 text-muted-foreground">Quick navigation...</span>
+            <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.04] text-muted-foreground">⌘K</kbd>
           </button>
           
           {/* Notification Popover Center */}
