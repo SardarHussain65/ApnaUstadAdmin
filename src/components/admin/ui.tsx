@@ -30,21 +30,20 @@ export function StatCard({
   const positive = (change ?? 0) >= 0;
 
   return (
-    <div className="app-glass card-hover relative min-h-[164px] overflow-hidden rounded-[20px] p-5 group">
-      <div className={`absolute -right-10 -top-12 h-32 w-32 rounded-full opacity-[0.18] blur-2xl transition-all duration-500 group-hover:opacity-30 group-hover:scale-125 ${gradient}`} />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+    <div className="surface-panel card-hover relative min-h-[148px] overflow-hidden p-5 group">
+      <div className={`absolute -right-8 -top-10 h-28 w-28 rounded-full opacity-[0.14] blur-2xl transition-all duration-500 group-hover:opacity-25 ${gradient}`} />
       <div className="flex items-start justify-between relative z-10">
-        <div className={`w-12 h-12 rounded-2xl ${gradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 shadow-[0_8px_24px_rgba(0,0,0,0.4)]`}>
+        <div className={`w-11 h-11 rounded-xl ${gradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-105 shadow-[0_6px_18px_rgba(0,0,0,0.3)]`}>
           {icon}
         </div>
         {change !== undefined && (
-          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${positive ? "bg-success/10 text-success border-success/25" : "bg-destructive/10 text-destructive border-destructive/25"}`}>
+          <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${positive ? "bg-success/10 text-success border-success/25" : "bg-destructive/10 text-destructive border-destructive/25"}`}>
             <ArrowUpRight className={`w-3 h-3 ${positive ? "" : "rotate-90"}`} /> {Math.abs(change)}%
           </span>
         )}
       </div>
-      <div className="mt-5 font-display text-[30px] font-extrabold tracking-[-0.04em] text-white relative z-10">{display}</div>
-      <div className="text-[13px] font-semibold text-muted-foreground mt-1 group-hover:text-foreground transition-colors relative z-10">{label}</div>
+      <div className="mt-5 font-display text-[28px] font-bold tracking-[-0.03em] text-foreground relative z-10">{display}</div>
+      <div className="text-[12.5px] font-medium text-muted-foreground mt-0.5 relative z-10">{label}</div>
     </div>
   );
 }
@@ -159,24 +158,24 @@ export function Button({
   loading?: boolean;
 }) {
   const variants: Record<ButtonVariant, string> = {
-    primary: "border-primary/30 gradient-cyan text-background shadow-[0_0_22px_rgba(0,245,255,0.22)] hover:shadow-[0_0_28px_rgba(0,245,255,0.34)]",
-    secondary: "border-white/10 bg-surface-light/80 text-white hover:border-primary/35 hover:bg-primary/10",
-    ghost: "border-transparent bg-transparent text-muted-foreground hover:bg-white/[0.05] hover:text-white",
-    danger: "border-destructive/35 bg-destructive/15 text-destructive hover:bg-destructive/22 hover:text-white",
-    success: "border-success/35 bg-success text-white hover:bg-success/90",
+    primary: "border-primary/30 gradient-cyan text-background shadow-[0_8px_22px_rgba(99,102,241,0.28)] hover:brightness-110",
+    secondary: "border-border bg-surface-light/70 text-foreground hover:border-primary/40 hover:bg-primary/10",
+    ghost: "border-transparent bg-transparent text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
+    danger: "border-destructive/30 bg-destructive/15 text-destructive hover:bg-destructive/20",
+    success: "border-success/30 bg-success text-background hover:brightness-110",
     outline: "border-border bg-transparent text-foreground hover:border-primary/40 hover:bg-primary/8",
   };
   const sizes = {
     sm: "min-h-9 px-3 text-xs",
-    md: "min-h-11 px-4 text-sm",
-    lg: "min-h-12 px-5 text-sm",
+    md: "min-h-10 px-4 text-sm",
+    lg: "min-h-11 px-5 text-sm",
   };
 
   return (
     <button
       {...props}
       disabled={disabled || loading}
-      className={`btn-press inline-flex items-center justify-center gap-2 rounded-xl border font-bold transition disabled:pointer-events-none disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`btn-press inline-flex items-center justify-center gap-2 rounded-lg border font-semibold transition disabled:pointer-events-none disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
     >
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {children}
