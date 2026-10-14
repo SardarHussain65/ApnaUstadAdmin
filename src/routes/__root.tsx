@@ -12,6 +12,14 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
+  if (typeof window !== "undefined") {
+    const clean = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (clean === "/admin") {
+      window.location.replace("/login");
+      return null;
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
