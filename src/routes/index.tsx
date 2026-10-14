@@ -321,14 +321,13 @@ function LandingPage() {
             <a href="#faq" className="hover:text-foreground transition">FAQs</a>
           </nav>
 
-          <Link
-            to="/login"
+          <a
+            href="#download"
             className="btn-press inline-flex items-center gap-2 h-10 px-4 md:px-5 rounded-xl gradient-cyan text-background text-sm font-bold glow-cyan hover:opacity-90 transition"
           >
-            <LogIn className="w-4 h-4" />
-            <span className="hidden sm:inline">Admin Login</span>
-            <span className="sm:hidden">Admin</span>
-          </Link>
+            <Smartphone className="w-4 h-4" />
+            <span>Get the App</span>
+          </a>
         </div>
       </header>
 
@@ -821,7 +820,7 @@ function LandingPage() {
               <li><a href="#" className="hover:text-foreground transition">About Us</a></li>
               <li><a href="#safety" className="hover:text-foreground transition">Safety &amp; Trust</a></li>
               <li><a href="#faq" className="hover:text-foreground transition">FAQs</a></li>
-              <li><Link to="/login" className="hover:text-foreground transition">Admin Portal</Link></li>
+              <li><Link to="/admin" className="hover:text-foreground transition">Admin Portal</Link></li>
             </ul>
           </div>
           <div>

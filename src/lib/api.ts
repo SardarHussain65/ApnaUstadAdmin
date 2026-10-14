@@ -37,7 +37,7 @@ function notifyUnauthorized(response: Response) {
   localStorage.removeItem('adminToken');
   localStorage.removeItem('adminUser');
 
-  if (window.location.pathname !== '/login') {
+  if (window.location.pathname !== '/login' && window.location.pathname !== '/admin') {
     window.dispatchEvent(new Event('admin:unauthorized'));
   }
 }

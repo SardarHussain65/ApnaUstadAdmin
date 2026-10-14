@@ -19,7 +19,7 @@ const LOGIN_PARTICLES = Array.from({ length: 30 }, (_, index) => ({
   opacity: 0.3 + particleValue(index, 7) * 0.7,
 }));
 
-function LoginPage() {
+export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
