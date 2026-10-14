@@ -758,18 +758,23 @@ function LandingPage() {
             Free to download. Free to post jobs. Pay cash only when the job is done. Join thousands of Pakistanis who trust ApnaUstad.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <a href="#" className="btn-press inline-flex items-center gap-3 h-14 px-6 rounded-xl bg-foreground text-background hover:opacity-90 transition">
+            <a href="#" className="btn-press inline-flex items-center gap-3 h-14 px-6 rounded-xl bg-foreground text-background hover:opacity-90 transition opacity-70" title="Coming soon">
               <Apple className="w-7 h-7" />
               <div className="text-left leading-tight">
-                <div className="text-[10px] opacity-70">Download on the</div>
+                <div className="text-[10px] opacity-70">Coming soon on</div>
                 <div className="text-base font-bold">App Store</div>
               </div>
             </a>
-            <a href="#" className="btn-press inline-flex items-center gap-3 h-14 px-6 rounded-xl bg-foreground text-background hover:opacity-90 transition">
+            <a
+              href="https://expo.dev/accounts/sardar_hussain/projects/ApnaUstad/builds/1cbd6f20-c68a-4f3f-afc0-a3e18e7854d4"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-press inline-flex items-center gap-3 h-14 px-6 rounded-xl bg-foreground text-background hover:opacity-90 transition shadow-lg shadow-primary/20"
+            >
               <Play className="w-7 h-7 fill-background" />
               <div className="text-left leading-tight">
-                <div className="text-[10px] opacity-70">Get it on</div>
-                <div className="text-base font-bold">Google Play</div>
+                <div className="text-[10px] opacity-70">Direct Download</div>
+                <div className="text-base font-bold">Android APK</div>
               </div>
             </a>
           </div>
