@@ -126,4 +126,43 @@ export const api = {
     });
     return handleResponse<T>(response);
   },
+  downloadExport: async (entity: string, params?: { from?: string; to?: string }): Promise<void> => {
+    const token = localStorage.getItem('adminToken');
+    const query = new URLSearchParams();
+    if (params?.from) query.set('from', params.from);
+    if (params?.to) query.set('to', params.to);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const response = await fetch(`${API_BASE_URL}/admin/export/${entity}${qs}`, {
+      method: 'GET',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+    if (!response.ok) {
+      let msg = `Export failed with status ${response.status}`;
+      try {
+        const err = await response.json();
+        if (err.message) msg = err.message;
+      } catch {
+        // ignore
+      }
+      throw new ApiError(response.status, msg);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition');
+    let filename = `${entity}-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) filename = match[1];
+    }
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  },
 };
+

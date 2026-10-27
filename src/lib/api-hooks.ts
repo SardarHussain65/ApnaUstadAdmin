@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
+import { getSocket } from './socket';
 import { toast } from 'sonner';
 
 type QueryParam = string | number | boolean | undefined | null;
@@ -103,6 +105,7 @@ export interface Worker {
   totalReviews: number;
   totalJobs: number;
   totalEarnings: number;
+  certificates?: any[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -179,6 +182,62 @@ export interface AdminPayment {
 }
 
 // --- Dashboard Queries ---
+export interface DashboardMetricSummary {
+  current: number;
+  previous: number | null;
+  deltaPct: number | null;
+  unit: 'count' | 'pkr' | 'percent';
+  sparkline: number[];
+}
+
+export interface DashboardSummaryResponse {
+  range: {
+    from: string;
+    to: string;
+    days: number;
+    previousFrom: string | null;
+    previousTo: string | null;
+    timezone: string;
+  };
+  compare: boolean;
+  metrics: Record<string, DashboardMetricSummary>;
+}
+
+export const useDashboardSummary = (params: { from?: string; to?: string; compare?: boolean } = {}) => {
+  const query = toQueryString(params as any);
+  return useQuery({
+    queryKey: ['dashboard-summary', params],
+    queryFn: () => api.get<DashboardSummaryResponse>(`/admin/dashboard/summary${query ? `?${query}` : ''}`),
+  });
+};
+
+export interface TimeseriesPoint {
+  date: string;
+  [key: string]: number | string;
+}
+
+export interface TimeseriesResponse {
+  interval: 'day' | 'week' | 'month';
+  timezone: string;
+  metrics: string[];
+  points: TimeseriesPoint[];
+  totals: Record<string, number>;
+  range: { from: string; to: string };
+}
+
+export const useAnalyticsTimeseries = (params: { metrics: string[]; from?: string; to?: string; interval?: 'day' | 'week' | 'month' }) => {
+  const query = toQueryString({
+    metrics: params.metrics.join(','),
+    from: params.from,
+    to: params.to,
+    interval: params.interval,
+  });
+  return useQuery({
+    queryKey: ['analytics-timeseries', params],
+    queryFn: () => api.get<TimeseriesResponse>(`/admin/analytics/timeseries?${query}`),
+  });
+};
+
 export const useDashboardStats = () => {
   return useQuery({
     queryKey: ['dashboardStats'],
@@ -622,7 +681,7 @@ export interface ProfessionRequest {
   createdAt: string;
 }
 
-export const useProfessionRequestsPage = (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
+export const useProfessionRequestsPage = (params: { page?: number; limit?: number; status?: string; search?: string } = {}) =>
   usePaginatedQuery<ProfessionRequest>('profession-requests', '/admin/profession-requests', params);
 
 export const useReviewProfessionRequest = () => {
@@ -1484,36 +1543,55 @@ export const useReviewVerificationRequest = () => {
 };
 
 /**
- * Aggregates badge counts for the sidebar navigation.
- * Uses server pagination totals so badges stay accurate beyond the first page.
+ * Open action-item counts for sidebar badges and Action Center.
+ * Replaces repetitive count queries with 1 cached query + live socket updates.
  */
+export interface ActionCounts {
+  openTickets: number;
+  openJobs: number;
+  pendingBookings: number;
+  unverifiedWorkers: number;
+  pendingTopUps: number;
+  openDisputes: number;
+  underReviewDisputes: number;
+  pendingVerifications: number;
+  pendingSpecialties: number;
+  generatedAt: string;
+}
+
+export const useActionCounts = () => {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ['action-counts'],
+    queryFn: () => api.get<ActionCounts>('/admin/dashboard/action-counts'),
+    refetchInterval: 30000,
+  });
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handler = (counts: ActionCounts) => {
+      queryClient.setQueryData(['action-counts'], counts);
+    };
+    socket.on('admin:counts', handler);
+    return () => {
+      socket.off('admin:counts', handler);
+    };
+  }, [queryClient]);
+
+  return query;
+};
+
 export const useNavBadges = () => {
-  const { data: supportData } = useSupportRequestsPage({ status: 'open', limit: 1 });
-  const { data: jobsData } = useJobsPage({ status: 'open', limit: 1 });
-  const { data: bookingsData } = useBookingsPage({ status: 'pending', limit: 1 });
-  const { data: workersData } = useWorkersPage({ verified: false, status: 'active', limit: 1 });
-  const { data: topUpsData } = useWalletTopUpsPage({ status: 'pending', limit: 1 });
-  const { data: disputesData } = useDisputesPage({ status: 'open', limit: 1 });
-  const { data: verificationsData } = useVerificationRequestsPage({ status: 'pending', limit: 1 });
-  const { data: specialtyData } = useSpecialtyRequestsPage({ limit: 1 });
-
-  const openTickets = supportData?.pagination.totalItems ?? 0;
-  const openJobs = jobsData?.pagination.totalItems ?? 0;
-  const pendingBookings = bookingsData?.pagination.totalItems ?? 0;
-  const unverifiedWorkers = workersData?.pagination.totalItems ?? 0;
-  const pendingTopUps = topUpsData?.pagination.totalItems ?? 0;
-  const openDisputes = disputesData?.pagination.totalItems ?? 0;
-  const pendingVerifications = verificationsData?.pagination.totalItems ?? 0;
-  const pendingSpecialties = specialtyData?.pagination.totalItems ?? 0;
-
+  const { data } = useActionCounts();
   return {
-    openTickets,
-    openJobs,
-    pendingBookings,
-    unverifiedWorkers,
-    pendingTopUps,
-    openDisputes,
-    pendingVerifications,
-    pendingSpecialties,
+    openTickets: data?.openTickets ?? 0,
+    openJobs: data?.openJobs ?? 0,
+    pendingBookings: data?.pendingBookings ?? 0,
+    unverifiedWorkers: data?.unverifiedWorkers ?? 0,
+    pendingTopUps: data?.pendingTopUps ?? 0,
+    openDisputes: data?.openDisputes ?? 0,
+    pendingVerifications: data?.pendingVerifications ?? 0,
+    pendingSpecialties: data?.pendingSpecialties ?? 0,
   };
 };

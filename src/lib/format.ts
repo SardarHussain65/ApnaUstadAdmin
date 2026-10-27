@@ -160,8 +160,22 @@ export function maskCnic(value: unknown): string {
 
 /** Short display form for ids: `#c9630c`. Full id is shown in drawers via CopyableId. */
 export function shortId(id: unknown, length = 6): string {
-  if (typeof id !== "string" || !id) return EM_DASH;
-  return `#${id.slice(-length)}`;
+  if (!id) return EM_DASH;
+  let str = "";
+  if (typeof id === "string") {
+    str = id;
+  } else if (typeof id === "object" && id !== null) {
+    if ("$oid" in (id as any)) str = String((id as any).$oid);
+    else if ("toHexString" in (id as any) && typeof (id as any).toHexString === "function") str = (id as any).toHexString();
+    else if (typeof (id as any).toString === "function") {
+      const s = String((id as any).toString());
+      str = s !== "[object Object]" ? s : "";
+    }
+  } else {
+    str = String(id);
+  }
+  if (!str) return EM_DASH;
+  return `#${str.slice(-length)}`;
 }
 
 /* ───────────────────────────── Dates ───────────────────────────── */

@@ -825,7 +825,7 @@ function LandingPage() {
               <li><a href="#" className="hover:text-foreground transition">About Us</a></li>
               <li><a href="#safety" className="hover:text-foreground transition">Safety &amp; Trust</a></li>
               <li><a href="#faq" className="hover:text-foreground transition">FAQs</a></li>
-              <li><Link to="/admin" className="hover:text-foreground transition">Admin Portal</Link></li>
+              <li><Link to="/dashboard" className="hover:text-foreground transition">Admin Portal</Link></li>
             </ul>
           </div>
           <div>
