@@ -599,6 +599,77 @@ export const useDeleteCategory = () => {
   });
 };
 
+// --- Profession Requests Queries ---
+export interface ProfessionRequest {
+  _id: string;
+  worker?: any;
+  professionName: string;
+  categoryDomain?: string;
+  requirements?: string;
+  description?: string;
+  experience?: number;
+  hourlyRate?: number;
+  skills?: string[];
+  requesterName: string;
+  requesterPhone: string;
+  requesterEmail?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  adminNotes?: string;
+  rejectionReason?: string;
+  createdCategoryId?: any;
+  reviewedBy?: any;
+  reviewedAt?: string;
+  createdAt: string;
+}
+
+export const useProfessionRequestsPage = (params?: { page?: number; limit?: number; status?: string; search?: string }) =>
+  usePaginatedQuery<ProfessionRequest>('profession-requests', '/admin/profession-requests', params);
+
+export const useReviewProfessionRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: {
+      id: string;
+      status: 'approved' | 'rejected';
+      rejectionReason?: string;
+      adminNotes?: string;
+      createCategory?: boolean;
+      categoryName?: string;
+      categoryIcon?: string;
+      categoryColor?: string;
+      categoryDescription?: string;
+    }) => api.patch(`/admin/profession-requests/${id}/review`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profession-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+      toast.success('Profession request updated');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to update profession request');
+    }
+  });
+};
+
+export const useReviewWorkerCertificate = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workerId, certId, verificationStatus, rejectionReason }: {
+      workerId: string;
+      certId: string;
+      verificationStatus: 'verified' | 'rejected';
+      rejectionReason?: string;
+    }) => api.patch(`/admin/workers/${workerId}/certificates/${certId}/review`, { verificationStatus, rejectionReason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+      toast.success('Certificate review submitted');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to review certificate');
+    }
+  });
+};
+
 // --- Reviews Queries ---
 type ReviewQueryParams = { page?: number; limit?: number; search?: string; rating?: number; category?: string; dateFrom?: string };
 

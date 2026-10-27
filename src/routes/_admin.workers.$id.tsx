@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Mail, MapPin, Phone, Power,
-  RotateCcw, X, XCircle, Wallet, Star, Edit, Save, Loader, Layers3
+  RotateCcw, X, XCircle, Wallet, Star, Edit, Save, Loader, Layers3, Award
 } from "lucide-react";
 import { format } from "date-fns";
 import { Avatar, Badge, StatusBadge, RatingStars } from "@/components/admin/ui";
@@ -11,7 +11,8 @@ import { fmtPKR } from "@/lib/mock-data";
 import {
   useBookings, useToggleWorkerStatus, useVerifyWorker,
   useWorkerDetails, useWorkerWalletDetails, useWorkerReviews,
-  useUpdateWorkerProfile, useReviewWorkerSpecialty, useWalletSettings
+  useUpdateWorkerProfile, useReviewWorkerSpecialty, useWalletSettings,
+  useReviewWorkerCertificate
 } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/workers/$id")({ component: WorkerDetail });
@@ -41,6 +42,7 @@ function WorkerDetail() {
   const toggleWorkerStatusMutation = useToggleWorkerStatus();
   const updateProfileMutation = useUpdateWorkerProfile();
   const reviewSpecialtyMutation = useReviewWorkerSpecialty();
+  const reviewCertificateMutation = useReviewWorkerCertificate();
 
   const recentBookings = useMemo(() => (bookings as any[]).slice(0, 10), [bookings]);
   const reviews = useMemo(() => (reviewsData as any)?.data || (Array.isArray(reviewsData) ? reviewsData : []), [reviewsData]);
@@ -289,6 +291,75 @@ function WorkerDetail() {
                 <XCircle className="w-4 h-4" /> {worker.isVerified ? "Revoke Verification" : "Reject"}
               </button>
             </div>
+          </div>
+
+          {/* Degrees & Technical Certifications */}
+          <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="font-bold flex items-center gap-2">
+                  <Award className="w-4 h-4 text-primary" /> Degrees & Technical Certifications
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Verify vocational diplomas, licenses, or trade certificates submitted by the worker.
+                </p>
+              </div>
+              <Badge variant={worker.certificates?.some((c: any) => c.verificationStatus === "verified") ? "success" : "muted"}>
+                {worker.certificates?.filter((c: any) => c.verificationStatus === "verified").length || 0} / {worker.certificates?.length || 0} Verified
+              </Badge>
+            </div>
+
+            {(!worker.certificates || worker.certificates.length === 0) ? (
+              <div className="text-sm text-muted-foreground py-4 text-center border border-dashed border-border rounded-xl">
+                No degrees or trade certificates uploaded by this worker.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {worker.certificates.map((cert: any, index: number) => {
+                  const certId = cert._id || String(index);
+                  const isVerified = cert.verificationStatus === "verified";
+                  const isRejected = cert.verificationStatus === "rejected";
+                  return (
+                    <div key={certId} className="rounded-xl border border-border/80 bg-surface-light/40 p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-bold text-sm text-white">{cert.title}</div>
+                          {cert.issuingOrg && <div className="text-xs text-muted-foreground">{cert.issuingOrg}</div>}
+                        </div>
+                        <Badge variant={isVerified ? "success" : isRejected ? "danger" : "warning"}>
+                          {cert.verificationStatus || "pending"}
+                        </Badge>
+                      </div>
+
+                      {cert.certificateUrl && (
+                        <DocumentImage label="Certificate Document" src={cert.certificateUrl} onOpen={setLightbox} />
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        {!isVerified && (
+                          <button
+                            disabled={reviewCertificateMutation.isPending}
+                            onClick={() => reviewCertificateMutation.mutate({ workerId: worker._id, certId, verificationStatus: "verified" })}
+                            className="flex-1 h-9 rounded-lg bg-success/20 text-success hover:bg-success/30 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Verify
+                          </button>
+                        )}
+                        {!isRejected && (
+                          <button
+                            disabled={reviewCertificateMutation.isPending}
+                            onClick={() => reviewCertificateMutation.mutate({ workerId: worker._id, certId, verificationStatus: "rejected", rejectionReason: "Invalid or illegible certificate" })}
+                            className="flex-1 h-9 rounded-lg bg-destructive/15 text-destructive hover:bg-destructive/25 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
+                          >
+                            <XCircle className="w-3.5 h-3.5" /> Reject
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Specialty subscriptions */}

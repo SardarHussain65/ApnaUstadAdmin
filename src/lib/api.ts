@@ -1,6 +1,7 @@
 // The API URL will default to your production domain if no environment variable is set.
 // For local development on your Mac, create a .env.local file with VITE_API_URL=http://localhost:5001/api/v1
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.apnaustad.app/api/v1';
+// export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.apnaustad.app/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api/v1';
 
 export class ApiError extends Error {
   status: number;
