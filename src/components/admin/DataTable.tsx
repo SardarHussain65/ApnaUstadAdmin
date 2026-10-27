@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Database, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export interface Column<T> {
   key: string;
@@ -42,9 +43,22 @@ export function PaginationBar({ page, totalPages, totalItems, pageSize, visibleI
   );
 }
 
+export interface DataTableEmptyProps {
+  /** Active search text: shows `No results for "xyz"` + Clear filters. */
+  query?: string;
+  /** True when any filter is active: switches to the "no results" variant. */
+  hasFilters?: boolean;
+  onClearFilters?: () => void;
+  /** Queue pages: "All caught up" success variant when nothing is filtered. */
+  emptyVariant?: "empty" | "success";
+  emptyTitle?: string;
+  emptyDescription?: string;
+}
+
 export function DataTable<T extends Record<string, any>>({
   rows, columns, pageSize = 10, onRowClick, isLoading = false, pagination,
-}: { rows: T[]; columns: Column<T>[]; pageSize?: number; onRowClick?: (row: T) => void; isLoading?: boolean; pagination?: DataTablePagination }) {
+  query, hasFilters, onClearFilters, emptyVariant = "empty", emptyTitle, emptyDescription,
+}: { rows: T[]; columns: Column<T>[]; pageSize?: number; onRowClick?: (row: T) => void; isLoading?: boolean; pagination?: DataTablePagination } & DataTableEmptyProps) {
   const [localPage, setLocalPage] = useState(1);
   useEffect(() => { setLocalPage(1); }, [rows.length]);
   const page = pagination?.page ?? localPage;
@@ -71,12 +85,12 @@ export function DataTable<T extends Record<string, any>>({
               Array.from({ length: 5 }).map((_, rIndex) => (
                 <tr key={rIndex} className="border-b border-border/60">
                   {columns.map((c, cIndex) => (
-                    <td key={c.key} className="px-4 py-4">
-                      <div 
-                        className="h-4 rounded-lg bg-white/[0.055] animate-pulse"
-                        style={{ 
+                    <td key={c.key} className="dt-cell">
+                      <div
+                        className="skeleton h-4"
+                        style={{
                           width: cIndex === 0 ? "50%" : cIndex === columns.length - 1 ? "40%" : "80%",
-                          animationDelay: `${rIndex * 75}ms`
+                          opacity: 1 - rIndex * 0.1,
                         }}
                       />
                     </td>
@@ -99,20 +113,20 @@ export function DataTable<T extends Record<string, any>>({
                 tabIndex={onRowClick ? 0 : undefined}
               >
                 {columns.map(c => (
-                  <td key={c.key} className={`px-4 py-4 text-foreground/90 ${c.className ?? ""}`}>{c.render(row)}</td>
+                  <td key={c.key} className={`dt-cell text-foreground/90 ${c.className ?? ""}`}>{c.render(row)}</td>
                 ))}
               </tr>
             ))}
             {!isLoading && view.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-16 text-center">
-                  <div className="mx-auto flex max-w-sm flex-col items-center">
-                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-                      <Database className="h-6 w-6" />
-                    </div>
-                    <div className="font-bold text-white">No records found</div>
-                    <div className="mt-1.5 text-sm leading-relaxed text-dim">Try adjusting the filters or search query.</div>
-                  </div>
+                <td colSpan={columns.length}>
+                  <EmptyState
+                    variant={hasFilters || query ? "search" : emptyVariant}
+                    query={query}
+                    title={hasFilters || query ? undefined : emptyTitle}
+                    description={hasFilters || query ? undefined : emptyDescription}
+                    onClearFilters={hasFilters || query ? onClearFilters : undefined}
+                  />
                 </td>
               </tr>
             )}
