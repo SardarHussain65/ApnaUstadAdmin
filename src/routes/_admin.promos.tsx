@@ -32,6 +32,8 @@ type PromoFormState = {
   userUsageLimit: number;
   startDate: string;
   endDate: string;
+  firstTimeOnly: boolean;
+  city: string;
 };
 
 function PromosPage() {
@@ -71,6 +73,8 @@ function PromosPage() {
     userUsageLimit: 1,
     startDate: new Date().toISOString().split("T")[0],
     endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    firstTimeOnly: false,
+    city: "all",
   });
 
   // Copy helper
@@ -135,7 +139,9 @@ function PromosPage() {
       startDate: new Date(form.startDate).toISOString(),
       endDate: new Date(form.endDate).toISOString(),
       usageLimit: Number(form.usageLimit),
-      userUsageLimit: Number(form.userUsageLimit)
+      userUsageLimit: Number(form.userUsageLimit),
+      firstTimeOnly: form.firstTimeOnly,
+      city: form.city
     }, {
       onSuccess: () => {
         setIsCreateOpen(false);
@@ -150,6 +156,8 @@ function PromosPage() {
           userUsageLimit: 1,
           startDate: new Date().toISOString().split("T")[0],
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          firstTimeOnly: false,
+          city: "all",
         });
       }
     });
@@ -334,6 +342,18 @@ function PromosPage() {
                         <div className="flex items-center gap-1.5 text-pink-400">
                           <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
                           <span>Max Cap: {fmtPKR(p.maxDiscountAmount)}</span>
+                        </div>
+                      )}
+                      {p.firstTimeOnly && (
+                        <div className="flex items-center gap-1.5 text-amber-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          <span className="font-semibold">First-Time Customers Only</span>
+                        </div>
+                      )}
+                      {p.city && p.city !== "all" && (
+                        <div className="flex items-center gap-1.5 text-cyan-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                          <span className="font-semibold">City: {p.city}</span>
                         </div>
                       )}
                     </div>
@@ -594,6 +614,53 @@ function PromosPage() {
                 required
               />
             </div>
+          </div>
+
+          {/* City Restriction */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block mb-1">
+              Geographic Scope (Pakistani City)
+            </label>
+            <select
+              value={form.city}
+              onChange={e => setForm({ ...form, city: e.target.value })}
+              className="w-full h-11 px-4 rounded-xl bg-surface-light border border-border focus:border-primary focus:outline-none transition-all text-white text-sm cursor-pointer"
+            >
+              <option value="all">All Pakistan (National Coverage)</option>
+              <option value="Karachi">Karachi</option>
+              <option value="Lahore">Lahore</option>
+              <option value="Islamabad">Islamabad</option>
+              <option value="Rawalpindi">Rawalpindi</option>
+              <option value="Peshawar">Peshawar</option>
+              <option value="Faisalabad">Faisalabad</option>
+              <option value="Multan">Multan</option>
+            </select>
+          </div>
+
+          {/* First-Time Customer Only Toggle */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-surface-light border border-border">
+            <div>
+              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>First-Time Customers Only</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Only users booking their first-ever service can apply this discount.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, firstTimeOnly: !form.firstTimeOnly })}
+              className={`w-12 h-6 rounded-full transition-colors relative flex items-center p-1 ${
+                form.firstTimeOnly ? "bg-amber-400" : "bg-card border border-border"
+              }`}
+            >
+              <div
+                className={`w-4 h-4 rounded-full transition-transform ${
+                  form.firstTimeOnly ? "translate-x-6 bg-black" : "translate-x-0 bg-muted-foreground"
+                }`}
+              />
+            </button>
           </div>
 
           {/* Submit Button */}

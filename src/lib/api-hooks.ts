@@ -1158,7 +1158,7 @@ export const useAdminNotifications = (params: { page?: number; limit?: number; g
 
 export const useBroadcastNotification = () => {
   return useMutation({
-    mutationFn: (payload: { target: 'users' | 'workers' | 'all' | 'user' | 'worker'; title: string; body: string; recipientId?: string; scheduledAt?: string; type?: string }) =>
+    mutationFn: (payload: { target: 'users' | 'workers' | 'all' | 'user' | 'worker'; title: string; body: string; recipientId?: string; scheduledAt?: string; type?: string; city?: string }) =>
       api.post(`/admin/notifications/global`, payload),
   });
 };
@@ -1481,6 +1481,8 @@ export interface PromoCode {
   usageCount: number;
   userUsageLimit: number;
   isActive: boolean;
+  firstTimeOnly?: boolean;
+  city?: string;
   createdAt: string;
   updatedAt: string;
 }

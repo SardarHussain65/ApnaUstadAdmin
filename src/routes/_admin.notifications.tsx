@@ -44,7 +44,8 @@ const TEMPLATES = [
 
 function NotificationsPage() {
   const queryClient = useQueryClient();
-  const [target, setTarget] = useState("Everyone");
+  const [target, setTarget] = useState("Everyone (Nationwide)");
+  const [city, setCity] = useState("Karachi");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [type, setType] = useState("general");
@@ -109,20 +110,22 @@ function NotificationsPage() {
       return toast.error("Please search and select a recipient");
     }
 
+    let resolvedTarget: 'all' | 'users' | 'workers' | 'user' | 'worker' = 'all';
+    if (target.includes("Users")) resolvedTarget = 'users';
+    else if (target.includes("Workers")) resolvedTarget = 'workers';
+    else if (target === "Single User") resolvedTarget = 'user';
+    else if (target === "Single Worker") resolvedTarget = 'worker';
+
     const payload: any = {
-      target: (target === "All Users"
-        ? "users"
-        : target === "All Workers"
-        ? "workers"
-        : target === "Single User"
-        ? "user"
-        : target === "Single Worker"
-        ? "worker"
-        : "all") as any,
+      target: resolvedTarget,
       title,
       body,
       type,
     };
+
+    if (target.includes("in City")) {
+      payload.city = city;
+    }
 
     if (["Single User", "Single Worker"].includes(target)) {
       payload.recipientId = selectedRecipient._id;
@@ -184,13 +187,38 @@ function NotificationsPage() {
               }} 
               className="mt-1 w-full h-11 px-3 rounded-xl bg-input border border-border focus:border-primary focus:outline-none text-sm"
             >
-              <option>Everyone</option>
-              <option>All Users</option>
-              <option>All Workers</option>
+              <option>Everyone (Nationwide)</option>
+              <option>All Users (Nationwide)</option>
+              <option>All Workers (Nationwide)</option>
+              <option>Everyone in City</option>
+              <option>All Users in City</option>
+              <option>All Workers in City</option>
               <option>Single User</option>
               <option>Single Worker</option>
             </select>
           </div>
+
+          {/* Conditional City Selector */}
+          {target.includes("in City") && (
+            <div className="animate-fade-in">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                Target Pakistani City
+              </label>
+              <select
+                value={city}
+                onChange={e => setCity(e.target.value)}
+                className="mt-1 w-full h-11 px-3 rounded-xl bg-input border border-border focus:border-primary focus:outline-none text-sm cursor-pointer"
+              >
+                <option value="Karachi">Karachi</option>
+                <option value="Lahore">Lahore</option>
+                <option value="Islamabad">Islamabad</option>
+                <option value="Rawalpindi">Rawalpindi</option>
+                <option value="Peshawar">Peshawar</option>
+                <option value="Faisalabad">Faisalabad</option>
+                <option value="Multan">Multan</option>
+              </select>
+            </div>
+          )}
 
           {/* Autocomplete for targeting single user/worker */}
           {["Single User", "Single Worker"].includes(target) && (

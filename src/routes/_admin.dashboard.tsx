@@ -36,6 +36,7 @@ import { rangeFromPreset, toQueryDate, type DateRange } from "@/lib/date-range";
 import { fmtPKR, formatCompact, formatDate, formatPKR, shortId } from "@/lib/format";
 import { ActionCenter } from "@/components/admin/ActionCenter";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LiveOpsMap } from "@/components/admin/LiveOpsMap";
 import {
   useDashboardSummary,
   useAnalyticsTimeseries,
@@ -528,6 +529,9 @@ function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* 🇵🇰 Pakistan Operations Radar Map */}
+      <LiveOpsMap />
 
       {/* Recent Bookings Queue Table */}
       <div className="rounded-2xl border border-hairline bg-card overflow-hidden shadow-card">
