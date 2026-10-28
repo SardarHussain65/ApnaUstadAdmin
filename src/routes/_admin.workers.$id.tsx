@@ -2,17 +2,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Mail, MapPin, Phone, Power,
-  RotateCcw, X, XCircle, Wallet, Star, Edit, Save, Loader, Layers3, Award
+  RotateCcw, X, XCircle, Wallet, Star, Edit, Save, Loader, Layers3, Award, Eye, Building2
 } from "lucide-react";
 import { format } from "date-fns";
 import { Avatar, Badge, StatusBadge, RatingStars } from "@/components/admin/ui";
 import { Modal } from "@/components/admin/Drawer";
-import { fmtPKR } from "@/lib/mock-data";
+import { CnicRevealModal } from "@/components/admin/CnicRevealModal";
+import { CopyableId } from "@/components/ui/copyable-id";
+import { formatPKR, shortId } from "@/lib/format";
 import {
   useBookings, useToggleWorkerStatus, useVerifyWorker,
   useWorkerDetails, useWorkerWalletDetails, useWorkerReviews,
-  useUpdateWorkerProfile, useReviewWorkerSpecialty, useWalletSettings,
-  useReviewWorkerCertificate
+  useUpdateWorkerProfile, useReviewWorkerSpecialty, useWalletSettings
 } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/workers/$id")({ component: WorkerDetail });
@@ -42,7 +43,6 @@ function WorkerDetail() {
   const toggleWorkerStatusMutation = useToggleWorkerStatus();
   const updateProfileMutation = useUpdateWorkerProfile();
   const reviewSpecialtyMutation = useReviewWorkerSpecialty();
-  const reviewCertificateMutation = useReviewWorkerCertificate();
 
   const recentBookings = useMemo(() => (bookings as any[]).slice(0, 10), [bookings]);
   const reviews = useMemo(() => (reviewsData as any)?.data || (Array.isArray(reviewsData) ? reviewsData : []), [reviewsData]);
@@ -160,7 +160,10 @@ function WorkerDetail() {
               </div>
             )}
           </div>
-          <h2 className="text-2xl font-bold mt-4">{worker.fullName || "Unnamed Worker"}</h2>
+          <h2 className="text-2xl font-bold mt-4 text-foreground">{worker.fullName || "Unnamed Worker"}</h2>
+          <div className="mt-1 flex justify-center">
+            <CopyableId id={worker._id} label="ID" />
+          </div>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
             {activeSpecialties.length > 0
               ? activeSpecialties.slice(0, 3).map((specialty) => {
@@ -183,7 +186,7 @@ function WorkerDetail() {
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-destructive">
                 <AlertTriangle className="h-3.5 w-3.5" /> Suspended
               </div>
-              <p className="mt-2 text-sm text-white">{worker.deactivationReason || "Account deactivated by admin. Please contact support for details."}</p>
+              <p className="mt-2 text-sm text-foreground">{worker.deactivationReason || "Account deactivated by admin. Please contact support for details."}</p>
               {worker.deactivatedAt && <p className="mt-1 text-xs text-muted-foreground">Deactivated {formatDate(worker.deactivatedAt)}</p>}
             </div>
           )}
@@ -194,11 +197,17 @@ function WorkerDetail() {
               <div className="space-y-3">
                 {activeSpecialties.map((specialty) => {
                   const category = typeof specialty.categoryId === "string" ? null : specialty.categoryId;
+                  const categoryName = category?.name || "Category";
+                  const specialtyCertificates = (specialty as any).certificates?.length
+                    ? (specialty as any).certificates
+                    : (worker.certificates || []).filter((c: any) =>
+                        c.categoryName === categoryName || (!c.categoryName && specialty.priority === 1)
+                      );
                   return (
                     <div key={specialty._id} className="rounded-xl bg-card/80 border border-border/70 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-extrabold truncate">{category?.name || "Category"}</div>
+                          <div className="text-sm font-extrabold truncate">{categoryName}</div>
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{specialty.priority === 1 ? "Primary service" : "Additional service"}</div>
                         </div>
                         <Badge variant={specialty.subscriptionStatus === "active" || specialty.subscriptionStatus === "free" ? "success" : "warning"}>
@@ -208,7 +217,7 @@ function WorkerDetail() {
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-lg bg-surface-light/80 border border-border/60 px-3 py-2">
                           <div className="text-[10px] uppercase text-muted-foreground font-bold">Rate</div>
-                          <div className="text-sm font-extrabold text-accent">{fmtPKR(specialty.hourlyRate || 0)}/hr</div>
+                          <div className="text-sm font-extrabold text-accent">{formatPKR(specialty.hourlyRate || 0)}/hr</div>
                         </div>
                         <div className="rounded-lg bg-surface-light/80 border border-border/60 px-3 py-2">
                           <div className="text-[10px] uppercase text-muted-foreground font-bold">Experience</div>
@@ -221,6 +230,42 @@ function WorkerDetail() {
                           ? specialty.skills.slice(0, 6).map(skill => <span key={skill} className="px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">{skill}</span>)
                           : <span className="text-[11px] text-muted-foreground">No skills submitted</span>}
                       </div>
+
+                      {specialtyCertificates.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-border/60 space-y-2">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <Award className="w-3.5 h-3.5 text-primary" /> Certificates ({specialtyCertificates.length})
+                          </div>
+                          {specialtyCertificates.map((cert: any, idx: number) => (
+                            <div
+                              key={cert._id || idx}
+                              onClick={() => cert.certificateUrl && setLightbox(cert.certificateUrl)}
+                              className="group flex items-center gap-2.5 rounded-lg border border-border/80 bg-surface-light/60 hover:border-primary/40 p-2 transition cursor-pointer"
+                            >
+                              {cert.certificateUrl ? (
+                                <img
+                                  src={cert.certificateUrl}
+                                  alt={cert.title || "Certificate"}
+                                  className="h-10 w-14 shrink-0 rounded object-cover border border-border"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded bg-surface text-muted-foreground">
+                                  <Award className="w-4 h-4" />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="font-bold text-xs text-foreground truncate">{cert.title || "Certificate"}</div>
+                                {cert.issuingOrg && (
+                                  <div className="text-[11px] text-muted-foreground truncate">{cert.issuingOrg}</div>
+                                )}
+                                <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-primary group-hover:underline">
+                                  <Eye className="w-3 h-3" /> View Document
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -250,7 +295,7 @@ function WorkerDetail() {
           {/* Stats Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Stat label="Total Jobs" value={(worker.totalJobs || 0).toString()} />
-            <Stat label="Earnings" value={fmtPKR(worker.totalEarnings || 0)} />
+            <Stat label="Earnings" value={formatPKR(worker.totalEarnings || 0)} />
             <Stat label="Rating" value={`${(worker.rating || 0).toFixed(1)}★`} />
             <Stat label="Reviews" value={(worker.totalReviews || 0).toString()} />
           </div>
@@ -258,7 +303,7 @@ function WorkerDetail() {
           {/* Identity Verification */}
           <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-              <h3 className="font-bold">Identity Verification</h3>
+              <h3 className="font-bold text-foreground">Identity Verification</h3>
               <div className="flex flex-wrap gap-2">
                 {worker.isVerified ? <Badge variant="success">Verified</Badge> : <Badge variant="warning" pulse>Pending</Badge>}
                 <Badge variant={worker.isAvailable ? "info" : "muted"}>{worker.isAvailable ? "Available" : "Unavailable"}</Badge>
@@ -266,7 +311,15 @@ function WorkerDetail() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-              <Info label="CNIC Number" value={worker.cnicNumber || "Not provided"} mono />
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground mb-1">CNIC Number (Audited)</div>
+                <CnicRevealModal
+                  workerId={worker._id}
+                  maskedCnic={worker.cnicNumber}
+                  workerName={worker.fullName}
+                  showImages={true}
+                />
+              </div>
               <Info label="Address" value={worker.address || "Not provided"} />
             </div>
 
@@ -293,75 +346,6 @@ function WorkerDetail() {
             </div>
           </div>
 
-          {/* Degrees & Technical Certifications */}
-          <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
-            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="font-bold flex items-center gap-2">
-                  <Award className="w-4 h-4 text-primary" /> Degrees & Technical Certifications
-                </h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Verify vocational diplomas, licenses, or trade certificates submitted by the worker.
-                </p>
-              </div>
-              <Badge variant={worker.certificates?.some((c: any) => c.verificationStatus === "verified") ? "success" : "muted"}>
-                {worker.certificates?.filter((c: any) => c.verificationStatus === "verified").length || 0} / {worker.certificates?.length || 0} Verified
-              </Badge>
-            </div>
-
-            {(!worker.certificates || worker.certificates.length === 0) ? (
-              <div className="text-sm text-muted-foreground py-4 text-center border border-dashed border-border rounded-xl">
-                No degrees or trade certificates uploaded by this worker.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {worker.certificates.map((cert: any, index: number) => {
-                  const certId = cert._id || String(index);
-                  const isVerified = cert.verificationStatus === "verified";
-                  const isRejected = cert.verificationStatus === "rejected";
-                  return (
-                    <div key={certId} className="rounded-xl border border-border/80 bg-surface-light/40 p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-bold text-sm text-white">{cert.title}</div>
-                          {cert.issuingOrg && <div className="text-xs text-muted-foreground">{cert.issuingOrg}</div>}
-                        </div>
-                        <Badge variant={isVerified ? "success" : isRejected ? "danger" : "warning"}>
-                          {cert.verificationStatus || "pending"}
-                        </Badge>
-                      </div>
-
-                      {cert.certificateUrl && (
-                        <DocumentImage label="Certificate Document" src={cert.certificateUrl} onOpen={setLightbox} />
-                      )}
-
-                      <div className="flex gap-2 pt-1">
-                        {!isVerified && (
-                          <button
-                            disabled={reviewCertificateMutation.isPending}
-                            onClick={() => reviewCertificateMutation.mutate({ workerId: worker._id, certId, verificationStatus: "verified" })}
-                            className="flex-1 h-9 rounded-lg bg-success/20 text-success hover:bg-success/30 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Verify
-                          </button>
-                        )}
-                        {!isRejected && (
-                          <button
-                            disabled={reviewCertificateMutation.isPending}
-                            onClick={() => reviewCertificateMutation.mutate({ workerId: worker._id, certId, verificationStatus: "rejected", rejectionReason: "Invalid or illegible certificate" })}
-                            className="flex-1 h-9 rounded-lg bg-destructive/15 text-destructive hover:bg-destructive/25 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
-                          >
-                            <XCircle className="w-3.5 h-3.5" /> Reject
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           {/* Specialty subscriptions */}
           <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
             <div className="flex items-start justify-between gap-3 mb-4">
@@ -375,23 +359,29 @@ function WorkerDetail() {
               {(worker.specialties || []).slice().sort((a, b) => a.priority - b.priority).map(specialty => {
                 const category = typeof specialty.categoryId === "string" ? null : specialty.categoryId;
                 const categoryId = typeof specialty.categoryId === "string" ? specialty.categoryId : specialty.categoryId._id;
+                const categoryName = category?.name || "Category";
                 const tier = specialty.priority === 1 ? "Primary" : "Additional";
                 const configuredFee = specialty.priority === 1
                   ? 0
                   : Number(walletSettings?.additionalCategoryMonthlyFee ?? specialty.monthlyFeeSnapshot ?? 500);
+                const specialtyCertificates = (specialty as any).certificates?.length
+                  ? (specialty as any).certificates
+                  : (worker.certificates || []).filter((c: any) =>
+                      c.categoryName === categoryName || (!c.categoryName && specialty.priority === 1)
+                    );
                 return (
                   <div key={specialty._id} className="rounded-xl bg-surface border border-border px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold">{category?.name || "Category"}</span>
+                          <span className="font-bold">{categoryName}</span>
                           <Badge variant={specialty.priority === 1 ? "info" : "orange"}>{tier}</Badge>
                           <Badge variant={specialty.approvalStatus === "approved" ? "success" : specialty.approvalStatus === "rejected" ? "danger" : "warning"}>
                             {specialty.approvalStatus}
                           </Badge>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {specialty.priority === 1 ? "Included free" : `${fmtPKR(configuredFee)} / month`} · {specialty.subscriptionStatus.replace(/_/g, " ")}
+                          {specialty.priority === 1 ? "Included free" : `${formatPKR(configuredFee)} / month`} · {specialty.subscriptionStatus.replace(/_/g, " ")}
                           {specialty.nextBillingAt ? ` · renews ${formatDate(specialty.nextBillingAt)}` : ""}
                         </div>
                       </div>
@@ -412,7 +402,7 @@ function WorkerDetail() {
                     </div>
                     <div className="mt-3 rounded-xl bg-card/70 border border-border/70 p-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div><span className="text-muted-foreground">Worker rate:</span> <span className="font-bold text-accent">{fmtPKR(specialty.hourlyRate || 0)}/hr</span></div>
+                        <div><span className="text-muted-foreground">Worker rate:</span> <span className="font-bold text-accent">{formatPKR(specialty.hourlyRate || 0)}/hr</span></div>
                         <div><span className="text-muted-foreground">Experience:</span> <span className="font-bold">{specialty.experience || 0} years</span></div>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -421,6 +411,58 @@ function WorkerDetail() {
                           : <span className="text-[11px] text-muted-foreground">No skills submitted</span>}
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{specialty.bio || "No category description submitted."}</p>
+
+                      {specialtyCertificates.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border/60">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                            <Award className="w-3.5 h-3.5 text-primary" /> Certificates & Degrees ({specialtyCertificates.length})
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {specialtyCertificates.map((cert: any, idx: number) => (
+                              <div
+                                key={cert._id || idx}
+                                onClick={() => cert.certificateUrl && setLightbox(cert.certificateUrl)}
+                                className="group flex items-center gap-3 rounded-xl border border-border/80 bg-surface hover:border-primary/40 hover:bg-surface-light/50 p-2.5 transition cursor-pointer"
+                              >
+                                <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-light">
+                                  {cert.certificateUrl ? (
+                                    <>
+                                      <img
+                                        src={cert.certificateUrl}
+                                        alt={cert.title || "Certificate"}
+                                        className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                        <Eye className="w-4 h-4 text-white" />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                      <Award className="w-5 h-5" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-xs text-foreground truncate">{cert.title || "Trade Certificate"}</div>
+                                  {cert.issuingOrg ? (
+                                    <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                                      <Building2 className="w-3 h-3 shrink-0 text-primary/80" />
+                                      <span className="truncate">{cert.issuingOrg}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-0.5 text-[11px] text-muted-foreground">Issuing board not specified</div>
+                                  )}
+                                  {cert.certificateUrl && (
+                                    <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-primary group-hover:underline">
+                                      <Eye className="w-3 h-3" /> View Document
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -467,10 +509,22 @@ function WorkerDetail() {
                   </td></tr>}
                   {!bookingsLoading && recentBookings.map((booking: any) => (
                     <tr key={booking._id} className="border-b border-border/60 hover:bg-surface-light/40 transition">
-                      <td className="px-4 py-2.5 font-medium">{booking.customer?.fullName || "N/A"}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{booking.category || "N/A"}</td>
+                      <td className="px-4 py-2.5 font-medium">
+                        {booking.customer?._id ? (
+                          <Link to="/users/$id" params={{ id: booking.customer._id }} className="text-foreground hover:text-primary font-semibold">
+                            {booking.customer.fullName || "Customer"}
+                          </Link>
+                        ) : (
+                          booking.customer?.fullName || "N/A"
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Link to="/bookings/$id" params={{ id: booking._id }} className="text-foreground hover:text-primary font-medium">
+                          {booking.category || "Service"} <span className="font-mono text-xs text-primary">{shortId(booking._id)}</span>
+                        </Link>
+                      </td>
                       <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(booking.scheduledDate)}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold">{fmtPKR(booking.totalAmount || 0)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-semibold tabular-nums">{formatPKR(booking.totalAmount || 0)}</td>
                       <td className="px-4 py-2.5"><StatusBadge status={booking.status || "pending"} /></td>
                     </tr>
                   ))}
@@ -489,22 +543,22 @@ function WorkerDetail() {
                   </div>
                 ) : walletData ? (
                   <>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div className="p-4 rounded-xl bg-surface border border-border">
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Balance</div>
-                        <div className="text-2xl font-extrabold text-primary mt-1">{fmtPKR(walletData.wallet?.balance || 0)}</div>
+                        <div className="text-2xl font-mono tabular-nums font-extrabold text-primary mt-1">{formatPKR(walletData.wallet?.balance || 0)}</div>
                       </div>
                       <div className="p-4 rounded-xl bg-surface border border-border">
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Total Recharged</div>
-                        <div className="text-2xl font-extrabold text-success mt-1">{fmtPKR(walletData.wallet?.totalRecharged || 0)}</div>
+                        <div className="text-2xl font-mono tabular-nums font-extrabold text-success mt-1">{formatPKR(walletData.wallet?.totalRecharged || 0)}</div>
                       </div>
                       <div className="p-4 rounded-xl bg-surface border border-border">
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Commission Deducted</div>
-                        <div className="text-2xl font-extrabold text-destructive mt-1">{fmtPKR(walletData.wallet?.totalCommissionDeducted || 0)}</div>
+                        <div className="text-2xl font-mono tabular-nums font-extrabold text-destructive mt-1">{formatPKR(walletData.wallet?.totalCommissionDeducted || 0)}</div>
                       </div>
                       <div className="p-4 rounded-xl bg-surface border border-border">
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Specialty Renewals</div>
-                        <div className="text-2xl font-extrabold text-accent mt-1">{fmtPKR(walletData.wallet?.totalSubscriptionDeducted || 0)}</div>
+                        <div className="text-2xl font-mono tabular-nums font-extrabold text-accent mt-1">{formatPKR(walletData.wallet?.totalSubscriptionDeducted || 0)}</div>
                       </div>
                     </div>
                     <div className="overflow-x-auto">
@@ -527,10 +581,10 @@ function WorkerDetail() {
                                 </Badge>
                               </td>
                               <td className="px-4 py-2.5 text-muted-foreground truncate max-w-[200px]">{tx.description || "—"}</td>
-                              <td className={`px-4 py-2.5 text-right font-bold ${['commission_deduction', 'specialty_subscription'].includes(tx.type) ? 'text-destructive' : 'text-success'}`}>
-                                {['commission_deduction', 'specialty_subscription'].includes(tx.type) ? '-' : '+'}{fmtPKR(tx.amount || 0)}
+                              <td className={`px-4 py-2.5 text-right font-mono tabular-nums font-bold ${['commission_deduction', 'specialty_subscription'].includes(tx.type) ? 'text-destructive' : 'text-success'}`}>
+                                {['commission_deduction', 'specialty_subscription'].includes(tx.type) ? '-' : '+'}{formatPKR(tx.amount || 0)}
                               </td>
-                              <td className="px-4 py-2.5 text-right font-semibold">{fmtPKR(tx.balanceAfter || 0)}</td>
+                              <td className="px-4 py-2.5 text-right font-mono tabular-nums font-semibold">{formatPKR(tx.balanceAfter || 0)}</td>
                               <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(tx.createdAt)}</td>
                             </tr>
                           ))}
@@ -566,7 +620,7 @@ function WorkerDetail() {
                             {review.customer?.fullName?.[0]?.toUpperCase() || "U"}
                           </div>
                           <div>
-                            <div className="font-semibold text-sm text-white">{review.customer?.fullName || "Anonymous User"}</div>
+                            <div className="font-semibold text-sm text-foreground">{review.customer?.fullName || "Anonymous User"}</div>
                             <div className="text-xs text-muted-foreground">{formatDate(review.createdAt)}</div>
                           </div>
                         </div>
@@ -629,7 +683,7 @@ function WorkerDetail() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
               <div>
-                <div className="font-bold text-white">This worker will be locked out of app actions.</div>
+                <div className="font-bold text-foreground">This worker will be locked out of app actions.</div>
                 <p className="mt-1 text-sm text-muted-foreground">Active bookings are not cancelled automatically. Admin/support should resolve any active cases manually.</p>
               </div>
             </div>
@@ -665,7 +719,7 @@ function WorkerDetail() {
             <div className="flex items-start gap-3">
               <Layers3 className="w-5 h-5 text-primary mt-0.5" />
               <div>
-                <div className="text-sm font-extrabold text-white">Service details are category-specific</div>
+                <div className="text-sm font-extrabold text-foreground">Service details are category-specific</div>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                   Category, hourly rate, experience, bio, and skills are managed in the Active Service Categories and pending approval sections, not from this general profile form.
                 </p>
