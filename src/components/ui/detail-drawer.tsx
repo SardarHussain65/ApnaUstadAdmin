@@ -43,7 +43,7 @@ export function DetailDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className={cn("flex w-full flex-col gap-0 border-hairline-strong bg-card p-0 shadow-elev sm:max-w-none", width)}
+        className={cn("flex w-full flex-col gap-0 border-hairline-strong bg-card p-0 shadow-elev sm:max-w-[min(92vw,42rem)]", width !== "max-w-2xl" && width)}
       >
         <div className="flex items-start gap-3 border-b border-hairline p-5 pr-14">
           {leading}

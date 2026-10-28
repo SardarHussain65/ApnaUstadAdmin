@@ -107,6 +107,24 @@ export function findNav(path: string): { group?: NavGroup; item?: NavItem } {
 }
 
 export function findPageMeta(path: string) {
+  if (path.startsWith("/users/")) {
+    return { title: "Customer Profile", description: "360° customer overview, booking history, and account controls." };
+  }
+  if (path.startsWith("/workers/")) {
+    return { title: "Ustad Profile", description: "Service professional verification, specialties, wallet, and booking history." };
+  }
+  if (path.startsWith("/bookings/")) {
+    return { title: "Booking Details", description: "Service agreement, financial breakdown, chat transcript, and status controls." };
+  }
+  if (path.startsWith("/jobs/")) {
+    return { title: "Job Post Details", description: "Customer service request, Ustad bids, and moderation controls." };
+  }
+  if (path.startsWith("/disputes/")) {
+    return { title: "Dispute Arbitration", description: "Complaint evidence, booking chat transcript, and wallet refund/penalty ruling." };
+  }
+  if (path.startsWith("/verification/")) {
+    return { title: "Identity Verification Inspector", description: "Side-by-side facial match and NADRA CNIC document inspection." };
+  }
   const match = Object.entries(PAGE_META).find(([k]) => path === k || path.startsWith(`${k}/`));
   return match?.[1] ?? { title: "ApnaUstad Admin", description: "Manage your marketplace with confidence." };
 }

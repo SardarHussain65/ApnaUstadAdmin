@@ -346,7 +346,7 @@ export const useBookingDetails = (id: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: ['booking', id],
     queryFn: () => api.get<any>(`/admin/bookings/${id}`),
-    enabled,
+    enabled: !!id && enabled,
   });
 };
 
@@ -421,6 +421,37 @@ export const useUserDetails = (id: string, enabled: boolean = true) => {
     enabled,
   });
 };
+
+export interface UserOverview {
+  user: any;
+  stats: {
+    totalBookings: number;
+    completedBookings: number;
+    cancelledBookings: number;
+    activeBookings: number;
+    totalSpent: number;
+    completionRate: number | null;
+    cancellationRate: number | null;
+    totalJobs: number;
+    jobsByStatus: Record<string, number>;
+    openDisputes: number;
+    totalDisputes: number;
+    reviewsGiven: number;
+    avgRatingGiven: number | null;
+    lastBookingAt: string | null;
+  };
+  recentBookings: any[];
+  recentJobs: any[];
+  disputes: any[];
+  reviews: any[];
+}
+
+export const useUserOverview = (id: string) =>
+  useQuery({
+    queryKey: ['user', id, 'overview'],
+    queryFn: () => api.get<UserOverview>(`/admin/users/${id}/overview`),
+    enabled: !!id,
+  });
 
 export const useToggleUserStatus = () => {
   const queryClient = useQueryClient();
@@ -1557,14 +1588,23 @@ export const useVerificationRequests = (params: { page?: number; limit?: number;
 export const useVerificationRequestsPage = (params: { page?: number; limit?: number; status?: string; search?: string } = {}) =>
   usePaginatedQuery<any>('verification-requests', '/admin/verification/requests', params);
 
+export const useVerificationRequestDetails = (id: string, enabled = true) => {
+  return useQuery({
+    queryKey: ['verification-request', id],
+    queryFn: () => api.get<any>(`/admin/verification/requests/${id}`),
+    enabled: !!id && enabled,
+  });
+};
+
 export const useReviewVerificationRequest = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status, rejectionReason, adminNotes }: { id: string; status: 'approved' | 'rejected'; rejectionReason?: string; adminNotes?: string }) =>
       api.patch<any>(`/admin/verification/requests/${id}/review`, { status, rejectionReason, adminNotes }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success('Verification request reviewed successfully');
       queryClient.invalidateQueries({ queryKey: ['verification-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['verification-request', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['workers'] });
       queryClient.invalidateQueries({ queryKey: ['nav-badges'] });
     },
@@ -1627,3 +1667,96 @@ export const useNavBadges = () => {
     pendingSpecialties: data?.pendingSpecialties ?? 0,
   };
 };
+
+export interface OperationsRadarCity {
+  id: string;
+  name: string;
+  province: string;
+  lat: number;
+  lng: number;
+  totalUstads: number;
+  activeUstads: number;
+  verifiedUstads: number;
+  totalCustomers: number;
+  activeBookings: number;
+  completedBookings: number;
+  pendingJobs: number;
+  avgSla: string;
+  topTrade: string;
+  demandLevel: 'surging' | 'high' | 'medium' | 'low';
+}
+
+export interface OperationsRadarPin {
+  id: string;
+  type: 'booking' | 'worker' | 'user' | 'job';
+  title: string;
+  subtitle: string;
+  category?: string;
+  status?: string;
+  bookingType?: string;
+  totalAmount?: number;
+  scheduledDate?: string;
+  scheduledTime?: string;
+  address?: string;
+  cityId: string;
+  cityName: string;
+  phone?: string;
+  email?: string;
+  isAvailable?: boolean;
+  isVerified?: boolean;
+  isActive?: boolean;
+  rating?: number;
+  hourlyRate?: number;
+  totalJobs?: number;
+  profileImage?: string;
+  lat: number;
+  lng: number;
+  isExactGps: boolean;
+  customer?: {
+    id: string;
+    fullName: string;
+    phone: string;
+    address: string;
+    lat: number;
+    lng: number;
+  } | null;
+  worker?: {
+    id: string;
+    fullName: string;
+    phone: string;
+    category: string;
+    lat: number;
+    lng: number;
+    isExactGps: boolean;
+  } | null;
+  href: string;
+}
+
+export interface OperationsRadarData {
+  summary: {
+    totalWorkers: number;
+    onlineWorkers: number;
+    verifiedWorkers: number;
+    totalUsers: number;
+    activeBookings: number;
+    completedBookings: number;
+    openJobs: number;
+    totalBookings: number;
+  };
+  cities: OperationsRadarCity[];
+  pins: {
+    bookings: OperationsRadarPin[];
+    workers: OperationsRadarPin[];
+    users: OperationsRadarPin[];
+    jobs: OperationsRadarPin[];
+  };
+}
+
+export const useOperationsRadar = () =>
+  useQuery({
+    queryKey: ['operations-radar'],
+    queryFn: () => api.get<OperationsRadarData>('/admin/dashboard/operations-radar'),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+

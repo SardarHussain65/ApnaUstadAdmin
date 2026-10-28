@@ -23,7 +23,7 @@ function loginErrorMessage(e: unknown): string {
   return e instanceof Error ? e.message : "Sign-in failed. Please try again.";
 }
 
-export function LoginPage() {
+function LoginPage() {
   const navigate = useNavigate();
   const reduced = useReducedMotion();
   const [email, setEmail] = useState("");

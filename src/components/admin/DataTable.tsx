@@ -27,8 +27,10 @@ import { cn } from "@/lib/utils";
 export interface Column<T> {
   key: string;
   header: string;
-  render: (row: T) => ReactNode;
+  render?: (row: T) => ReactNode;
+  cell?: (row: T) => ReactNode;
   className?: string;
+  align?: "left" | "center" | "right";
   sortable?: boolean;
   sortKey?: string;
   defaultHidden?: boolean;
@@ -96,12 +98,17 @@ export interface DataTableEmptyProps {
 }
 
 export interface DataTableProps<T extends Record<string, any>> extends DataTableEmptyProps {
-  rows: T[];
+  rows?: T[];
+  data?: T[];
   columns: Column<T>[];
   pageSize?: number;
   onRowClick?: (row: T) => void;
   isLoading?: boolean;
-  pagination?: DataTablePagination;
+  loading?: boolean;
+  fetching?: boolean;
+  rowKey?: (row: T) => string;
+  toolbar?: ReactNode;
+  pagination?: DataTablePagination & { pageSize?: number };
   // Sorting
   sortField?: string;
   sortOrder?: "asc" | "desc";
@@ -111,6 +118,7 @@ export interface DataTableProps<T extends Record<string, any>> extends DataTable
   onDensityChange?: (density: "compact" | "default") => void;
   enableDensityToggle?: boolean;
   // Selection & Bulk actions
+  enableSelection?: boolean;
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
   idKey?: string;
@@ -120,11 +128,15 @@ export interface DataTableProps<T extends Record<string, any>> extends DataTable
 }
 
 export function DataTable<T extends Record<string, any>>({
-  rows,
+  rows: propRows,
+  data: propData,
   columns,
   pageSize = 10,
   onRowClick,
-  isLoading = false,
+  isLoading: propIsLoading = false,
+  loading: propLoading = false,
+  rowKey,
+  toolbar,
   pagination,
   query,
   hasFilters,
@@ -138,12 +150,15 @@ export function DataTable<T extends Record<string, any>>({
   density: propDensity,
   onDensityChange,
   enableDensityToggle = true,
+  enableSelection,
   selectedIds,
   onSelectionChange,
   idKey = "_id",
   bulkActions,
   enableColumnVisibility = true,
 }: DataTableProps<T>) {
+  const rows = propRows ?? propData ?? [];
+  const isLoading = propIsLoading || propLoading;
   const [localPage, setLocalPage] = useState(1);
   const [localDensity, setLocalDensity] = useState<"compact" | "default">(() => {
     if (typeof window !== "undefined") {
@@ -185,8 +200,9 @@ export function DataTable<T extends Record<string, any>>({
     [columns, hiddenCols]
   );
 
-  // Row selection logic
-  const selectionEnabled = !!onSelectionChange && !!selectedIds;
+  // Row selection logic: only show checkboxes when bulkActions or enableSelection is explicitly provided
+  const selectionEnabled =
+    (enableSelection ?? Boolean(bulkActions)) && !!onSelectionChange && !!selectedIds;
   const currentPageIds = useMemo(
     () => view.map((r) => String(r[idKey] ?? r.id ?? "")).filter(Boolean),
     [view, idKey]
@@ -232,68 +248,82 @@ export function DataTable<T extends Record<string, any>>({
   };
 
   return (
-    <div className="space-y-2">
-      {/* Table Toolbar Controls (Density & Column Visibility) */}
-      {(enableDensityToggle || enableColumnVisibility) && (
-        <div className="flex items-center justify-end gap-2 text-xs">
-          {enableDensityToggle && (
-            <button
-              type="button"
-              onClick={toggleDensity}
-              className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 font-medium text-muted-foreground transition hover:text-foreground",
-                density === "compact" && "border-primary/40 text-primary"
-              )}
-              title={`Switch to ${density === "compact" ? "default" : "compact"} row density`}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span>{density === "compact" ? "Compact" : "Default"}</span>
-            </button>
-          )}
+    <div className="space-y-3">
+      {toolbar && <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">{toolbar}</div>}
 
-          {enableColumnVisibility && columns.length > 2 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+      {/* Main Table Card Container */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        {/* Integrated Card Header Bar */}
+        {(enableDensityToggle || enableColumnVisibility) && (
+          <div className="flex items-center justify-between border-b border-border/80 bg-surface/40 px-4 py-2.5 text-xs">
+            <div className="font-medium text-muted-foreground">
+              {isLoading ? (
+                <span>Loading records…</span>
+              ) : (
+                <span>
+                  <strong className="font-semibold text-foreground">{totalItems}</strong>{" "}
+                  {totalItems === 1 ? "record" : "records"}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {enableDensityToggle && (
                 <button
                   type="button"
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 font-medium text-muted-foreground transition hover:text-foreground"
+                  onClick={toggleDensity}
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground transition hover:text-foreground",
+                    density === "compact" && "border-primary/40 text-primary"
+                  )}
+                  title={`Switch to ${density === "compact" ? "default" : "compact"} row density`}
                 >
-                  <span>Columns ({visibleColumns.length}/{columns.length})</span>
+                  <SlidersHorizontal className="h-3 w-3" />
+                  <span>{density === "compact" ? "Compact" : "Comfortable"}</span>
                 </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 border-border bg-card p-1.5 shadow-xl">
-                <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
-                  Toggle Columns
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-border" />
-                {columns.map((c) => {
-                  const isVisible = !hiddenCols.has(c.key);
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={c.key}
-                      checked={isVisible}
-                      onCheckedChange={(checked) => {
-                        setHiddenCols((prev) => {
-                          const next = new Set(prev);
-                          if (checked) next.delete(c.key);
-                          else if (visibleColumns.length > 1) next.add(c.key);
-                          return next;
-                        });
-                      }}
-                      className="cursor-pointer text-xs"
-                    >
-                      {c.header}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      )}
+              )}
 
-      {/* Main Table Glass Container */}
-      <div className="app-glass overflow-hidden rounded-[18px] border border-border">
+              {enableColumnVisibility && columns.length > 2 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[11px] font-semibold text-muted-foreground transition hover:text-foreground"
+                    >
+                      <span>Columns ({visibleColumns.length}/{columns.length})</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 border-border bg-card p-1.5 shadow-xl">
+                    <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
+                      Toggle Columns
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-border" />
+                    {columns.map((c) => {
+                      const isVisible = !hiddenCols.has(c.key);
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={c.key}
+                          checked={isVisible}
+                          onCheckedChange={(checked) => {
+                            setHiddenCols((prev) => {
+                              const next = new Set(prev);
+                              if (checked) next.delete(c.key);
+                              else if (visibleColumns.length > 1) next.add(c.key);
+                              return next;
+                            });
+                          }}
+                          className="cursor-pointer text-xs"
+                        >
+                          {c.header}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -383,7 +413,7 @@ export function DataTable<T extends Record<string, any>>({
 
               {!isLoading &&
                 view.map((row, i) => {
-                  const rowId = String(row[idKey] ?? row.id ?? i);
+                  const rowId = String(rowKey ? rowKey(row) : (row[idKey] ?? row.id ?? i));
                   const isSelected = selectedIds?.includes(rowId);
 
                   return (
@@ -421,18 +451,23 @@ export function DataTable<T extends Record<string, any>>({
                           </button>
                         </td>
                       )}
-                      {visibleColumns.map((c) => (
-                        <td
-                          key={c.key}
-                          className={cn(
-                            "dt-cell text-foreground/90",
-                            density === "compact" ? "py-2 px-3 text-xs" : "py-3.5 px-4 text-sm",
-                            c.className ?? ""
-                          )}
-                        >
-                          {c.render(row)}
-                        </td>
-                      ))}
+                      {visibleColumns.map((c) => {
+                        const renderCell = c.render ?? c.cell;
+                        return (
+                          <td
+                            key={c.key}
+                            className={cn(
+                              "dt-cell text-foreground/90",
+                              density === "compact" ? "py-2 px-3 text-xs" : "py-3.5 px-4 text-sm",
+                              c.align === "right" && "text-right",
+                              c.align === "center" && "text-center",
+                              c.className ?? ""
+                            )}
+                          >
+                            {renderCell ? renderCell(row) : null}
+                          </td>
+                        );
+                      })}
                     </tr>
                   );
                 })}
@@ -506,20 +541,20 @@ export function SearchInput({
   placeholder?: string;
 }) {
   return (
-    <div className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-border/80 bg-input/90 px-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:border-primary/25 focus-within:border-primary/60 focus-within:ring-3 focus-within:ring-primary/10">
+    <div className="flex h-10 max-h-10 w-full min-w-0 shrink-0 items-center gap-2.5 rounded-xl border border-hairline bg-surface px-3.5 transition hover:border-primary/30 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15 sm:flex-1">
       <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="min-w-0 flex-1 border-0! bg-transparent! text-sm outline-none! ring-0! shadow-none! placeholder:text-dim"
+        className="h-full min-w-0 flex-1 border-0! bg-transparent! text-sm text-foreground outline-none! ring-0! shadow-none! placeholder:text-muted-foreground"
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange("")}
           aria-label="Clear search"
-          className="rounded-lg p-1 text-dim transition hover:bg-white/5 hover:text-foreground"
+          className="rounded-lg p-1 text-muted-foreground transition hover:bg-card hover:text-foreground"
         >
           <X className="w-4 h-4" />
         </button>
