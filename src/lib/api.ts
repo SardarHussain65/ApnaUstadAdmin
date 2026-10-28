@@ -119,10 +119,11 @@ export const api = {
     });
     return handleResponse<T>(response);
   },
-  delete: async <T>(endpoint: string) => {
+  delete: async <T>(endpoint: string, body?: any) => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     return handleResponse<T>(response);
   },

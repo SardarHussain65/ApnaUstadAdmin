@@ -1,29 +1,59 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Eye, Power, Download, Search, Star } from "lucide-react";
-import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
-import { Avatar, Badge, Button, FormField, InfoCard, StatusBadge, Textarea } from "@/components/admin/ui";
-import { Drawer, DrawerSection, Modal, ModalBody, ModalFooter } from "@/components/admin/Drawer";
-import { fmtPKR } from "@/lib/format";
+import {
+  Download,
+  Eye,
+  Power,
+  Search,
+  ShieldAlert,
+  Star,
+  Users,
+  CheckCircle2,
+  XCircle,
+  Calendar,
+  Phone,
+  Mail,
+  MapPin,
+} from "lucide-react";
+import { DataTable, type Column } from "@/components/admin/DataTable";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { DetailDrawer, type DrawerTab } from "@/components/ui/detail-drawer";
+import { ConfirmDialog, type ConfirmPayload } from "@/components/ui/confirm-dialog";
+import { CopyableId } from "@/components/ui/copyable-id";
+import { Avatar } from "@/components/admin/ui";
+import {
+  formatDate,
+  formatPhone,
+  formatPKR,
+  shortId,
+} from "@/lib/format";
 import { useCityFilterOptions } from "@/lib/filter-options";
-import { downloadCsv } from "@/lib/csv";
-import { format } from "date-fns";
 import { toast } from "sonner";
 import { useUsersPage, useToggleUserStatus, useBookings } from "@/lib/api-hooks";
+import { api } from "@/lib/api";
 
 export const Route = createFileRoute("/_admin/users")({
   component: UsersPage,
 });
 
+const DEACTIVATE_REASONS = [
+  "Violation of platform safety policies",
+  "Abusive conduct towards ustads or staff",
+  "Suspected fraudulent or duplicate profile",
+  "Unpaid service dispute non-compliance",
+  "User-requested account termination",
+];
+
 function UsersPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [city, setCity] = useState("");
-  const [dateFilter, setDateFilter] = useState(""); // "today", "week", "month", ""
+  const [dateFilter, setDateFilter] = useState("");
   const [selected, setSelected] = useState<any | null>(null);
   const [statusTarget, setStatusTarget] = useState<any | null>(null);
-  const [statusReason, setStatusReason] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
   const deferredQ = useDeferredValue(q);
 
   const dateFrom = useMemo(() => {
@@ -35,7 +65,9 @@ function UsersPage() {
     return from.toISOString();
   }, [dateFilter]);
 
-  useEffect(() => { setPage(1); }, [deferredQ, status, city, dateFilter]);
+  useEffect(() => {
+    setPage(1);
+  }, [deferredQ, status, city, dateFilter]);
 
   const { data, isLoading } = useUsersPage({
     page,
@@ -45,95 +77,238 @@ function UsersPage() {
     city: city || undefined,
     dateFrom,
   });
-  const toggleUserMutation = useToggleUserStatus();
 
+  const toggleUserMutation = useToggleUserStatus();
   const { options: cityOptions } = useCityFilterOptions();
   const rows = data?.items || [];
 
-  const applyStatusChange = (user: any, reason?: string) => {
-    toggleUserMutation.mutate(
-      { id: user._id, isActive: !user.isActive, reason },
-      {
-        onSuccess: (updated: any) => {
-          const next = updated?.data || updated;
-          setSelected((current: any | null) => current?._id === user._id ? { ...current, ...next } : current);
-          setStatusTarget(null);
-          setStatusReason("");
-        },
-      }
-    );
+  const handleDeactivateConfirm = async (payload: ConfirmPayload) => {
+    if (!statusTarget) return;
+    try {
+      const res: any = await toggleUserMutation.mutateAsync({
+        id: statusTarget._id,
+        isActive: false,
+        reason: payload.reason,
+      });
+      const updated = res?.data || res;
+      setSelected((curr: any) =>
+        curr?._id === statusTarget._id ? { ...curr, ...updated, isActive: false } : curr
+      );
+      toast.success("User account suspended and reason logged to audit trail");
+      setStatusTarget(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to deactivate account");
+      throw err;
+    }
+  };
+
+  const handleReactivate = async (user: any) => {
+    try {
+      const res: any = await toggleUserMutation.mutateAsync({
+        id: user._id,
+        isActive: true,
+        reason: "Account reactivated by administrator review",
+      });
+      const updated = res?.data || res;
+      setSelected((curr: any) =>
+        curr?._id === user._id ? { ...curr, ...updated, isActive: true } : curr
+      );
+      toast.success("User account reactivated successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reactivate account");
+    }
   };
 
   const requestStatusChange = (user: any) => {
     if (user.isActive) {
       setStatusTarget(user);
-      setStatusReason("");
-      return;
+    } else {
+      handleReactivate(user);
     }
-    applyStatusChange(user);
   };
 
-  const confirmDeactivate = () => {
-    if (!statusTarget || !statusReason.trim()) return;
-    applyStatusChange(statusTarget, statusReason.trim());
+  const handleExportCsv = async () => {
+    try {
+      setIsExporting(true);
+      toast.loading("Exporting customers CSV...", { id: "users-export" });
+      await api.downloadExport("users");
+      toast.success("Customers CSV export downloaded", { id: "users-export" });
+    } catch (err: any) {
+      toast.error(err.message || "Export failed", { id: "users-export" });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  const stats = {
-    total: data?.pagination.totalItems ?? 0,
-    active: rows.filter((u: any) => u.isActive).length,
-    inactive: rows.filter((u: any) => !u.isActive).length,
-  };
+  const columns: Column<any>[] = [
+    {
+      key: "user",
+      header: "Customer",
+      sortable: true,
+      render: (u) => (
+        <div className="flex items-center gap-3">
+          <Avatar src={u.profileImage} name={u.fullName} />
+          <div>
+            <div className="font-semibold text-foreground group-hover:text-primary transition">
+              {u.fullName || "Unnamed customer"}
+            </div>
+            <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+              {shortId(u._id)}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "phone",
+      header: "Phone",
+      render: (u) => (
+        <span className="font-mono text-xs text-foreground">
+          {formatPhone(u.phone) || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "email",
+      header: "Email",
+      render: (u) => (
+        <span className="text-xs text-muted-foreground">{u.email || "—"}</span>
+      ),
+    },
+    {
+      key: "city",
+      header: "City",
+      render: (u) => (
+        <span className="text-xs text-foreground/80">{u.city || "—"}</span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (u) => <StatusBadge status={u.isActive ? "active" : "inactive"} />,
+    },
+    {
+      key: "joined",
+      header: "Joined",
+      sortable: true,
+      render: (u) => (
+        <span className="text-xs text-muted-foreground font-mono">
+          {formatDate(u.createdAt)}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      className: "w-20 text-right",
+      render: (u) => (
+        <div
+          className="flex items-center justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => setSelected(u)}
+            className="rounded-lg p-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
+            title="View Details"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => requestStatusChange(u)}
+            className="rounded-lg p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+            title={u.isActive ? "Deactivate Account" : "Reactivate Account"}
+          >
+            <Power className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  // Drawer tabs definition
+  const drawerTabs: DrawerTab[] = selected
+    ? [
+        {
+          value: "overview",
+          label: "Overview",
+          content: <UserOverviewTab user={selected} onToggle={() => requestStatusChange(selected)} />,
+        },
+        {
+          value: "bookings",
+          label: "Bookings",
+          content: <UserBookingsTab customerId={selected._id} />,
+        },
+        {
+          value: "moderation",
+          label: "Moderation",
+          content: (
+            <UserModerationTab
+              user={selected}
+              onToggle={() => requestStatusChange(selected)}
+            />
+          ),
+        },
+      ]
+    : [];
 
   return (
     <div className="space-y-6">
-      {/* 🚀 Header & Stats */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
-            User Accounts
-          </h2>
-          <p className="text-sm text-dim mt-1">
-            Manage, authenticate, activate/deactivate customer profiles.
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Customer Accounts
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Browse, manage, and moderate registered platform customer profiles
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="info">Matching: {stats.total}</Badge>
-          <Badge variant="success" pulse>Visible Active: {stats.active}</Badge>
-          <Badge variant="danger">Visible Suspended: {stats.inactive}</Badge>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={isExporting}
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-xs font-semibold text-foreground shadow-sm transition hover:bg-accent disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export CSV</span>
+          </button>
         </div>
       </div>
 
-      {/* 🔍 Filters & Search */}
-      <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* Filter Toolbar */}
+      <div className="app-glass rounded-2xl border border-border bg-card p-4 shadow-card flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-dim" />
+          <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search users by name, phone or email..."
+            placeholder="Search by name, phone, or email..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-input border border-border focus:border-primary/50 text-sm outline-none transition"
+            className="w-full rounded-xl border border-border bg-surface pl-10 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/60 focus:outline-none transition"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Status Select */}
+          {/* Status Filter */}
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50"
+            className="h-9 rounded-xl border border-border bg-surface px-3 text-xs font-medium text-foreground outline-none focus:border-primary/60"
           >
             <option value="">All Statuses</option>
             <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="inactive">Suspended</option>
           </select>
 
-          {/* City Select */}
+          {/* City Filter */}
           <select
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            className="p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50"
+            className="h-9 rounded-xl border border-border bg-surface px-3 text-xs font-medium text-foreground outline-none focus:border-primary/60"
           >
             <option value="">All Cities</option>
             {cityOptions.map((c) => (
@@ -143,264 +318,195 @@ function UsersPage() {
             ))}
           </select>
 
-          {/* Date Select */}
+          {/* Registration Window */}
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50"
+            className="h-9 rounded-xl border border-border bg-surface px-3 text-xs font-medium text-foreground outline-none focus:border-primary/60"
           >
-            <option value="">All Registrations</option>
+            <option value="">All Join Dates</option>
             <option value="today">Joined Today</option>
-            <option value="week">Joined This Week</option>
-            <option value="month">Joined This Month</option>
+            <option value="week">Past 7 Days</option>
+            <option value="month">Past 30 Days</option>
           </select>
-
-          {/* CSV Export Button */}
-          <button
-            onClick={() => {
-              downloadCsv("users", rows, [
-                { key: "_id", header: "User ID" },
-                { key: "fullName", header: "Full Name" },
-                { key: "phone", header: "Phone Number" },
-                { key: "email", header: "Email Address" },
-                { key: "city", header: "City" },
-                { key: "isActive", header: "Status" },
-                { key: "createdAt", header: "Joined Date" }
-              ]);
-              toast.success(`Exported ${rows.length} users successfully`);
-            }}
-            className="btn-press inline-flex items-center gap-1.5 px-3.5 h-9 rounded-xl bg-surface-light hover:bg-primary/15 hover:text-primary border border-border text-xs font-semibold transition"
-          >
-            <Download className="w-4 h-4" /> Export Page CSV
-          </button>
         </div>
       </div>
 
-      {/* 📋 Data Table */}
-      <div className="bg-card border border-border rounded-2xl shadow-card overflow-hidden">
-        <DataTable
-          isLoading={isLoading}
-          rows={rows}
-          pagination={{
-            page,
-            totalPages: data?.pagination.totalPages ?? 1,
-            totalItems: data?.pagination.totalItems ?? 0,
-            onPageChange: setPage,
-          }}
-          onRowClick={(u) => setSelected(u)}
-          columns={[
-            {
-              key: "user",
-              header: "User",
-              render: (u) => (
-                <div className="flex items-center gap-3">
-                  <Avatar src={u.profileImage} name={u.fullName} />
-                  <div>
-                    <div className="font-semibold text-white group-hover:text-primary transition">
-                      {u.fullName}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                      #{u._id.slice(-6)}
-                    </div>
-                  </div>
-                </div>
-              )
-            },
-            {
-              key: "phone",
-              header: "Phone",
-              render: (u) => <span className="font-mono text-xs text-white">{u.phone}</span>
-            },
-            {
-              key: "email",
-              header: "Email",
-              render: (u) => (
-                <span className="text-xs text-muted-foreground">{u.email || "N/A"}</span>
-              )
-            },
-            { key: "city", header: "City", render: (u) => u.city || "N/A" },
-            {
-              key: "status",
-              header: "Status",
-              render: (u) => <StatusBadge status={u.isActive ? "active" : "inactive"} />
-            },
-            {
-              key: "joined",
-              header: "Joined",
-              render: (u) => (
-                <span className="text-xs text-muted-foreground">
-                  {u.createdAt ? format(new Date(u.createdAt), "dd MMM yyyy") : "N/A"}
-                </span>
-              )
-            },
-            {
-              key: "actions",
-              header: "",
-              render: (u) => (
-                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => setSelected(u)}
-                    className="p-2 rounded-lg hover:bg-primary/15 hover:text-primary text-dim transition"
-                    title="View Details"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => requestStatusChange(u)}
-                    className="p-2 rounded-lg hover:bg-accent/15 hover:text-accent text-dim transition"
-                    title="Suspend / Activate"
-                  >
-                    <Power className="w-4 h-4" />
-                  </button>
-                </div>
-              )
-            }
-          ]}
-        />
-      </div>
-
-      {/* 🔍 Details Drawer */}
-      <Drawer
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title="Customer profile"
-        description="View account details, moderation controls, and recent booking history."
-        eyebrow="Customer"
-        width="max-w-2xl"
-      >
-        {selected && (
-          <UserDetail
-            user={selected}
-            onToggle={() => requestStatusChange(selected)}
-          />
-        )}
-      </Drawer>
-
-      <Modal
-        open={!!statusTarget}
-        onClose={() => setStatusTarget(null)}
-        title="Deactivate user account"
-        description="The user will be locked out until an admin reactivates their account."
-        variant="danger"
-        footer={
-          <ModalFooter>
-            <Button variant="ghost" onClick={() => setStatusTarget(null)}>Cancel</Button>
-            <Button
-              variant="danger"
-              disabled={!statusReason.trim() || toggleUserMutation.isPending}
-              loading={toggleUserMutation.isPending}
-              onClick={confirmDeactivate}
+      {/* Main DataTable */}
+      <DataTable
+        rows={rows}
+        columns={columns}
+        isLoading={isLoading}
+        pagination={{
+          page,
+          totalPages: data?.pagination.totalPages ?? 1,
+          totalItems: data?.pagination.totalItems ?? 0,
+          onPageChange: setPage,
+        }}
+        onRowClick={(u) => setSelected(u)}
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        bulkActions={(ids, clear) => (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                toast.info(`Bulk operations prepared for ${ids.length} customers`);
+                clear();
+              }}
+              className="rounded-lg bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/20"
             >
-              Deactivate account
-            </Button>
-          </ModalFooter>
+              Suspend Selected
+            </button>
+          </div>
+        )}
+      />
+
+      {/* Slide-over Detail Drawer */}
+      {selected && (
+        <DetailDrawer
+          open={!!selected}
+          onOpenChange={(open) => !open && setSelected(null)}
+          title={selected.fullName || "Customer Profile"}
+          subtitle={
+            <div className="flex items-center gap-2">
+              <CopyableId id={selected._id} label="ID" />
+              <span>·</span>
+              <StatusBadge status={selected.isActive ? "active" : "inactive"} />
+            </div>
+          }
+          leading={<Avatar src={selected.profileImage} name={selected.fullName} size={48} />}
+          tabs={drawerTabs}
+          footer={
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                Joined {formatDate(selected.createdAt)}
+              </span>
+              <button
+                type="button"
+                onClick={() => requestStatusChange(selected)}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-xs font-semibold transition ${
+                  selected.isActive
+                    ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                    : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                }`}
+              >
+                <Power className="h-4 w-4" />
+                <span>{selected.isActive ? "Suspend Account" : "Reactivate Account"}</span>
+              </button>
+            </div>
+          }
+        />
+      )}
+
+      {/* Mandatory Reason Confirmation Dialog for Deactivation */}
+      <ConfirmDialog
+        open={!!statusTarget}
+        onOpenChange={(open) => !open && setStatusTarget(null)}
+        title="Suspend Customer Account"
+        description={
+          <div>
+            <p>
+              Are you sure you want to deactivate{" "}
+              <strong className="text-foreground">{statusTarget?.fullName}</strong>?
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              The user will immediately lose booking access and must contact support. A formal
+              justification is required for the audit record.
+            </p>
+          </div>
         }
-      >
-        <ModalBody>
-          <InfoCard tone="danger" title="Before you continue">
-            This user will lose access to bookings and app actions. They will see your reason and can only contact support.
-          </InfoCard>
-          <FormField label="Reason shown to user">
-            <Textarea
-              value={statusReason}
-              onChange={(event) => setStatusReason(event.target.value)}
-              maxLength={500}
-              placeholder="Explain why this account is being deactivated..."
-            />
-          </FormField>
-        </ModalBody>
-      </Modal>
+        confirmLabel="Suspend Account"
+        tone="danger"
+        requireReason={true}
+        reasons={DEACTIVATE_REASONS}
+        notePlaceholder="Explain why this account is being suspended..."
+        onConfirm={handleDeactivateConfirm}
+      />
     </div>
   );
 }
 
-function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
-  // Real bookings query for this user!
-  const { data: bookingsData, isLoading: bookingsLoading } = useBookings({
-    customerId: user._id,
-    limit: 10
-  });
-
-  const userBookings = (bookingsData as any) || [];
-
+// Drawer Sub-component: Overview Tab
+function UserOverviewTab({ user }: { user: any; onToggle: () => void }) {
   return (
-    <div className="space-y-6">
-      {/* Profile Header */}
-      <div className="flex items-center gap-4 p-4 bg-surface-light/20 border border-border rounded-2xl">
-        <Avatar src={user.profileImage} name={user.fullName} size={64} />
-        <div>
-          <div className="text-lg font-bold text-white leading-tight">{user.fullName}</div>
-          <div className="text-xs font-mono text-dim mt-1">ID: {user._id}</div>
-          <div className="mt-2">
-            <StatusBadge status={user.isActive ? "active" : "inactive"} />
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-xl border border-border bg-surface p-3.5">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase text-muted-foreground">
+            <Phone className="h-3.5 w-3.5 text-primary" />
+            <span>Phone Number</span>
+          </div>
+          <div className="mt-1 font-mono text-sm font-semibold text-foreground">
+            {formatPhone(user.phone) || "Not provided"}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-surface p-3.5">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase text-muted-foreground">
+            <Mail className="h-3.5 w-3.5 text-primary" />
+            <span>Email Address</span>
+          </div>
+          <div className="mt-1 text-sm font-semibold text-foreground truncate">
+            {user.email || "Not provided"}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-surface p-3.5">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5 text-primary" />
+            <span>City & Location</span>
+          </div>
+          <div className="mt-1 text-sm font-semibold text-foreground">
+            {user.city || "Not set"}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-surface p-3.5">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 text-primary" />
+            <span>Registration Date</span>
+          </div>
+          <div className="mt-1 font-mono text-sm font-semibold text-foreground">
+            {formatDate(user.createdAt)}
           </div>
         </div>
       </div>
 
-      {/* Profile Fields */}
-      <DrawerSection title="Contact & location">
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <DetailField label="Phone" value={user.phone} />
-          <DetailField label="Email" value={user.email || "Not provided"} />
-          <DetailField label="City" value={user.city || "Not set"} />
-          <DetailField
-            label="Joined"
-            value={user.createdAt ? format(new Date(user.createdAt), "dd MMM yyyy") : "—"}
-          />
-          <DetailField label="Address" value={user.address || "Not provided"} className="col-span-2" />
+      {user.address && (
+        <div className="rounded-xl border border-border bg-surface p-3.5">
+          <span className="text-[11px] font-semibold uppercase text-muted-foreground">Delivery Address</span>
+          <p className="mt-1 text-sm text-foreground">{user.address}</p>
         </div>
-      </DrawerSection>
+      )}
 
-      {/* Account Control */}
-      <DrawerSection title="Account actions">
-        {!user.isActive && (
-          <div className="rounded-xl border border-destructive/25 bg-destructive/10 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-destructive">Suspension reason</div>
-            <p className="mt-1 text-sm text-white">{user.deactivationReason || "Account deactivated by admin. Please contact support for details."}</p>
-            {user.deactivatedAt && (
-              <p className="mt-1 text-xs text-muted-foreground">Deactivated {format(new Date(user.deactivatedAt), "dd MMM yyyy, h:mm a")}</p>
-            )}
-          </div>
-        )}
-        <button
-          onClick={onToggle}
-          className={`btn-press w-full h-11 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${user.isActive
-              ? "bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20"
-              : "gradient-cyan text-background border-transparent glow-cyan"
-            }`}
-        >
-          <Power className="w-4 h-4" />
-          {user.isActive ? "Deactivate account" : "Reactivate account"}
-        </button>
-      </DrawerSection>
-
-      {/* Favorite Ustads Section */}
+      {/* Favorite Ustads */}
       {(() => {
-        const favs = (user.favorites || []).filter((w: any) => w && typeof w === 'object' && w.fullName);
+        const favs = (user.favorites || []).filter((w: any) => w && typeof w === "object" && w.fullName);
         if (favs.length === 0) return null;
         return (
           <div className="space-y-3 pt-2">
-            <div className="text-xs uppercase tracking-wider text-dim font-bold flex items-center justify-between">
-              <span>Favorite Ustads</span>
-              <span className="text-[10px] text-primary">{favs.length} saved</span>
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span>Saved Favorite Ustads</span>
+              <span className="text-[11px] text-primary">{favs.length} saved</span>
             </div>
-            <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {favs.map((w: any) => (
                 <div
                   key={w._id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-surface-light/20 border border-border hover:bg-surface-light/35 transition"
+                  className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3"
                 >
                   <Avatar src={w.profileImage} name={w.fullName} />
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-white truncate">{w.fullName}</div>
-                    <div className="text-[10px] text-dim mt-0.5 uppercase tracking-wider">
-                      {w.category} • Rs. {w.hourlyRate}/hr
+                    <div className="font-semibold text-foreground text-sm truncate">{w.fullName}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {w.category} • Rs {w.hourlyRate}/hr
                     </div>
                   </div>
                   {w.rating > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-yellow font-bold bg-yellow/10 px-2 py-1 rounded-lg flex-shrink-0">
-                      <Star className="w-3.5 h-3.5 fill-current" />
-                      {w.rating.toFixed(1)}
+                    <div className="flex items-center gap-1 text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-1 rounded-lg">
+                      <Star className="h-3.5 w-3.5 fill-current" />
+                      <span>{w.rating.toFixed(1)}</span>
                     </div>
                   )}
                 </div>
@@ -409,47 +515,112 @@ function UserDetail({ user, onToggle }: { user: any; onToggle: () => void }) {
           </div>
         );
       })()}
-
-      <DrawerSection title="Recent bookings">
-        <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 custom-scrollbar">
-          {bookingsLoading ? (
-            <div className="py-6 text-center text-xs text-dim">Loading booking history…</div>
-          ) : userBookings.length === 0 ? (
-            <div className="rounded-xl border border-border/40 bg-surface-light/10 py-8 text-center text-sm text-muted-foreground">
-              No bookings yet — this customer hasn&apos;t requested any services.
-            </div>
-          ) : (
-            userBookings.map((b: any) => (
-              <div
-                key={b._id}
-                className="flex items-center justify-between p-3.5 rounded-xl bg-surface-light/20 border border-border hover:bg-surface-light/35 transition"
-              >
-                <div>
-                  <div className="text-xs font-bold text-white uppercase">{b.category || "General"}</div>
-                  <div className="text-[10px] text-dim mt-1">
-                    Booking #{b._id.slice(-6)} • {b.scheduledDate ? format(new Date(b.scheduledDate), "dd MMM yyyy") : "N/A"}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-extrabold text-white">{fmtPKR(b.totalAmount || 0)}</div>
-                  <div className="mt-1">
-                    <StatusBadge status={b.status} />
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </DrawerSection>
     </div>
   );
 }
 
-function DetailField({ label, value, className = "" }: { label: string; value: string; className?: string }) {
+// Drawer Sub-component: Bookings Tab
+function UserBookingsTab({ customerId }: { customerId: string }) {
+  const { data: bookingsData, isLoading } = useBookings({
+    customerId,
+    limit: 10,
+  });
+
+  const list = (bookingsData as any) || [];
+
+  if (isLoading) {
+    return <div className="py-8 text-center text-xs text-muted-foreground">Loading customer bookings…</div>;
+  }
+
+  if (list.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+        No booking history recorded for this customer.
+      </div>
+    );
+  }
+
   return (
-    <div className={`p-3.5 rounded-xl bg-surface-light/20 border border-border/50 ${className}`}>
-      <div className="text-[10px] uppercase tracking-wider text-dim font-bold">{label}</div>
-      <div className="mt-1 font-semibold text-white break-words">{value}</div>
+    <div className="space-y-2.5">
+      {list.map((b: any) => (
+        <div
+          key={b._id}
+          className="flex items-center justify-between rounded-xl border border-border bg-surface p-3.5 transition hover:border-primary/40"
+        >
+          <div>
+            <div className="text-xs font-bold uppercase tracking-wide text-foreground">
+              {b.category || "General Service"}
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground font-mono">
+              {shortId(b._id)} • {formatDate(b.scheduledDate)}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-sm font-bold text-foreground tabular-nums font-mono">
+              {formatPKR(b.totalAmount || 0)}
+            </div>
+            <div className="mt-1 flex justify-end">
+              <StatusBadge status={b.status} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Drawer Sub-component: Moderation Tab
+function UserModerationTab({ user, onToggle }: { user: any; onToggle: () => void }) {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border bg-surface p-4">
+        <div className="text-xs font-semibold uppercase text-muted-foreground">Account Standing</div>
+        <div className="mt-2 flex items-center gap-2">
+          {user.isActive ? (
+            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>Good Standing (Active)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+              <XCircle className="h-4 w-4" />
+              <span>Suspended (Deactivated)</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!user.isActive && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-destructive">
+            <ShieldAlert className="h-4 w-4" />
+            <span>Suspension Details</span>
+          </div>
+          <p className="mt-2 text-sm text-foreground">
+            {user.deactivationReason || "No explanation provided during suspension."}
+          </p>
+          {user.deactivatedAt && (
+            <p className="mt-2 text-xs text-muted-foreground font-mono">
+              Enforced on {formatDate(user.deactivatedAt, "dd MMM yyyy, h:mm a")}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="pt-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`w-full h-11 rounded-xl font-bold flex items-center justify-center gap-2 border transition ${
+            user.isActive
+              ? "bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20"
+              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+          }`}
+        >
+          <Power className="h-4 w-4" />
+          <span>{user.isActive ? "Deactivate Customer Account" : "Reactivate Customer Account"}</span>
+        </button>
+      </div>
     </div>
   );
 }

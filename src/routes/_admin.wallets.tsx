@@ -26,6 +26,7 @@ import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, Button, FormField, Input } from "@/components/admin/ui";
 import { Drawer, Modal, ModalBody, ModalFooter } from "@/components/admin/Drawer";
 import { downloadCsv } from "@/lib/csv";
+import { shortId } from "@/lib/format";
 import {
   useAdminAdjustWallet,
   useAdminRechargeWallet,
@@ -329,7 +330,7 @@ function WalletsPage() {
                 <Avatar src={wallet.worker.profileImage} name={wallet.worker.fullName} />
                 <div>
                   <div className="font-semibold">{wallet.worker.fullName}</div>
-                  <div className="text-xs text-muted-foreground font-mono">{wallet.worker._id.slice(-6)}</div>
+                  <div className="text-xs text-muted-foreground font-mono">{shortId(wallet.worker._id)}</div>
                 </div>
               </div>
             ) },

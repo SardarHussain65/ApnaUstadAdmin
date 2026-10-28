@@ -11,7 +11,7 @@ import {
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { BookingContextPanel } from "@/components/admin/BookingContextPanel";
-import { fmtPKR } from "@/lib/format";
+import { fmtPKR, shortId } from "@/lib/format";
 
 export const Route = createFileRoute("/_admin/disputes")({
   component: DisputesPage,
@@ -430,7 +430,7 @@ function DisputesPage() {
                     <span className="text-[9px] uppercase text-dim font-bold block mb-0.5">Customer</span>
                     <span className="text-sm font-bold text-white leading-none">{selectedDispute.customer?.fullName || "Anonymous"}</span>
                     {selectedDispute.customer?._id && (
-                      <span className="text-[9px] text-muted-foreground font-mono block mt-1">ID: #{selectedDispute.customer._id.slice(-6)}</span>
+                      <span className="text-[9px] text-muted-foreground font-mono block mt-1">ID: {shortId(selectedDispute.customer._id)}</span>
                     )}
                   </div>
                 </div>

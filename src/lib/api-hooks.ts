@@ -270,7 +270,11 @@ export const useJobDetails = (id: string, enabled: boolean = true) => {
 export const useDeleteJob = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/admin/jobs/${id}`),
+    mutationFn: (arg: string | { id: string; reason?: string }) => {
+      const id = typeof arg === 'string' ? arg : arg.id;
+      const reason = typeof arg === 'object' ? arg.reason : undefined;
+      return api.delete(`/admin/jobs/${id}`, reason ? { reason } : undefined);
+    },
     onSuccess: () => {
       toast.success('Job deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
@@ -482,6 +486,16 @@ export const useVerifyWorker = () => {
     onError: (error: any) => {
       toast.error(error.message || 'Failed to update worker verification');
     },
+  });
+};
+
+export const useRevealWorkerCnic = () => {
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api.post<{ cnicNumber: string; cnicFrontImage?: string; cnicBackImage?: string }>(
+        `/admin/workers/${id}/reveal-cnic`,
+        { reason }
+      ),
   });
 };
 
@@ -1013,7 +1027,7 @@ export const useAdminAdjustWallet = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ workerId, amount, type, description }: { workerId: string; amount: number; type: 'refund' | 'adjustment'; description: string }) =>
-      api.post(`/admin/wallets/${workerId}/adjust`, { amount, type, description }),
+      api.post(`/admin/wallets/${workerId}/adjust`, { amount, type, description, reason: description }),
     onSuccess: (data, variables) => {
       toast.success('Wallet balance adjusted successfully');
       queryClient.invalidateQueries({ queryKey: ['worker-wallets'] });

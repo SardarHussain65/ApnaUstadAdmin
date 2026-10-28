@@ -148,6 +148,16 @@ export function formatCity(city: unknown): string | null {
 export const CNIC_REGEX = /^\d{5}-\d{7}-\d$/;
 export const isValidCnic = (value: unknown) => typeof value === "string" && CNIC_REGEX.test(value.trim());
 
+/** Format standard 13-digit raw string into `XXXXX-XXXXXXX-X`. */
+export function formatCnic(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) return EM_DASH;
+  const raw = value.trim();
+  if (raw.includes("-")) return raw;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 13) return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+  return raw;
+}
+
 /** Mask all but the first group and last digit: `75211-*******-2`. */
 export function maskCnic(value: unknown): string {
   if (typeof value !== "string" || !value.trim()) return EM_DASH;
