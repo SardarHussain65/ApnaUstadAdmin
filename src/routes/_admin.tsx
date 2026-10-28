@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AdminPageLoader } from "@/components/admin/AdminPageLoader";
+import { IdleTimeoutGuard } from "@/components/admin/IdleTimeoutGuard";
 import { fetchAdminProfile, getToken } from "@/lib/auth";
 import { canAccessRoute } from "@/lib/admin-permissions";
 
@@ -41,6 +42,7 @@ function AdminLayout() {
   if (!ready) return <AdminPageLoader fullScreen />;
   return (
     <AdminShell>
+      <IdleTimeoutGuard />
       <Outlet />
     </AdminShell>
   );
