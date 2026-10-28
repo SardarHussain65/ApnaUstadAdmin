@@ -195,20 +195,22 @@ function SupportPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 min-h-[660px]">
         {/* Left Side: Ticket List & Filters */}
-        <div className="lg:col-span-5 flex flex-col app-glass rounded-[22px] p-4 overflow-hidden h-[700px] border border-border/80">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search tickets by name, phone, topic..."
-          />
+        <div className="lg:col-span-5 flex flex-col rounded-2xl bg-card p-4 overflow-hidden h-[700px] border border-hairline shadow-card">
+          <div className="shrink-0">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search tickets by name, phone, topic..."
+            />
+          </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid shrink-0 grid-cols-2 gap-2">
             <div>
               <label className="text-[10px] text-muted-foreground font-bold uppercase block mb-1">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50 text-white"
+                className="w-full h-9 px-2.5 bg-surface border border-hairline rounded-xl text-xs outline-none focus:border-primary text-foreground"
               >
                 <option value="">All Statuses</option>
                 <option value="open">Open</option>
@@ -222,7 +224,7 @@ function SupportPage() {
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                className="w-full p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50 text-white"
+                className="w-full h-9 px-2.5 bg-surface border border-hairline rounded-xl text-xs outline-none focus:border-primary text-foreground"
               >
                 <option value="">All Priorities</option>
                 <option value="urgent">Urgent (&lt;2h SLA)</option>
@@ -233,7 +235,7 @@ function SupportPage() {
             </div>
           </div>
 
-          <hr className="my-3 border-border/60" />
+          <hr className="my-3 shrink-0 border-hairline" />
 
           {/* Scrollable ticket list */}
           <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">

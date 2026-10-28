@@ -1,10 +1,51 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useDeferredValue } from "react";
 import { useAuditLogs } from "@/lib/api-hooks";
 import { Drawer } from "@/components/admin/Drawer";
 import { SearchInput, Select } from "@/components/admin/DataTable";
-import { Badge } from "@/components/admin/ui";
-import { Eye, Shield, Calendar, User, Layers, Info, ChevronLeft, ChevronRight, Code, Globe, Laptop } from "lucide-react";
+import { Eye, Shield, User, Layers, Info, ChevronLeft, ChevronRight, Code, Globe, Laptop, ArrowUpRight } from "lucide-react";
+
+function renderEntityLink(entityType?: string, entityId?: string) {
+  if (!entityId) return <span className="text-muted-foreground">N/A</span>;
+  const t = (entityType || "").toLowerCase();
+  const short = entityId.length > 10 ? `#${entityId.slice(-8)}` : entityId;
+  if (t === "user") {
+    return (
+      <Link to="/users/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  if (t === "worker") {
+    return (
+      <Link to="/workers/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  if (t === "booking") {
+    return (
+      <Link to="/bookings/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  if (t === "job" || t === "jobpost") {
+    return (
+      <Link to="/jobs/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  if (t === "dispute") {
+    return (
+      <Link to="/disputes/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  return <span className="font-mono text-xs text-muted-foreground" title={entityId}>{short}</span>;
+}
 
 export const Route = createFileRoute("/_admin/audit")({
   component: AuditLogsPage,
@@ -143,7 +184,7 @@ function AuditLogsPage() {
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-white">
+                      <div className="font-semibold text-foreground">
                         {log.actor?.fullName || "System/Unknown"}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -155,20 +196,21 @@ function AuditLogsPage() {
                         {log.action}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-white font-medium">{log.entityType}</td>
-                    <td className="py-3 px-4 text-xs font-mono text-dim whitespace-nowrap truncate max-w-[120px]" title={log.entityId}>
-                      {log.entityId || "N/A"}
+                    <td className="py-3 px-4 text-foreground font-medium">{log.entityType}</td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {renderEntityLink(log.entityType, log.entityId)}
                     </td>
                     <td className="py-3 px-4 text-muted-foreground max-w-xs truncate" title={log.reason || ""}>
-                      {log.reason || <span className="text-dim">No description provided</span>}
+                      {log.reason || <span className="text-muted-foreground/60">No description provided</span>}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <button
+                        type="button"
                         onClick={() => setSelectedLog(log)}
-                        className="p-1.5 rounded-lg border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition"
+                        className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40 hover:text-primary transition"
                         title="Inspect Metadata"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" /> Inspect
                       </button>
                     </td>
                   </tr>
@@ -372,14 +414,14 @@ function AuditPayloadDiffViewer({ log }: { log: any }) {
       )}
 
       {/* Expandable Raw JSON */}
-      <details className="group border border-border rounded-xl bg-[#05050A] text-xs">
-        <summary className="cursor-pointer p-3 text-dim hover:text-white flex items-center justify-between font-mono select-none">
+      <details className="group border border-hairline rounded-xl bg-surface text-xs">
+        <summary className="cursor-pointer p-3 text-muted-foreground hover:text-foreground flex items-center justify-between font-mono select-none">
           <span className="flex items-center gap-1.5 font-sans font-semibold text-xs">
             <Code className="w-3.5 h-3.5 text-primary" /> Raw JSON Payload
           </span>
-          <span className="text-[10px] text-dim group-open:rotate-90 transition-transform">▶</span>
+          <span className="text-[10px] text-muted-foreground group-open:rotate-90 transition-transform">▶</span>
         </summary>
-        <pre className="p-3 pt-0 text-[11px] font-mono text-primary/90 overflow-x-auto leading-relaxed border-t border-border/40">
+        <pre className="p-3 pt-0 text-[11px] font-mono text-foreground overflow-x-auto leading-relaxed border-t border-hairline">
           {JSON.stringify({ ipAddress: log.ipAddress, userAgent: log.userAgent, metadata: log.metadata || {}, id: log._id }, null, 2)}
         </pre>
       </details>

@@ -75,11 +75,11 @@ function SettingsPage() {
     <div className="space-y-6 max-w-5xl">
       {/* 🚀 Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent flex items-center gap-2">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <Settings2 className="w-6 h-6 text-primary" />
           System Settings
         </h2>
-        <p className="text-sm text-dim mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Update admin profile, configure platform commissions, and manage authentication.
         </p>
       </div>

@@ -94,33 +94,59 @@ function PaymentsPage() {
     {
       key: "booking",
       header: "Booking",
-      render: (p: any) => (
-        <Link
-          to="/bookings"
-          onClick={(e) => e.stopPropagation()}
-          className="font-mono text-xs text-primary hover:underline"
-        >
-          {shortId(p.booking?._id || p.booking)}
-        </Link>
-      ),
+      render: (p: any) => {
+        const bookingId = p.booking?._id || p.booking;
+        return bookingId ? (
+          <Link
+            to="/bookings/$id"
+            params={{ id: String(bookingId) }}
+            onClick={(e) => e.stopPropagation()}
+            className="font-mono text-xs font-semibold text-primary hover:underline"
+          >
+            #{shortId(String(bookingId))}
+          </Link>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        );
+      },
     },
     {
       key: "customer",
       header: "Customer",
-      render: (p: any) => (
-        <span className="font-semibold text-foreground">
-          {p.customer?.fullName || "—"}
-        </span>
-      ),
+      render: (p: any) =>
+        p.customer?._id ? (
+          <Link
+            to="/users/$id"
+            params={{ id: String(p.customer._id) }}
+            onClick={(e) => e.stopPropagation()}
+            className="font-semibold text-foreground hover:text-primary hover:underline"
+          >
+            {p.customer.fullName || "Customer"}
+          </Link>
+        ) : (
+          <span className="font-semibold text-foreground">
+            {p.customer?.fullName || "—"}
+          </span>
+        ),
     },
     {
       key: "worker",
       header: "Ustad",
-      render: (p: any) => (
-        <span className="text-foreground/90 font-medium">
-          {p.worker?.fullName || "—"}
-        </span>
-      ),
+      render: (p: any) =>
+        p.worker?._id ? (
+          <Link
+            to="/workers/$id"
+            params={{ id: String(p.worker._id) }}
+            onClick={(e) => e.stopPropagation()}
+            className="font-medium text-foreground/90 hover:text-primary hover:underline"
+          >
+            {p.worker.fullName || "Ustad"}
+          </Link>
+        ) : (
+          <span className="font-medium text-foreground/90">
+            {p.worker?.fullName || "—"}
+          </span>
+        ),
     },
     {
       key: "amount",
@@ -164,6 +190,31 @@ function PaymentsPage() {
         <span className="text-xs text-muted-foreground font-mono">
           {formatDate(p.updatedAt || p.createdAt)}
         </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "text-right",
+      render: (p: any) => (
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => setSelectedPayment(p)}
+            className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40 hover:text-primary"
+          >
+            <ReceiptText className="h-3.5 w-3.5" /> Receipt
+          </button>
+          {(p.booking?._id || p.booking) && (
+            <Link
+              to="/bookings/$id"
+              params={{ id: String(p.booking?._id || p.booking) }}
+              className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40 hover:text-primary"
+            >
+              Booking <ExternalLink className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
       ),
     },
   ];

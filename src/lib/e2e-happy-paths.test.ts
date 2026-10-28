@@ -81,7 +81,7 @@ describe("E2E Happy Paths & Core Workflows Suite", () => {
     });
 
     it("validates city match against promo code scope", () => {
-      const promoCityScope = "Karachi";
+      const promoCityScope: string = "Karachi";
       const customerCityA = "karachi";
       const customerCityB = "lahore";
 

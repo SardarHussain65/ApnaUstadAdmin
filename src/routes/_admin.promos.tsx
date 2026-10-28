@@ -181,10 +181,10 @@ function PromosPage() {
       {/* 🚀 Header & Description */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">
             Promo & Coupon Management
           </h2>
-          <p className="text-sm text-dim mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Create coupons, configure checkout rules, track usages, and manage active system discounts.
           </p>
           <div className="mt-2"><Badge variant="info">Matching Coupons: {data?.pagination.totalItems ?? 0}</Badge></div>
@@ -430,15 +430,24 @@ function PromosPage() {
               },
               {
                 key: "actions",
-                header: "",
+                header: "Actions",
                 render: (p) => (
-                  <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
+                      type="button"
+                      onClick={() => handleToggleStatus(p)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40 hover:text-primary transition"
+                    >
+                      <Power className="w-3.5 h-3.5" />
+                      {p.isActive ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setConfirmDelete(p)}
-                      className="p-2 rounded-lg hover:bg-destructive/15 text-muted-foreground hover:text-destructive transition-all"
+                      className="inline-flex items-center gap-1 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/20 transition-all"
                       title="Delete Promo Code"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
                     </button>
                   </div>
                 )

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -322,13 +322,19 @@ function OnboardingPage() {
         columns={[
           {
             key: "worker",
-            header: "Worker",
+            header: "Ustad",
             render: (worker: any) => (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                 <Avatar name={worker.fullName} src={worker.profileImage} size={42} />
                 <div>
-                  <div className="font-semibold text-white flex items-center gap-1.5">
-                    {worker.fullName}
+                  <div className="font-semibold text-foreground flex items-center gap-1.5">
+                    <Link
+                      to="/workers/$id"
+                      params={{ id: String(worker._id) }}
+                      className="hover:text-primary hover:underline"
+                    >
+                      {worker.fullName}
+                    </Link>
                     {worker.isVerified && <ShieldCheck className="w-3.5 h-3.5 text-success" />}
                   </div>
                   <div className="text-xs text-muted-foreground flex items-center gap-2">
@@ -416,15 +422,25 @@ function OnboardingPage() {
           },
           {
             key: "actions",
-            header: "",
+            header: "Actions",
             className: "text-right",
             render: (worker: any) => (
-              <button
-                onClick={() => handleOpenReview(worker, 1)}
-                className="btn-press inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition"
-              >
-                Review Stepper <ArrowRight className="h-3.5 w-3.5" />
-              </button>
+              <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <Link
+                  to="/workers/$id"
+                  params={{ id: String(worker._id) }}
+                  className="inline-flex items-center gap-1 rounded-xl border border-hairline bg-surface px-2.5 py-1.5 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary"
+                >
+                  Profile <ExternalLink className="h-3 w-3" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleOpenReview(worker, 1)}
+                  className="btn-press inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition"
+                >
+                  Review Stepper <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
             ),
           },
         ]}
@@ -719,59 +735,94 @@ function OnboardingPage() {
                     (selectedWorker.specialties || []).map((spec: any) => {
                       const isPending = spec.approvalStatus === "pending";
                       const isApproved = spec.approvalStatus === "approved";
+                      const specName = spec.categoryId?.name || spec.name || "Specialty";
+                      const specCerts = spec.certificates?.length
+                        ? spec.certificates
+                        : (selectedWorker.certificates || []).filter(
+                            (c: any) => c.categoryName === specName || (!c.categoryName && spec.priority === 1)
+                          );
                       return (
                         <div
                           key={spec._id}
-                          className="flex items-center justify-between p-3.5 rounded-xl bg-surface border border-border/80"
+                          className="p-3.5 rounded-xl bg-surface border border-border/80 space-y-3"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                              <Briefcase className="w-5 h-5" />
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                                <Briefcase className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-bold text-foreground flex items-center gap-2">
+                                  {specName}
+                                  {isApproved ? (
+                                    <Badge variant="success">Approved</Badge>
+                                  ) : isPending ? (
+                                    <Badge variant="warning">Approval Pending</Badge>
+                                  ) : (
+                                    <Badge variant="danger">Rejected</Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Rate: {fmtPKR(spec.hourlyRate || selectedWorker.hourlyRate || 0)}/hr · Experience: {spec.experience ?? spec.experienceYears ?? selectedWorker.experienceYears ?? 1} yrs
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-sm font-bold text-white flex items-center gap-2">
-                                {spec.categoryId?.name || spec.name || "Specialty"}
-                                {isApproved ? (
-                                  <Badge variant="success">Approved</Badge>
-                                ) : isPending ? (
-                                  <Badge variant="warning">Approval Pending</Badge>
-                                ) : (
-                                  <Badge variant="danger">Rejected</Badge>
-                                )}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Rate: {fmtPKR(spec.hourlyRate || selectedWorker.hourlyRate || 0)}/hr · Experience: {spec.experienceYears || selectedWorker.experienceYears || 1} yrs
-                              </div>
+
+                            <div className="flex items-center gap-2">
+                              {isPending && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSpecialtyStatusChange(spec.categoryId?._id || spec.categoryId || spec._id, "approved")}
+                                    disabled={specialtyMutation.isPending}
+                                    className="px-3 py-1.5 rounded-xl gradient-success text-background font-bold text-xs flex items-center gap-1 hover:opacity-90"
+                                  >
+                                    <Check className="w-3.5 h-3.5" /> Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSpecialtyStatusChange(spec.categoryId?._id || spec.categoryId || spec._id, "rejected")}
+                                    disabled={specialtyMutation.isPending}
+                                    className="px-3 py-1.5 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive font-bold text-xs flex items-center gap-1 hover:bg-destructive/25"
+                                  >
+                                    <X className="w-3.5 h-3.5" /> Reject
+                                  </button>
+                                </>
+                              )}
+                              {isApproved && (
+                                <span className="text-xs text-success font-semibold flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Active
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {isPending && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSpecialtyStatusChange(spec.categoryId?._id || spec.categoryId || spec._id, "approved")}
-                                  disabled={specialtyMutation.isPending}
-                                  className="px-3 py-1.5 rounded-xl gradient-success text-background font-bold text-xs flex items-center gap-1 hover:opacity-90"
-                                >
-                                  <Check className="w-3.5 h-3.5" /> Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSpecialtyStatusChange(spec.categoryId?._id || spec.categoryId || spec._id, "rejected")}
-                                  disabled={specialtyMutation.isPending}
-                                  className="px-3 py-1.5 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive font-bold text-xs flex items-center gap-1 hover:bg-destructive/25"
-                                >
-                                  <X className="w-3.5 h-3.5" /> Reject
-                                </button>
-                              </>
-                            )}
-                            {isApproved && (
-                              <span className="text-xs text-success font-semibold flex items-center gap-1">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Active
-                              </span>
-                            )}
-                          </div>
+                          {specCerts.length > 0 && (
+                            <div className="pt-2.5 border-t border-border/60">
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                                Certificates ({specCerts.length})
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {specCerts.map((cert: any, idx: number) => (
+                                  <button
+                                    key={cert._id || idx}
+                                    type="button"
+                                    onClick={() => cert.certificateUrl && setLightboxUrl(cert.certificateUrl)}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left hover:border-primary/50 transition"
+                                  >
+                                    {cert.certificateUrl && (
+                                      <img src={cert.certificateUrl} alt={cert.title} className="w-10 h-7 rounded object-cover border border-border" />
+                                    )}
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-semibold text-foreground truncate max-w-[160px]">{cert.title || "Certificate"}</div>
+                                      {cert.issuingOrg && <div className="text-[10px] text-muted-foreground truncate max-w-[160px]">{cert.issuingOrg}</div>}
+                                    </div>
+                                    <Eye className="w-3.5 h-3.5 text-primary shrink-0 ml-1" />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })

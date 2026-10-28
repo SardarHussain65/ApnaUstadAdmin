@@ -207,32 +207,36 @@ function AdminsManagementPage() {
                         <div className="inline-flex gap-1.5">
                           {/* Toggle Status Button */}
                           <button
+                            type="button"
                             onClick={() => setStatusConfirmId(admin._id)}
                             disabled={self}
-                            className={`p-1.5 rounded-lg border border-border transition ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border text-xs font-medium transition ${
                               self
                                 ? "opacity-30 cursor-not-allowed"
                                 : admin.status === "inactive"
-                                ? "hover:border-success/50 hover:text-success text-muted-foreground"
-                                : "hover:border-destructive/50 hover:text-destructive text-muted-foreground"
+                                ? "hover:border-success/50 hover:text-success text-foreground"
+                                : "hover:border-destructive/50 hover:text-destructive text-foreground"
                             }`}
                             title={self ? "Cannot deactivate yourself" : admin.status === "inactive" ? "Activate Account" : "Deactivate Account"}
                           >
-                            <Power className="w-4 h-4" />
+                            <Power className="w-3.5 h-3.5" />
+                            {admin.status === "inactive" ? "Activate" : "Deactivate"}
                           </button>
 
                           {/* Delete Button */}
                           <button
+                            type="button"
                             onClick={() => setDeleteConfirmId(admin._id)}
                             disabled={self}
-                            className={`p-1.5 rounded-lg border border-border transition ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border text-xs font-medium transition ${
                               self
                                 ? "opacity-30 cursor-not-allowed"
-                                : "hover:border-destructive/50 hover:text-destructive text-muted-foreground"
+                                : "hover:border-destructive/50 hover:text-destructive text-destructive"
                             }`}
                             title={self ? "Cannot delete yourself" : "Delete Account"}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -261,7 +265,7 @@ function AdminsManagementPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="e.g., Ali Ahmed"
-              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary focus:glow-cyan transition text-white"
+              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary transition text-foreground"
             />
           </div>
 
@@ -275,7 +279,7 @@ function AdminsManagementPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ali.ahmed@apnaustad.com"
-              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary focus:glow-cyan transition text-white"
+              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary transition text-foreground"
             />
           </div>
 
@@ -289,7 +293,7 @@ function AdminsManagementPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary focus:glow-cyan transition text-white"
+              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary transition text-foreground"
             />
           </div>
 
@@ -300,7 +304,7 @@ function AdminsManagementPage() {
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as any)}
-              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary cursor-pointer text-white"
+              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary cursor-pointer text-foreground"
             >
               <option value="admin">Admin (Full legacy access)</option>
               <option value="support">Support (Tickets, users, bookings, disputes)</option>
