@@ -461,75 +461,169 @@ function DisputesPage() {
             {/* Administrative Resolution Controls */}
             {selectedDispute.status !== "resolved" && selectedDispute.status !== "dismissed" ? (
               <div className="space-y-4">
-                <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
-                  <Landmark className="w-5 h-5 text-primary" /> Admin decision
-                </h4>
-                <p className="text-xs text-dim leading-relaxed">
-                  Hear both sides using chat and evidence below. Choose one outcome — customers and Ustads are notified automatically.
-                </p>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <Landmark className="w-5 h-5 text-primary" /> Admin Outcome Decision
+                  </h4>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold">Select One Ruling</span>
+                </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[10px] uppercase text-dim font-bold block mb-1.5">Your decision</label>
-                    <select
-                      value={resolutionStatus}
-                      onChange={e => setResolutionStatus(e.target.value as any)}
-                      className="w-full h-11 px-3.5 rounded-xl bg-input border border-border text-sm text-white focus:border-primary focus:outline-none"
-                    >
-                      <option value="">Select outcome...</option>
-                      <option value="under_review">Start investigation</option>
-                      <option value="resolved">Favour customer — resolve complaint</option>
-                      <option value="dismissed">Favour Ustad — dismiss complaint</option>
-                    </select>
-                    {resolutionStatus ? (
-                      <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{getActionHint(resolutionStatus)}</p>
-                    ) : null}
-                  </div>
+                {/* Structured Outcome Picker Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Card 1: Favour Client - Full Refund */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResolutionStatus("resolved");
+                      setTriggerRefund(true);
+                      setRefundAmount(selectedDispute.amountDisputed || 0);
+                    }}
+                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between gap-1.5 ${
+                      resolutionStatus === "resolved" && triggerRefund && refundAmount === selectedDispute.amountDisputed
+                        ? "border-success bg-success/15 shadow-sm"
+                        : "border-border bg-surface-light hover:border-success/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-success flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" /> Full Client Refund
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">100%</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground leading-tight">
+                      Debit Ustad wallet & refund {fmtPKR(selectedDispute.amountDisputed || 0)} to customer.
+                    </div>
+                  </button>
 
+                  {/* Card 2: Favour Client - Partial Refund / Split */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResolutionStatus("resolved");
+                      setTriggerRefund(true);
+                      setRefundAmount(Math.round((selectedDispute.amountDisputed || 0) / 2));
+                    }}
+                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between gap-1.5 ${
+                      resolutionStatus === "resolved" && triggerRefund && refundAmount !== selectedDispute.amountDisputed
+                        ? "border-primary bg-primary/15 shadow-sm"
+                        : "border-border bg-surface-light hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                        <Scale className="w-4 h-4" /> Partial Refund / Split
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Custom</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground leading-tight">
+                      Refund custom portion of job amount between customer & worker.
+                    </div>
+                  </button>
+
+                  {/* Card 3: Favour Worker - Dismiss Dispute */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResolutionStatus("dismissed");
+                      setTriggerRefund(false);
+                      setRefundAmount(0);
+                    }}
+                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between gap-1.5 ${
+                      resolutionStatus === "dismissed"
+                        ? "border-accent bg-accent/15 shadow-sm"
+                        : "border-border bg-surface-light hover:border-accent/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-accent flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4" /> Release to Worker
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Dismiss</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground leading-tight">
+                      Complaint dismissed. Unblock cash payment & release earnings to Ustad.
+                    </div>
+                  </button>
+
+                  {/* Card 4: Under Investigation */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResolutionStatus("under_review");
+                      setTriggerRefund(false);
+                      setRefundAmount(0);
+                    }}
+                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between gap-1.5 ${
+                      resolutionStatus === "under_review"
+                        ? "border-gold bg-gold/15 shadow-sm"
+                        : "border-border bg-surface-light hover:border-gold/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gold flex items-center gap-1.5">
+                        <Clock className="w-4 h-4" /> Keep Under Review
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Investigate</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground leading-tight">
+                      Keep cash hold in place while gathering additional evidence.
+                    </div>
+                  </button>
+                </div>
+
+                <div className="space-y-3 pt-2">
                   {resolutionStatus === "resolved" && selectedDispute.amountDisputed > 0 && (
                     <div className="p-4 rounded-xl border border-border bg-success/5 space-y-3">
-                      <p className="text-[10px] uppercase font-bold text-dim">If Ustad was at fault</p>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={triggerRefund}
-                          onChange={e => setTriggerRefund(e.target.checked)}
-                          className="w-4 h-4 accent-primary rounded cursor-pointer"
-                        />
-                        <span className="text-xs font-bold text-success uppercase">Refund customer wallet (deduct from Ustad)</span>
-                      </label>
-                      
-                      {triggerRefund && (
-                        <div>
-                          <label className="text-[10px] uppercase text-dim font-bold block mb-1">Refund amount (PKR)</label>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <input
-                              type="number"
-                              value={refundAmount}
-                              onChange={e => setRefundAmount(Number(e.target.value))}
-                              max={selectedDispute.amountDisputed}
-                              min={0}
-                              className="w-36 h-10 px-3 rounded-xl bg-input border border-border font-bold text-white text-sm focus:border-primary focus:outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setRefundAmount(selectedDispute.amountDisputed)}
-                              className="text-xs font-bold text-primary hover:underline"
-                            >
-                              Full job amount ({fmtPKR(selectedDispute.amountDisputed)})
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-success uppercase">Refund Amount to Client</span>
+                        <span className="text-xs font-mono font-bold text-white">{fmtPKR(refundAmount)}</span>
+                      </div>
 
-                      <label className="flex items-center gap-2 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range"
+                          min={0}
+                          max={selectedDispute.amountDisputed}
+                          step={50}
+                          value={refundAmount}
+                          onChange={(e) => setRefundAmount(Number(e.target.value))}
+                          className="flex-1 accent-primary cursor-pointer"
+                        />
+                        <input
+                          type="number"
+                          value={refundAmount}
+                          onChange={(e) => setRefundAmount(Number(e.target.value))}
+                          max={selectedDispute.amountDisputed}
+                          min={0}
+                          className="w-28 h-9 px-2 rounded-lg bg-input border border-border font-mono font-bold text-white text-xs focus:border-primary focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setRefundAmount(selectedDispute.amountDisputed)}
+                          className="px-2.5 py-1 rounded-lg border border-border bg-surface text-[11px] font-semibold text-primary hover:underline"
+                        >
+                          100% ({fmtPKR(selectedDispute.amountDisputed)})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRefundAmount(Math.round(selectedDispute.amountDisputed / 2))}
+                          className="px-2.5 py-1 rounded-lg border border-border bg-surface text-[11px] font-semibold text-muted-foreground hover:text-white"
+                        >
+                          50% ({fmtPKR(Math.round(selectedDispute.amountDisputed / 2))})
+                        </button>
+                      </div>
+
+                      <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-border/50">
                         <input
                           type="checkbox"
                           checked={triggerPenalty}
                           onChange={e => setTriggerPenalty(e.target.checked)}
                           className="w-4 h-4 accent-gold rounded cursor-pointer"
                         />
-                        <span className="text-xs font-bold text-gold uppercase">Extra Ustad penalty (no customer refund)</span>
+                        <span className="text-xs font-bold text-gold uppercase">Extra Ustad penalty (deducted from wallet)</span>
                       </label>
                       {triggerPenalty && (
                         <div>
@@ -556,6 +650,7 @@ function DisputesPage() {
                       </div>
                     </div>
                   )}
+
 
                   {resolutionStatus === "dismissed" && (
                     <div className="p-4 rounded-xl border border-border bg-destructive/5 space-y-2">

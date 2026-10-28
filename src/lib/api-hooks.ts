@@ -1243,6 +1243,22 @@ export const useUpdateSupportPriority = () => {
   });
 };
 
+export const useAddSupportInternalNote = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) =>
+      api.post<SupportRequest>(`/admin/support/requests/${id}/notes`, { note }),
+    onSuccess: () => {
+      toast.success('Internal note added');
+      queryClient.invalidateQueries({ queryKey: ['support-requests'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to add internal note');
+    }
+  });
+};
+
+
 export const useUpdateAdminProfile = () => {
   const queryClient = useQueryClient();
   return useMutation({
