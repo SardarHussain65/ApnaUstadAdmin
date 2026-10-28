@@ -1,479 +1,813 @@
-import { useState, useMemo } from "react";
-import { 
-  MapPin, 
-  Users, 
-  Clock, 
-  Flame, 
-  Radio, 
-  ShieldCheck, 
-  Compass, 
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  MapPin,
+  Users,
+  Clock,
+  Radio,
   ChevronRight,
   TrendingUp,
-  AlertCircle
+  Wrench,
+  CalendarCheck,
+  Plus,
+  Minus,
+  Maximize2,
+  Layers,
+  ExternalLink,
+  Phone,
+  ArrowUpRight,
+  Briefcase,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { fmtPKR } from "@/lib/format";
+import {
+  useOperationsRadar,
+  type OperationsRadarCity,
+  type OperationsRadarPin,
+} from "@/lib/api-hooks";
+import { formatPhone, formatPKR, shortId } from "@/lib/format";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  getFallbackTileUrl,
+  getMapTilerTileUrl,
+  type MapTilerStyle,
+} from "@/components/admin/BookingTrackingMap";
 
-export type CityOpsData = {
-  id: string;
-  name: string;
-  province: string;
-  x: number; // SVG X coordinate
-  y: number; // SVG Y coordinate
-  activeUstads: number;
-  pendingJobs: number;
-  avgSla: string;
-  topTrade: string;
-  demandLevel: "high" | "medium" | "surging";
-};
+// Web Mercator projection helpers (256px tile size)
+function lngToWorldX(lng: number, zoom: number): number {
+  return ((lng + 180) / 360) * 256 * Math.pow(2, zoom);
+}
 
-const CITY_HUBS: CityOpsData[] = [
-  {
-    id: "karachi",
-    name: "Karachi",
-    province: "Sindh",
-    x: 230,
-    y: 430,
-    activeUstads: 142,
-    pendingJobs: 9,
-    avgSla: "3.8 min",
-    topTrade: "AC & Refrigeration",
-    demandLevel: "surging",
-  },
-  {
-    id: "lahore",
-    name: "Lahore",
-    province: "Punjab",
-    x: 420,
-    y: 220,
-    activeUstads: 198,
-    pendingJobs: 14,
-    avgSla: "4.1 min",
-    topTrade: "Electrician & UPS",
-    demandLevel: "surging",
-  },
-  {
-    id: "islamabad",
-    name: "Islamabad & Rawalpindi",
-    province: "ICT / Punjab",
-    x: 385,
-    y: 135,
-    activeUstads: 115,
-    pendingJobs: 6,
-    avgSla: "3.5 min",
-    topTrade: "Plumbing & Sanitization",
-    demandLevel: "high",
-  },
-  {
-    id: "faisalabad",
-    name: "Faisalabad",
-    province: "Punjab",
-    x: 375,
-    y: 235,
-    activeUstads: 74,
-    pendingJobs: 4,
-    avgSla: "5.2 min",
-    topTrade: "Carpentry & Woodwork",
-    demandLevel: "medium",
-  },
-  {
-    id: "multan",
-    name: "Multan",
-    province: "Punjab",
-    x: 335,
-    y: 290,
-    activeUstads: 62,
-    pendingJobs: 3,
-    avgSla: "4.8 min",
-    topTrade: "Solar & Power Systems",
-    demandLevel: "medium",
-  },
-  {
-    id: "peshawar",
-    name: "Peshawar",
-    province: "Khyber Pakhtunkhwa",
-    x: 330,
-    y: 125,
-    activeUstads: 58,
-    pendingJobs: 5,
-    avgSla: "5.0 min",
-    topTrade: "Painting & Masonry",
-    demandLevel: "high",
-  },
-  {
-    id: "gujranwala",
-    name: "Gujranwala & Sialkot",
-    province: "Punjab",
-    x: 415,
-    y: 180,
-    activeUstads: 86,
-    pendingJobs: 7,
-    avgSla: "4.3 min",
-    topTrade: "Appliance Repair",
-    demandLevel: "high",
-  },
-  {
-    id: "quetta",
-    name: "Quetta",
-    province: "Balochistan",
-    x: 195,
-    y: 275,
-    activeUstads: 29,
-    pendingJobs: 2,
-    avgSla: "6.5 min",
-    topTrade: "Automotive & Mechanical",
-    demandLevel: "medium",
-  },
-];
+function latToWorldY(lat: number, zoom: number): number {
+  const clamped = Math.max(-85.0511, Math.min(85.0511, lat));
+  const rad = (clamped * Math.PI) / 180;
+  const mercN = Math.log(Math.tan(Math.PI / 4 + rad / 2));
+  return (0.5 - mercN / (2 * Math.PI)) * 256 * Math.pow(2, zoom);
+}
+
+function worldXToLng(wx: number, zoom: number): number {
+  return (wx / (256 * Math.pow(2, zoom))) * 360 - 180;
+}
+
+function worldYToLat(wy: number, zoom: number): number {
+  const n = Math.PI - (2 * Math.PI * wy) / (256 * Math.pow(2, zoom));
+  return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+
+const DEFAULT_PAKISTAN_CENTER = { lat: 30.85, lng: 71.2 };
+const DEFAULT_PAKISTAN_ZOOM = 6;
 
 export function LiveOpsMap() {
-  const [activeCityId, setActiveCityId] = useState<string>("lahore");
-  const [viewMode, setViewMode] = useState<"ustads" | "jobs" | "heatmap">("ustads");
+  const { data: radar, isLoading } = useOperationsRadar();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState({ width: 760, height: 460 });
 
-  const activeCity = useMemo(() => {
-    return CITY_HUBS.find((c) => c.id === activeCityId) || CITY_HUBS[0];
-  }, [activeCityId]);
+  const [layerFilter, setLayerFilter] = useState<"all" | "bookings" | "workers" | "users">("all");
+  const [activeCityId, setActiveCityId] = useState<string>("all");
+  const [selectedPin, setSelectedPin] = useState<OperationsRadarPin | null>(null);
+  const [tileStyle, setTileStyle] = useState<MapTilerStyle>("streets-v2");
 
-  const totalUstads = useMemo(() => CITY_HUBS.reduce((acc, c) => acc + c.activeUstads, 0), []);
-  const totalJobs = useMemo(() => CITY_HUBS.reduce((acc, c) => acc + c.pendingJobs, 0), []);
+  const [center, setCenter] = useState(DEFAULT_PAKISTAN_CENTER);
+  const [zoom, setZoom] = useState(DEFAULT_PAKISTAN_ZOOM);
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; wx: number; wy: number } | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setSize({ width: rect.width, height: rect.height });
+      }
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const cities = radar?.cities || [];
+  const summary = radar?.summary || {
+    totalWorkers: 0,
+    onlineWorkers: 0,
+    verifiedWorkers: 0,
+    totalUsers: 0,
+    activeBookings: 0,
+    completedBookings: 0,
+    openJobs: 0,
+    totalBookings: 0,
+  };
+
+  // Pick initial active city with highest activity once loaded
+  const topActiveCity = useMemo<OperationsRadarCity | null>(() => {
+    if (!cities.length) return null;
+    if (activeCityId !== "all") {
+      return cities.find((c) => c.id === activeCityId) || cities[0];
+    }
+    const sorted = [...cities].sort(
+      (a, b) =>
+        b.totalUstads + b.totalCustomers + b.activeBookings * 2 -
+        (a.totalUstads + a.totalCustomers + a.activeBookings * 2)
+    );
+    return sorted[0] || cities[0];
+  }, [cities, activeCityId]);
+
+  const handleSelectCity = (cityId: string) => {
+    setActiveCityId(cityId);
+    setSelectedPin(null);
+    if (cityId === "all") {
+      setCenter(DEFAULT_PAKISTAN_CENTER);
+      setZoom(DEFAULT_PAKISTAN_ZOOM);
+      return;
+    }
+    const found = cities.find((c) => c.id === cityId);
+    if (found) {
+      setCenter({ lat: found.lat, lng: found.lng });
+      setZoom(11);
+    }
+  };
+
+  const visiblePins = useMemo(() => {
+    if (!radar?.pins) return [];
+    const list: OperationsRadarPin[] = [];
+    if (layerFilter === "all" || layerFilter === "bookings") {
+      list.push(...(radar.pins.bookings || []));
+    }
+    if (layerFilter === "all" || layerFilter === "workers") {
+      list.push(...(radar.pins.workers || []));
+    }
+    if (layerFilter === "all" || layerFilter === "users") {
+      list.push(...(radar.pins.users || []));
+    }
+    if (activeCityId !== "all") {
+      return list.filter((p) => p.cityId === activeCityId);
+    }
+    return list;
+  }, [radar, layerFilter, activeCityId]);
+
+  const centerWorldX = lngToWorldX(center.lng, zoom);
+  const centerWorldY = latToWorldY(center.lat, zoom);
+  const topLeftWorldX = centerWorldX - size.width / 2;
+  const topLeftWorldY = centerWorldY - size.height / 2;
+
+  const projectToScreen = (pt: { lat: number; lng: number }) => ({
+    x: lngToWorldX(pt.lng, zoom) - topLeftWorldX,
+    y: latToWorldY(pt.lat, zoom) - topLeftWorldY,
+  });
+
+  const tiles = useMemo(() => {
+    const maxTile = Math.pow(2, zoom);
+    const minTileX = Math.floor(topLeftWorldX / 256);
+    const maxTileX = Math.floor((topLeftWorldX + size.width) / 256);
+    const minTileY = Math.floor(topLeftWorldY / 256);
+    const maxTileY = Math.floor((topLeftWorldY + size.height) / 256);
+
+    const list: Array<{
+      key: string;
+      url: string;
+      fallbackUrl: string;
+      left: number;
+      top: number;
+    }> = [];
+    for (let tx = minTileX; tx <= maxTileX; tx++) {
+      for (let ty = minTileY; ty <= maxTileY; ty++) {
+        if (ty < 0 || ty >= maxTile) continue;
+        const wrappedX = ((tx % maxTile) + maxTile) % maxTile;
+        list.push({
+          key: `${zoom}-${tx}-${ty}-${tileStyle}`,
+          url: getMapTilerTileUrl(tileStyle, zoom, wrappedX, ty),
+          fallbackUrl: getFallbackTileUrl(tileStyle, zoom, wrappedX, ty),
+          left: tx * 256 - topLeftWorldX,
+          top: ty * 256 - topLeftWorldY,
+        });
+      }
+    }
+    return list;
+  }, [zoom, topLeftWorldX, topLeftWorldY, size.width, size.height, tileStyle]);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("button, a")) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      wx: centerWorldX,
+      wy: centerWorldY,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging || !dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    setCenter({
+      lat: worldYToLat(dragStartRef.current.wy - dy, zoom),
+      lng: worldXToLng(dragStartRef.current.wx - dx, zoom),
+    });
+  };
+
+  const handlePointerUp = () => {
+    setDragging(false);
+    dragStartRef.current = null;
+  };
+
+  const bookingsCount = radar?.pins?.bookings?.length ?? 0;
+  const workersCount = radar?.pins?.workers?.length ?? 0;
+  const usersCount = radar?.pins?.users?.length ?? 0;
 
   return (
-    <div className="rounded-2xl border border-hairline bg-card overflow-hidden shadow-card">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline p-5">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+      {/* Header Bar */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-border p-5">
         <div>
-          <div className="flex items-center gap-2">
-            <Radio className="h-4 w-4 text-emerald-400 animate-pulse" />
-            <h3 className="text-base font-bold text-foreground">Pakistan Live Operations Radar</h3>
-            <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-              {totalUstads} Ustads Online
+          <div className="flex flex-wrap items-center gap-2">
+            <Radio className="h-4 w-4 text-emerald-500 animate-pulse" />
+            <h3 className="text-base font-bold text-foreground">
+              Pakistan Live Operations Radar
+            </h3>
+            <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+              {summary.totalWorkers} Ustads ({summary.onlineWorkers} Online)
+            </span>
+            <span className="rounded-full bg-sky-500/10 border border-sky-500/25 px-2.5 py-0.5 text-[11px] font-bold text-sky-600 dark:text-sky-400">
+              {summary.totalUsers} Customers
+            </span>
+            <span className="rounded-full bg-amber-500/10 border border-amber-500/25 px-2.5 py-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+              {summary.totalBookings} Bookings ({summary.activeBookings} Active)
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Geographic dispatch density, active workforce clusters, and pending booking alerts
+          <p className="text-xs text-muted-foreground mt-1">
+            Real-time geographic map of registered Ustads, customer addresses, and live service bookings from MongoDB
           </p>
         </div>
 
-        {/* View Mode Switcher */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-light border border-hairline text-xs">
-          <button
-            onClick={() => setViewMode("ustads")}
-            className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-              viewMode === "ustads"
-                ? "bg-primary text-background shadow-glow-cyan"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Active Ustads</span>
-          </button>
-          <button
-            onClick={() => setViewMode("jobs")}
-            className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-              viewMode === "jobs"
-                ? "bg-amber-400 text-black shadow-md"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>Pending Jobs ({totalJobs})</span>
-          </button>
-          <button
-            onClick={() => setViewMode("heatmap")}
-            className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
-              viewMode === "heatmap"
-                ? "bg-purple-500 text-white shadow-glow-purple"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Flame className="w-3.5 h-3.5" />
-            <span>Demand Heatmap</span>
-          </button>
+        {/* Layer Filter Tabs + Map Theme Toggle */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-1 rounded-xl bg-surface border border-border p-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setLayerFilter("all")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition ${
+                layerFilter === "all"
+                  ? "bg-card text-foreground shadow-sm border border-border/80"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All Live ({bookingsCount + workersCount + usersCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayerFilter("bookings")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 ${
+                layerFilter === "bookings"
+                  ? "bg-amber-500 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CalendarCheck className="w-3.5 h-3.5" />
+              <span>Bookings ({bookingsCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayerFilter("workers")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 ${
+                layerFilter === "workers"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Wrench className="w-3.5 h-3.5" />
+              <span>Ustads ({workersCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayerFilter("users")}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1.5 ${
+                layerFilter === "users"
+                  ? "bg-sky-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Customers ({usersCount})</span>
+            </button>
+          </div>
+
+          <div className="inline-flex h-9 items-center rounded-xl border border-border bg-surface p-0.5 text-xs">
+            {(
+              [
+                { id: "streets-v2", label: "Streets" },
+                { id: "hybrid", label: "Satellite" },
+                { id: "dataviz-dark", label: "Dark Radar" },
+              ] as const
+            ).map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setTileStyle(s.id)}
+                className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
+                  tileStyle === s.id
+                    ? "bg-card text-primary shadow-sm border border-border/80"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Map + Detail Inspector Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
-        {/* SVG Interactive Canvas */}
-        <div className="lg:col-span-8 relative p-4 sm:p-6 bg-[#04060C] flex items-center justify-center min-h-[420px] select-none border-b lg:border-b-0 lg:border-r border-hairline">
-          {/* Subtle Grid Background Pattern */}
-          <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-30 pointer-events-none" />
-
-          {/* Compass Rose */}
-          <div className="absolute top-4 left-4 flex items-center gap-1.5 text-[11px] text-muted-foreground/60 font-mono">
-            <Compass className="w-4 h-4 text-primary/70 animate-spin-slow" />
-            <span>NORTH • PKT (UTC+5)</span>
+        {/* Left: Real Interactive Tile Map (8 cols) */}
+        <div
+          ref={containerRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className={`lg:col-span-8 relative min-h-[450px] overflow-hidden select-none border-b lg:border-b-0 lg:border-r border-border ${
+            dragging ? "cursor-grabbing" : "cursor-grab"
+          } ${tileStyle === "dataviz-dark" ? "bg-[#090D16]" : "bg-[#E5E9F0]"}`}
+        >
+          {/* MapTiler Street / Satellite / Dark Raster Tiles */}
+          <div className="absolute inset-0 pointer-events-none">
+            {tiles.map((t) => (
+              <img
+                key={t.key}
+                src={t.url}
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (img.src !== t.fallbackUrl) {
+                    img.src = t.fallbackUrl;
+                  }
+                }}
+                alt=""
+                draggable={false}
+                style={{
+                  position: "absolute",
+                  left: Math.round(t.left),
+                  top: Math.round(t.top),
+                  width: 256,
+                  height: 256,
+                }}
+                className="max-w-none select-none"
+              />
+            ))}
           </div>
 
-          <svg
-            viewBox="0 0 600 500"
-            className="w-full h-auto max-w-[560px] drop-shadow-[0_0_35px_rgba(0,245,255,0.08)]"
-          >
-            <defs>
-              {/* Radial gradient for glowing heatmaps */}
-              <radialGradient id="heatSurge" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#BF5AF2" stopOpacity="0.6" />
-                <stop offset="60%" stopColor="#BF5AF2" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="#BF5AF2" stopOpacity="0" />
-              </radialGradient>
-              <radialGradient id="heatHigh" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#00F5FF" stopOpacity="0.5" />
-                <stop offset="60%" stopColor="#00F5FF" stopOpacity="0.15" />
-                <stop offset="100%" stopColor="#00F5FF" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-
-            {/* Stylized Pakistan Provincial Borders Base */}
-            <g className="transition-all duration-300">
-              {/* Balochistan Territory */}
-              <path
-                d="M 90 280 L 150 220 L 250 250 L 260 380 L 200 420 L 120 370 Z"
-                fill="#0F172A"
-                stroke="#334155"
-                strokeWidth="1.5"
-                className="hover:fill-slate-800/80 transition-colors"
-              />
-              {/* Sindh Province */}
-              <path
-                d="M 200 420 L 260 380 L 320 340 L 320 440 L 240 470 L 210 450 Z"
-                fill="#0F172A"
-                stroke="#334155"
-                strokeWidth="1.5"
-                className="hover:fill-slate-800/80 transition-colors"
-              />
-              {/* Punjab Province */}
-              <path
-                d="M 260 250 L 330 190 L 440 180 L 450 270 L 360 320 L 320 340 Z"
-                fill="#111C35"
-                stroke="#334155"
-                strokeWidth="1.5"
-                className="hover:fill-slate-800/80 transition-colors"
-              />
-              {/* Khyber Pakhtunkhwa & FATA */}
-              <path
-                d="M 270 190 L 330 110 L 380 90 L 370 180 L 330 190 Z"
-                fill="#0D1A30"
-                stroke="#334155"
-                strokeWidth="1.5"
-                className="hover:fill-slate-800/80 transition-colors"
-              />
-              {/* Gilgit-Baltistan & Northern Areas */}
-              <path
-                d="M 370 90 L 440 40 L 510 70 L 460 120 L 380 90 Z"
-                fill="#0A1527"
-                stroke="#334155"
-                strokeWidth="1.5"
-                className="hover:fill-slate-800/80 transition-colors"
-              />
-              {/* AJK / Kashmir Corridor */}
-              <path
-                d="M 380 90 L 460 120 L 440 180 L 370 180 Z"
-                fill="#0E1E38"
-                stroke="#334155"
-                strokeWidth="1.5"
-                className="hover:fill-slate-800/80 transition-colors"
-              />
-            </g>
-
-            {/* Heatmap Layer if activated */}
-            {viewMode === "heatmap" && (
-              <g>
-                {CITY_HUBS.map((c) => (
-                  <circle
-                    key={`heat-${c.id}`}
-                    cx={c.x}
-                    cy={c.y}
-                    r={c.demandLevel === "surging" ? 65 : 45}
-                    fill={c.demandLevel === "surging" ? "url(#heatSurge)" : "url(#heatHigh)"}
-                    className="animate-pulse"
+          {/* Route Lines for Active Bookings when zoomed in */}
+          <svg className="absolute inset-0 h-full w-full pointer-events-none">
+            {visiblePins
+              .filter((p) => p.type === "booking" && p.worker)
+              .map((b) => {
+                const start = projectToScreen({ lat: b.worker!.lat, lng: b.worker!.lng });
+                const end = projectToScreen({ lat: b.lat, lng: b.lng });
+                return (
+                  <line
+                    key={`route-${b.id}`}
+                    x1={start.x}
+                    y1={start.y}
+                    x2={end.x}
+                    y2={end.y}
+                    stroke="#F59E0B"
+                    strokeWidth={selectedPin?.id === b.id ? 3.5 : 2}
+                    strokeDasharray="6 4"
+                    strokeOpacity={0.85}
                   />
-                ))}
-              </g>
-            )}
-
-            {/* City Hub Markers & Pulse Radars */}
-            {CITY_HUBS.map((city) => {
-              const isSelected = city.id === activeCityId;
-              const markerColor =
-                viewMode === "jobs"
-                  ? "#FFB800"
-                  : viewMode === "heatmap"
-                  ? "#BF5AF2"
-                  : "#00F5FF";
-
-              return (
-                <g
-                  key={city.id}
-                  onClick={() => setActiveCityId(city.id)}
-                  className="cursor-pointer group"
-                >
-                  {/* Radar Pulse Wave */}
-                  <circle
-                    cx={city.x}
-                    cy={city.y}
-                    r={isSelected ? "22" : "14"}
-                    fill={markerColor}
-                    fillOpacity="0.2"
-                    className="animate-ping"
-                  />
-
-                  {/* Halo ring */}
-                  <circle
-                    cx={city.x}
-                    cy={city.y}
-                    r={isSelected ? "14" : "9"}
-                    fill={markerColor}
-                    fillOpacity="0.4"
-                    stroke={markerColor}
-                    strokeWidth={isSelected ? "2" : "1"}
-                  />
-
-                  {/* Core Pin Center */}
-                  <circle
-                    cx={city.x}
-                    cy={city.y}
-                    r={isSelected ? "6" : "4"}
-                    fill="#FFFFFF"
-                    stroke={markerColor}
-                    strokeWidth="2"
-                  />
-
-                  {/* City Label */}
-                  <text
-                    x={city.x}
-                    y={city.y - 12}
-                    textAnchor="middle"
-                    className={`font-mono text-[11px] font-bold tracking-wider transition-all select-none ${
-                      isSelected
-                        ? "fill-primary font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]"
-                        : "fill-slate-300 group-hover:fill-white"
-                    }`}
-                  >
-                    {city.name}
-                  </text>
-
-                  {/* City metric pill under label */}
-                  <text
-                    x={city.x}
-                    y={city.y + 18}
-                    textAnchor="middle"
-                    className={`font-mono text-[9px] font-semibold select-none ${
-                      viewMode === "jobs"
-                        ? "fill-amber-400"
-                        : viewMode === "heatmap"
-                        ? "fill-purple-300"
-                        : "fill-emerald-400"
-                    }`}
-                  >
-                    {viewMode === "jobs"
-                      ? `${city.pendingJobs} pending`
-                      : viewMode === "heatmap"
-                      ? city.demandLevel.toUpperCase()
-                      : `${city.activeUstads} online`}
-                  </text>
-                </g>
-              );
-            })}
+                );
+              })}
           </svg>
 
-          {/* Quick city pill tabs */}
-          <div className="absolute bottom-3 left-4 right-4 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {CITY_HUBS.map((c) => (
+          {/* City Hub Badges when at Country Zoom (zoom <= 8) */}
+          {zoom <= 8 &&
+            cities.map((city) => {
+              const pos = projectToScreen({ lat: city.lat, lng: city.lng });
+              if (pos.x < -40 || pos.x > size.width + 40 || pos.y < -40 || pos.y > size.height + 40) {
+                return null;
+              }
+              const totalActivity = city.totalUstads + city.totalCustomers + city.activeBookings;
+              const isSelected = activeCityId === city.id;
+
+              return (
+                <button
+                  key={`hub-${city.id}`}
+                  type="button"
+                  onClick={() => handleSelectCity(city.id)}
+                  style={{ left: pos.x, top: pos.y }}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 z-10 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold shadow-md transition hover:scale-105 ${
+                    isSelected
+                      ? "border-primary bg-primary text-primary-foreground z-20"
+                      : totalActivity > 0
+                      ? "border-emerald-500/40 bg-card/95 text-foreground"
+                      : "border-border bg-card/85 text-muted-foreground"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      totalActivity > 0 ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/50"
+                    }`}
+                  />
+                  <span>{city.name}</span>
+                  {totalActivity > 0 && (
+                    <span className="rounded-full bg-primary/15 px-1.5 py-0.2 font-mono text-[10px] text-primary">
+                      {city.totalUstads}U · {city.totalCustomers}C
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+
+          {/* Individual Real Pins (Bookings, Ustads, Customers) */}
+          {visiblePins.map((pin) => {
+            const pos = projectToScreen({ lat: pin.lat, lng: pin.lng });
+            if (pos.x < -30 || pos.x > size.width + 30 || pos.y < -30 || pos.y > size.height + 30) {
+              return null;
+            }
+            const isSelected = selectedPin?.id === pin.id;
+            const colorClass =
+              pin.type === "booking"
+                ? "bg-amber-500 border-white text-white"
+                : pin.type === "worker"
+                ? "bg-emerald-600 border-white text-white"
+                : "bg-sky-600 border-white text-white";
+
+            return (
               <button
-                key={c.id}
-                onClick={() => setActiveCityId(c.id)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-mono whitespace-nowrap transition border ${
-                  c.id === activeCityId
-                    ? "bg-primary/20 border-primary text-primary font-bold shadow-cyan-glow"
-                    : "bg-surface/80 border-hairline text-muted-foreground hover:text-white"
+                key={`${pin.type}-${pin.id}`}
+                type="button"
+                onClick={() => {
+                  setSelectedPin(pin);
+                  if (zoom < 12) {
+                    setCenter({ lat: pin.lat, lng: pin.lng });
+                    setZoom(13);
+                  }
+                }}
+                style={{ left: pos.x, top: pos.y }}
+                title={`${pin.title} — ${pin.subtitle}`}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full border-2 shadow-md transition-transform ${colorClass} ${
+                  isSelected ? "h-9 w-9 scale-125 z-30 ring-4 ring-primary/30" : "h-6 w-6 hover:scale-125 z-20"
                 }`}
               >
-                {c.name}
+                {pin.type === "booking" ? (
+                  <CalendarCheck className={isSelected ? "h-4 w-4" : "h-3 w-3"} />
+                ) : pin.type === "worker" ? (
+                  <Wrench className={isSelected ? "h-4 w-4" : "h-3 w-3"} />
+                ) : (
+                  <Users className={isSelected ? "h-4 w-4" : "h-3 w-3"} />
+                )}
               </button>
-            ))}
+            );
+          })}
+
+          {/* Top-Left Legend */}
+          <div className="absolute top-3 left-3 z-30 flex flex-wrap items-center gap-2.5 rounded-xl border border-border bg-card/90 px-3 py-1.5 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-md">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+              <span>Bookings ({bookingsCount})</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+              <span>Ustads ({workersCount})</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-sky-600" />
+              <span>Customers ({usersCount})</span>
+            </span>
+          </div>
+
+          {/* Top-Right Zoom Controls */}
+          <div className="absolute top-3 right-3 z-30 flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => setZoom((z) => Math.min(17, z + 1))}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card/95 text-foreground shadow-md transition hover:bg-surface"
+              title="Zoom in"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom((z) => Math.max(5, z - 1))}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card/95 text-foreground shadow-md transition hover:bg-surface"
+              title="Zoom out"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectCity("all")}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card/95 text-primary shadow-md transition hover:bg-surface"
+              title="Reset to Pakistan overview"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Bottom City Quick-Jump Bar */}
+          <div className="absolute bottom-3 left-3 right-3 z-30 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => handleSelectCity("all")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition border shadow-sm ${
+                activeCityId === "all"
+                  ? "bg-primary border-primary text-primary-foreground"
+                  : "bg-card/95 border-border text-foreground hover:bg-surface"
+              }`}
+            >
+              All Pakistan
+            </button>
+            {cities.map((c) => {
+              const count = c.totalUstads + c.totalCustomers + c.activeBookings;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => handleSelectCity(c.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition border shadow-sm flex items-center gap-1.5 ${
+                    c.id === activeCityId
+                      ? "bg-primary border-primary text-primary-foreground font-bold"
+                      : "bg-card/95 border-border text-foreground hover:bg-surface"
+                  }`}
+                >
+                  <span>{c.name}</span>
+                  {count > 0 && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.2 font-mono text-[10px] ${
+                        c.id === activeCityId
+                          ? "bg-white/20 text-white"
+                          : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Selected City Command Panel */}
-        <div className="lg:col-span-4 p-5 sm:p-6 bg-card flex flex-col justify-between space-y-5">
-          <div className="space-y-4">
-            {/* City Title */}
-            <div>
+        {/* Right: Live Inspector & City Command Panel (4 cols) */}
+        <div className="lg:col-span-4 p-5 bg-card flex flex-col justify-between space-y-5">
+          {selectedPin ? (
+            /* Selected Pin Live Dossier Card */
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-dim">
-                  {activeCity.province} Region
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                  {selectedPin.type === "booking"
+                    ? "Live Booking Pin"
+                    : selectedPin.type === "worker"
+                    ? "Registered Ustad Pin"
+                    : "Customer Account Pin"}
                 </span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                    activeCity.demandLevel === "surging"
-                      ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                      : "bg-primary/10 text-primary border border-primary/20"
-                  }`}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPin(null)}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
                 >
-                  {activeCity.demandLevel} Demand
-                </span>
-              </div>
-              <h4 className="text-xl font-black text-foreground mt-1 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-primary" />
-                <span>{activeCity.name}</span>
-              </h4>
-            </div>
-
-            {/* Key Metrics Grid */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <div className="p-3 rounded-xl bg-surface-light border border-hairline">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ustads Online</span>
-                <span className="text-xl font-mono font-black text-emerald-400 mt-1 block">
-                  {activeCity.activeUstads}
-                </span>
-                <span className="text-[10px] text-dim">Ready for instant dispatch</span>
+                  ← Back to City Summary
+                </button>
               </div>
 
-              <div className="p-3 rounded-xl bg-surface-light border border-hairline">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Pending Requests</span>
-                <span className="text-xl font-mono font-black text-amber-400 mt-1 block">
-                  {activeCity.pendingJobs}
-                </span>
-                <span className="text-[10px] text-dim">Awaiting Ustad match</span>
+              <div>
+                <h4 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <span>{selectedPin.title}</span>
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {selectedPin.subtitle}
+                </p>
               </div>
-            </div>
 
-            {/* SLA and Trade Insights */}
-            <div className="space-y-2.5 pt-1">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-surface-light/60 border border-hairline text-xs">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span className="text-muted-foreground">Average Match SLA</span>
+              <div className="rounded-xl border border-border bg-surface/60 p-3.5 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Record ID</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {shortId(selectedPin.id)}
+                  </span>
                 </div>
-                <span className="font-mono font-bold text-foreground">{activeCity.avgSla}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Location Source</span>
+                  <span className="font-semibold text-primary">
+                    {selectedPin.isExactGps ? "Exact GPS Pin" : `City/Area (${selectedPin.cityName})`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Coordinates</span>
+                  <span className="font-mono text-[11px] text-foreground">
+                    {selectedPin.lat.toFixed(4)}° N, {selectedPin.lng.toFixed(4)}° E
+                  </span>
+                </div>
+                {selectedPin.phone && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Phone</span>
+                    <span className="font-mono font-semibold text-foreground inline-flex items-center gap-1">
+                      <Phone className="h-3 w-3 text-primary" />
+                      {formatPhone(selectedPin.phone)}
+                    </span>
+                  </div>
+                )}
+                {selectedPin.type === "booking" && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Status</span>
+                      <StatusBadge status={selectedPin.status || "pending"} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Booking Amount</span>
+                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatPKR(selectedPin.totalAmount || 0)}
+                      </span>
+                    </div>
+                    {selectedPin.customer && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Customer</span>
+                        <span className="font-semibold text-foreground">
+                          {selectedPin.customer.fullName}
+                        </span>
+                      </div>
+                    )}
+                    {selectedPin.worker && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Assigned Ustad</span>
+                        <span className="font-semibold text-foreground">
+                          {selectedPin.worker.fullName}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {selectedPin.type === "worker" && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Trade & Rate</span>
+                      <span className="font-semibold text-foreground">
+                        {selectedPin.category} · {formatPKR(selectedPin.hourlyRate || 0)}/hr
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Availability</span>
+                      <StatusBadge status={selectedPin.isAvailable ? "active" : "inactive"} />
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-surface-light/60 border border-hairline text-xs">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-purple-400" />
-                  <span className="text-muted-foreground">Top Trade Demand</span>
-                </div>
-                <span className="font-bold text-foreground text-right">{activeCity.topTrade}</span>
+              <div className="space-y-2 pt-2">
+                <Link
+                  to={selectedPin.href as any}
+                  className="w-full h-10 rounded-xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-sm hover:opacity-90 transition"
+                >
+                  <span>
+                    Open Full{" "}
+                    {selectedPin.type === "booking"
+                      ? "Booking & Tracking Map"
+                      : selectedPin.type === "worker"
+                      ? "Ustad Dossier"
+                      : "Customer 360° Profile"}
+                  </span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${selectedPin.lat},${selectedPin.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-9 rounded-xl border border-border bg-surface text-foreground font-semibold text-xs flex items-center justify-center gap-1.5 hover:bg-accent transition"
+                >
+                  <span>Open Coordinates in Google Maps</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                </a>
               </div>
             </div>
-          </div>
+          ) : (
+            /* City / Platform Live Telemetry Inspector */
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-muted-foreground">
+                    {activeCityId === "all"
+                      ? "Nationwide Real Telemetry"
+                      : `${topActiveCity?.province || "Pakistan"} Region`}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                    {isLoading ? "Syncing…" : "Live Database"}
+                  </span>
+                </div>
+                <h4 className="text-xl font-bold text-foreground mt-1 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-primary" />
+                  <span>
+                    {activeCityId === "all"
+                      ? "All Pakistan Operations"
+                      : topActiveCity?.name || "Lahore"}
+                  </span>
+                </h4>
+              </div>
 
-          {/* Quick Actions */}
-          <div className="pt-4 border-t border-hairline space-y-2">
+              {/* Real Database Metrics Grid */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Registered Ustads
+                  </span>
+                  <span className="text-xl font-mono font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">
+                    {activeCityId === "all"
+                      ? summary.totalWorkers
+                      : topActiveCity?.totalUstads ?? 0}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {activeCityId === "all"
+                      ? `${summary.onlineWorkers} currently available`
+                      : `${topActiveCity?.activeUstads ?? 0} currently available`}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Customers
+                  </span>
+                  <span className="text-xl font-mono font-bold text-sky-600 dark:text-sky-400 mt-1 block">
+                    {activeCityId === "all"
+                      ? summary.totalUsers
+                      : topActiveCity?.totalCustomers ?? 0}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Active customer profiles
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Active Bookings
+                  </span>
+                  <span className="text-xl font-mono font-bold text-amber-600 dark:text-amber-400 mt-1 block">
+                    {activeCityId === "all"
+                      ? summary.activeBookings
+                      : topActiveCity?.activeBookings ?? 0}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {activeCityId === "all"
+                      ? `${summary.completedBookings} completed total`
+                      : `${topActiveCity?.completedBookings ?? 0} completed in city`}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-surface border border-border">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Open Job Requests
+                  </span>
+                  <span className="text-xl font-mono font-bold text-foreground mt-1 block">
+                    {activeCityId === "all"
+                      ? summary.openJobs
+                      : topActiveCity?.pendingJobs ?? 0}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Awaiting Ustad bids
+                  </span>
+                </div>
+              </div>
+
+              {/* SLA and Top Trade Insights */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-surface/60 border border-border text-xs">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="text-muted-foreground">Avg Match Response</span>
+                  </div>
+                  <span className="font-mono font-bold text-foreground">
+                    {topActiveCity?.avgSla || "—"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 rounded-xl bg-surface/60 border border-border text-xs">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                    <span className="text-muted-foreground">Leading Trade Category</span>
+                  </div>
+                  <span className="font-bold text-foreground text-right">
+                    {topActiveCity?.topTrade || "General Services"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Quick Actions Footer */}
+          <div className="pt-4 border-t border-border space-y-2">
             <Link
               to="/workers"
-              className="w-full h-10 rounded-xl bg-primary hover:bg-primary/90 text-background font-bold text-xs flex items-center justify-center gap-2 shadow-cyan-glow transition"
+              className="w-full h-10 rounded-xl bg-primary hover:opacity-90 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition"
             >
               <Users className="w-3.5 h-3.5" />
-              <span>Inspect {activeCity.name} Ustads</span>
+              <span>Inspect Registered Ustads</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
 
             <Link
               to="/bookings"
-              className="w-full h-10 rounded-xl bg-surface-light hover:bg-surface-light/80 border border-hairline text-foreground font-semibold text-xs flex items-center justify-center gap-2 transition"
+              className="w-full h-10 rounded-xl bg-surface hover:bg-accent border border-border text-foreground font-semibold text-xs flex items-center justify-center gap-2 transition"
             >
-              <span>View Active Bookings in {activeCity.name}</span>
+              <Briefcase className="w-3.5 h-3.5 text-primary" />
+              <span>Track All Bookings on Map</span>
             </Link>
           </div>
         </div>

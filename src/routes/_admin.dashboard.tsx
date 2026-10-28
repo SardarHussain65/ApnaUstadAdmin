@@ -608,8 +608,8 @@ function DashboardPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <Link
-                        to="/bookings"
-                        search={{ focus: String(b._id) } as any}
+                        to="/bookings/$id"
+                        params={{ id: String(b._id) }}
                         className="inline-flex h-7 items-center justify-center rounded-lg border border-hairline px-2.5 text-xs font-semibold text-foreground hover:bg-surface-light transition"
                       >
                         Inspect
