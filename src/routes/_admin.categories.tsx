@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useDeferredValue } from "react";
+import { useState, useDeferredValue, useEffect } from "react";
 import {
   Plus, Pencil, Trash2, Zap, Droplets, Wind, Hammer, Paintbrush,
   GraduationCap, Wrench, Car, Sun, Laptop, Smartphone, Scissors,
@@ -17,6 +17,7 @@ import {
   useDeleteCategory,
   useProfessionRequestsPage,
   useReviewProfessionRequest,
+  useNavBadges,
   type Category,
   type CategoryInput,
   type ProfessionRequest,
@@ -91,7 +92,44 @@ function SemanticIcon({ name, className }: { name: string; className?: string })
 }
 
 function CategoriesPage() {
-  const [activeTab, setActiveTab] = useState<"catalog" | "requests">("catalog");
+  const [activeTab, setActiveTab] = useState<"catalog" | "requests">(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "requests") return "requests";
+    }
+    return "catalog";
+  });
+
+  const badges = useNavBadges();
+
+  useEffect(() => {
+    const checkTab = () => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("tab") === "requests") {
+          setActiveTab("requests");
+        } else if (params.get("tab") === "catalog") {
+          setActiveTab("catalog");
+        }
+      }
+    };
+    checkTab();
+    window.addEventListener("popstate", checkTab);
+    return () => window.removeEventListener("popstate", checkTab);
+  }, []);
+
+  const switchTab = (tab: "catalog" | "requests") => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (tab === "requests") {
+        url.searchParams.set("tab", "requests");
+      } else {
+        url.searchParams.delete("tab");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
 
   // Catalog hooks & state
   const { data: cats = [], isLoading, isError, error, refetch, isFetching } = useCategories();
@@ -111,7 +149,7 @@ function CategoriesPage() {
   const [rejectingRequest, setRejectingRequest] = useState<ProfessionRequest | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const { data: requestsData, isLoading: requestsLoading } = useProfessionRequestsPage({
+  const { data: requestsData, isLoading: requestsLoading, error: requestsError } = useProfessionRequestsPage({
     page: reqPage,
     limit: 10,
     search: deferredSearch || undefined,
@@ -122,6 +160,7 @@ function CategoriesPage() {
 
   const requests = requestsData?.items || [];
   const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
+  const pendingTotal = badges.pendingSpecialties || pendingRequestsCount || 0;
 
   const save = (c: CategoryFormState) => {
     const payload = toCategoryPayload(c);
@@ -251,7 +290,7 @@ function CategoriesPage() {
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-border pb-3">
         <button
-          onClick={() => setActiveTab("catalog")}
+          onClick={() => switchTab("catalog")}
           className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
             activeTab === "catalog"
               ? "bg-primary text-black"
@@ -261,7 +300,7 @@ function CategoriesPage() {
           Active Services ({cats.length})
         </button>
         <button
-          onClick={() => setActiveTab("requests")}
+          onClick={() => switchTab("requests")}
           className={`px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
             activeTab === "requests"
               ? "bg-primary text-black"
@@ -269,13 +308,48 @@ function CategoriesPage() {
           }`}
         >
           <span>Requested Professions</span>
-          {pendingRequestsCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-black bg-amber-400 text-black">
-              {pendingRequestsCount}
+          {pendingTotal > 0 && (
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-black transition ${
+                activeTab === "requests"
+                  ? "bg-black text-primary"
+                  : "bg-amber-400 text-black shadow-sm"
+              }`}
+            >
+              {pendingTotal}
             </span>
           )}
         </button>
       </div>
+
+      {/* Alert banner on Active Services tab if there are pending trade requests */}
+      {activeTab === "catalog" && pendingTotal > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/20 text-amber-400 font-black text-sm">
+              {pendingTotal}
+            </span>
+            <div>
+              <p className="text-sm font-bold text-white">
+                {pendingTotal === 1
+                  ? "1 Ustad Trade Request Needs Review"
+                  : `${pendingTotal} Ustad Trade Requests Need Review`}
+              </p>
+              <p className="text-xs text-amber-300/80">
+                Ustads have requested new skills (e.g. Software engineer). Click to review and add them to the platform.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => switchTab("requests")}
+            className="border-amber-400/40 text-amber-300 hover:bg-amber-400/20 font-bold"
+          >
+            Review Requests ({pendingTotal}) &rarr;
+          </Button>
+        </div>
+      )}
 
       {/* TAB 1: Catalog */}
       {activeTab === "catalog" && (
@@ -401,6 +475,10 @@ function CategoriesPage() {
           {/* Requests List */}
           {requestsLoading ? (
             <div className="py-20 text-center text-muted-foreground">Loading profession requests...</div>
+          ) : requestsError ? (
+            <div className="py-20 text-center text-destructive border border-dashed border-destructive/40 rounded-2xl bg-card">
+              Failed to load profession requests. Please check connection.
+            </div>
           ) : requests.length === 0 ? (
             <div className="py-20 text-center text-muted-foreground border border-dashed border-border rounded-2xl bg-card">
               No profession requests found matching the current filter.

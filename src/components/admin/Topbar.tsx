@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import {
-  Bell, ChevronRight, Fingerprint, HelpCircle, Layers, LogOut, Menu, Monitor, Moon, Rows3, Scale, Search,
+  Bell, ChevronRight, Fingerprint, FolderKanban, HelpCircle, Layers, LogOut, Menu, Monitor, Moon, Rows3, Scale, Search,
   Settings, Sparkles, Sun, Wallet, User as UserIcon,
 } from "lucide-react";
 import {
@@ -22,10 +22,10 @@ interface Badges {
 }
 
 const ACTION_ROWS: Array<{
-  key: keyof Badges; to: string; title: string; unit: string; icon: ComponentType<{ className?: string }>; tone: string;
+  key: keyof Badges; to: string; search?: Record<string, string>; title: string; unit: string; icon: ComponentType<{ className?: string }>; tone: string;
 }> = [
   { key: "pendingVerifications", to: "/verification", title: "Identity reviews", unit: "waiting for review", icon: Fingerprint, tone: "bg-accent/10 text-accent" },
-  { key: "pendingSpecialties", to: "/specialty-requests", title: "Specialty requests", unit: "awaiting approval", icon: Layers, tone: "bg-secondary/10 text-secondary" },
+  { key: "pendingSpecialties", to: "/categories", search: { tab: "requests" }, title: "Service requests", unit: "awaiting review", icon: FolderKanban, tone: "bg-secondary/10 text-secondary" },
   { key: "pendingTopUps", to: "/wallets", title: "Wallet top-ups", unit: "deposits in queue", icon: Wallet, tone: "bg-success/10 text-success" },
   { key: "openDisputes", to: "/disputes", title: "Open disputes", unit: "need resolution", icon: Scale, tone: "bg-destructive/10 text-destructive" },
   { key: "openTickets", to: "/support", title: "Support tickets", unit: "unresolved", icon: HelpCircle, tone: "bg-primary/10 text-primary" },
@@ -108,7 +108,7 @@ export function Topbar({
             {ACTION_ROWS.filter((r) => (badges[r.key] ?? 0) > 0).map((r) => {
               const Icon = r.icon;
               return (
-                <Link key={r.key} to={r.to} onClick={() => setBellOpen(false)} className="group flex items-center gap-3 rounded-xl p-2 transition hover:bg-surface-light">
+                <Link key={r.key} to={r.to as any} search={r.search as any} onClick={() => setBellOpen(false)} className="group flex items-center gap-3 rounded-xl p-2 transition hover:bg-surface-light">
                   <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", r.tone)}><Icon className="h-4 w-4" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-13 font-semibold">{r.title}</span>

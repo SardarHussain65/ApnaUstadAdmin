@@ -34,7 +34,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/users", label: "Customers", icon: Users, permission: "users" },
       { to: "/workers", label: "Ustads", icon: Wrench, permission: "workers" },
       { to: "/verification", label: "CNIC Verification", icon: Fingerprint, permission: "verification", badgeKey: "pendingVerifications" },
-      { to: "/specialty-requests", label: "Extra Categories", icon: Layers, permission: "specialty-requests", badgeKey: "pendingSpecialties" },
     ],
   },
   {
@@ -56,7 +55,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Platform",
     items: [
-      { to: "/categories", label: "Services", icon: FolderKanban, permission: "categories" },
+      { to: "/categories", label: "Services", icon: FolderKanban, permission: "categories", badgeKey: "pendingSpecialties" },
       { to: "/reviews", label: "Reviews", icon: Star, permission: "reviews" },
       { to: "/notifications", label: "Notifications", icon: Bell, permission: "notifications" },
       { to: "/platform-config", label: "Platform Config", icon: Settings, permission: "platform-config" },

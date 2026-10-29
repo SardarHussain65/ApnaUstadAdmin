@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Fingerprint, HelpCircle, Layers, Scale, Wallet, Wrench } from "lucide-react";
+import { ArrowRight, Fingerprint, FolderKanban, HelpCircle, Layers, Scale, Wallet, Wrench } from "lucide-react";
 import { fmtPKR } from "@/lib/format";
 import {
   useDisputesPage,
   useNavBadges,
+  useProfessionRequestsPage,
   useSpecialtyRequestsPage,
   useSupportRequestsPage,
   useVerificationRequestsPage,
@@ -22,6 +23,7 @@ type QueueItem = {
 export function ActionCenter() {
   const badges = useNavBadges();
   const { data: verifications } = useVerificationRequestsPage({ status: "pending", limit: 3 });
+  const { data: professionRequests } = useProfessionRequestsPage({ status: "pending", limit: 3 });
   const { data: specialties } = useSpecialtyRequestsPage({ limit: 3 });
   const { data: topUps } = useWalletTopUpsPage({ status: "pending", limit: 3 });
   const { data: support } = useSupportRequestsPage({ status: "open", limit: 3 });
@@ -30,7 +32,7 @@ export function ActionCenter() {
 
   const queueCards = [
     { label: "CNIC Verification", count: badges.pendingVerifications, href: "/verification", icon: Fingerprint, color: "text-accent" },
-    { label: "Extra Categories", count: badges.pendingSpecialties, href: "/specialty-requests", icon: Layers, color: "text-primary" },
+    { label: "Requested Services", count: badges.pendingSpecialties, href: "/categories?tab=requests", icon: FolderKanban, color: "text-primary" },
     { label: "Wallet Top-ups", count: badges.pendingTopUps, href: "/wallets", icon: Wallet, color: "text-success" },
     { label: "Support Tickets", count: badges.openTickets, href: "/support", icon: HelpCircle, color: "text-secondary" },
     { label: "Open Complaints", count: badges.openDisputes, href: "/disputes", icon: Scale, color: "text-destructive" },
@@ -38,6 +40,12 @@ export function ActionCenter() {
   ];
 
   const items: QueueItem[] = [
+  ...(professionRequests?.items || []).map((req: any) => ({
+    id: `prof-req-${req._id}`,
+    title: req.professionName,
+    subtitle: `Service request by ${req.requesterName || "Worker"} (${req.requesterPhone})`,
+    href: "/categories?tab=requests",
+  })),
   ...(verifications?.items || []).map((item: any) => ({
     id: `verification-${item._id}`,
     title: item.worker?.fullName || "Ustad CNIC check",

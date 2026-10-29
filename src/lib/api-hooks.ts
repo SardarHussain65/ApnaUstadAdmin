@@ -70,8 +70,10 @@ export interface WorkerSpecialty {
   autoRenew: boolean;
   requestedAt?: string;
   approvedAt?: string | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
   nextBillingAt?: string | null;
+  lastChargedAt?: string | null;
   graceEndsAt?: string | null;
 }
 
