@@ -194,14 +194,14 @@ function DashboardPage() {
           index={0}
         />
         <StatCard
-          label="Platform Commission"
+          label="App Commission"
           value={metrics?.commission?.current ?? 0}
           previous={compare ? (metrics?.commission?.previous ?? null) : undefined}
           sparkline={metrics?.commission?.sparkline}
           format="currency"
           icon={<TrendingUp className="h-5 w-5 text-emerald-400" />}
           iconClassName="bg-emerald-500/10 border border-emerald-500/20"
-          tooltip="Gross revenue retained by ApnaUstad platform (commission fees)"
+          tooltip="App fee earned by ApnaUstad on completed bookings"
           loading={summaryLoading}
           index={1}
         />
@@ -213,7 +213,7 @@ function DashboardPage() {
           format="number"
           icon={<Calendar className="h-5 w-5 text-amber-400" />}
           iconClassName="bg-amber-500/10 border border-amber-500/20"
-          tooltip="Total client service bookings initiated during the window"
+          tooltip="Total customer bookings made during this period"
           loading={summaryLoading}
           index={2}
         />
@@ -237,7 +237,7 @@ function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-hairline bg-surface/60 p-3.5 backdrop-blur-sm transition hover:border-hairline-strong">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>New Clients</span>
+            <span>New Customers</span>
             <Users className="h-3.5 w-3.5 text-primary" />
           </div>
           <div className="mt-1.5 text-xl font-bold font-mono tracking-tight text-foreground">
@@ -267,7 +267,7 @@ function DashboardPage() {
 
         <div className="rounded-xl border border-hairline bg-surface/60 p-3.5 backdrop-blur-sm transition hover:border-hairline-strong">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Top-up Volume</span>
+            <span>Wallet Top-ups</span>
             <Wallet className="h-3.5 w-3.5 text-emerald-400" />
           </div>
           <div className="mt-1.5 text-xl font-bold font-mono tracking-tight text-foreground">
@@ -282,7 +282,7 @@ function DashboardPage() {
 
         <div className="rounded-xl border border-hairline bg-surface/60 p-3.5 backdrop-blur-sm transition hover:border-hairline-strong">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Disputes Raised</span>
+            <span>Complaints</span>
             <Scale className="h-3.5 w-3.5 text-rose-400" />
           </div>
           <div className="mt-1.5 text-xl font-bold font-mono tracking-tight text-foreground">
@@ -538,7 +538,7 @@ function DashboardPage() {
         <div className="flex items-center justify-between border-b border-hairline p-5">
           <div>
             <h3 className="text-base font-bold text-foreground">Recent Bookings Queue</h3>
-            <p className="text-xs text-muted-foreground">Latest client booking requests across all service areas</p>
+            <p className="text-xs text-muted-foreground">Latest customer booking requests across all service areas</p>
           </div>
           <Link
             to="/bookings"
@@ -554,7 +554,7 @@ function DashboardPage() {
             <thead>
               <tr className="border-b border-hairline bg-surface/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 <th className="px-5 py-3">Booking ID</th>
-                <th className="px-5 py-3">Client</th>
+                <th className="px-5 py-3">Customer</th>
                 <th className="px-5 py-3">Assigned Ustad</th>
                 <th className="px-5 py-3">Category</th>
                 <th className="px-5 py-3">Amount</th>

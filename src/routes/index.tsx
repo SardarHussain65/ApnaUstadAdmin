@@ -144,7 +144,7 @@ function PhoneFrame({ children, accent = "cyan", tagText, tagIcon: TagIcon }: {
 
 function ClientPhone() {
   return (
-    <PhoneFrame accent="cyan" tagText="Client App" tagIcon={Users}>
+    <PhoneFrame accent="cyan" tagText="Customer App" tagIcon={Users}>
       <div className="p-4 pt-9 space-y-3">
         <div className="flex items-center justify-between">
           <div>
@@ -244,7 +244,7 @@ function WorkerPhone() {
           </div>
         </div>
         <div className="glass rounded-xl p-2.5">
-          <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Active Mission</div>
+          <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Active Job</div>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-md gradient-cyan flex items-center justify-center">
               <Activity className="w-3.5 h-3.5 text-background" />
@@ -267,13 +267,13 @@ function WorkerPhone() {
 
 const FAQ_ITEMS = [
   { q: "How do I book a worker?", a: "Open the app, choose a service category, add job details with location and optional images, then post the job as instant or scheduled. Nearby Ustads will respond and you pick the one you like." },
-  { q: "How do workers receive jobs?", a: "When a client posts a request, ApnaUstad matches it by category, location, urgency and worker availability. Relevant nearby workers receive the job in real time and can accept it or send a proposal." },
-  { q: "Is payment online or cash?", a: "The current version is cash-only. After the job is done, the client pays the worker directly and confirms the payment in the app. The system records the transaction in both client and worker history." },
-  { q: "Can I schedule a job for later?", a: "Yes. Choose 'Scheduled' when posting, pick a date and time, and interested workers will send proposals. You can compare and confirm the one you prefer." },
+  { q: "How do workers receive jobs?", a: "When a customer posts a request, ApnaUstad matches it by category, location, urgency and worker availability. Relevant nearby workers receive the job in real time and can accept it or send a quote." },
+  { q: "Is payment online or cash?", a: "The current version is cash-only. After the job is done, the customer pays the ustad directly and confirms the payment in the app. The system records the transaction in both customer and ustad history." },
+  { q: "Can I schedule a job for later?", a: "Yes. Choose 'Scheduled' when posting, pick a date and time, and interested workers will send quotes. You can compare and confirm the one you prefer." },
   { q: "How are workers verified?", a: "Workers register with CNIC, profile image, skills, category, city, rate and experience. Our admin team reviews and approves each profile before they can accept jobs." },
-  { q: "How do reviews work?", a: "After a completed job, clients can rate the worker (1–5 stars) and leave a review. These ratings build the worker's reputation and help future clients choose trusted Ustads." },
+  { q: "How do reviews work?", a: "After a completed job, customers can rate the ustad (1–5 stars) and leave a review. These ratings build the ustad's reputation and help future customers choose trusted Ustads." },
   { q: "Is ApnaUstad available in my city?", a: "We are live in 25+ cities across Pakistan and expanding fast. Open the app and enter your location to see if your area is covered." },
-  { q: "Can workers cancel or manage jobs?", a: "Yes. Workers can manage active missions from the home screen — update status, mark as complete, or cancel with a reason if something genuinely blocks the job." },
+  { q: "Can workers cancel or manage jobs?", a: "Yes. Ustads can manage active jobs from the home screen — update status, mark as complete, or cancel with a reason if something genuinely blocks the job." },
 ];
 
 function FAQItem({ q, a, open, onClick }: { q: string; a: string; open: boolean; onClick: () => void }) {
@@ -315,8 +315,8 @@ function LandingPage() {
           <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-muted-foreground">
             <a href="#services" className="hover:text-foreground transition">Services</a>
             <a href="#how" className="hover:text-foreground transition">How it works</a>
-            <a href="#clients" className="hover:text-foreground transition">For Clients</a>
-            <a href="#workers" className="hover:text-foreground transition">For Workers</a>
+            <a href="#clients" className="hover:text-foreground transition">For Customers</a>
+            <a href="#workers" className="hover:text-foreground transition">For Ustads</a>
             <a href="#safety" className="hover:text-foreground transition">Safety</a>
             <a href="#faq" className="hover:text-foreground transition">FAQs</a>
           </nav>
@@ -399,7 +399,7 @@ function LandingPage() {
       <section className="border-y border-border/50 bg-card/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {[
-            { v: "50K+", l: "Happy Clients" },
+            { v: "50K+", l: "Happy Customers" },
             { v: "8K+", l: "Verified Ustads" },
             { v: "25+", l: "Cities Covered" },
             { v: "4.9★", l: "Average Rating" },
@@ -494,20 +494,20 @@ function LandingPage() {
       <section id="clients" className="py-24 px-4 md:px-8 bg-card/30 border-y border-border/50">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <Eyebrow icon={Users}>For Clients</Eyebrow>
+            <Eyebrow icon={Users}>For Customers</Eyebrow>
             <h2 className="mt-4 text-4xl md:text-5xl font-black leading-tight">
               Get any job done. <span className="text-gradient-cyan">Stress-free.</span>
             </h2>
             <p className="mt-4 text-muted-foreground text-lg">
-              Skip the asking around. From booking to payment, your full client journey on one screen.
+              Skip the asking around. From booking to payment, your full customer journey on one screen.
             </p>
             <div className="mt-8">
               {[
                 { n: "1", t: "Create your account", d: "Sign up with your phone number in under a minute.", i: BadgeCheck },
                 { n: "2", t: "Pick a service & post the job", d: "Add location, images, budget — choose instant or scheduled.", i: FileCheck },
-                { n: "3", t: "Compare nearby Ustads", d: "Workers respond or send proposals. Pick the best one.", i: Users },
+                { n: "3", t: "Compare nearby Ustads", d: "Ustads respond or send quotes. Pick the best one.", i: Users },
                 { n: "4", t: "Track work in real time", d: "From acceptance to completion — always know where things stand.", i: Navigation },
-                { n: "5", t: "Pay cash & leave a review", d: "Confirm payment in the app. Rate the worker to help others.", i: ThumbsUp },
+                { n: "5", t: "Pay cash & leave a review", d: "Confirm payment in the app. Rate the ustad to help others.", i: ThumbsUp },
               ].map((s) => <StepRow key={s.n} n={s.n} title={s.t} desc={s.d} icon={s.i} />)}
             </div>
             <div className="flex flex-wrap gap-3 mt-4">
@@ -526,24 +526,24 @@ function LandingPage() {
       <section id="workers" className="py-24 px-4 md:px-8">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
           <div className="lg:order-2">
-            <Eyebrow icon={Briefcase} tone="accent">For Workers</Eyebrow>
+            <Eyebrow icon={Briefcase} tone="accent">For Ustads</Eyebrow>
             <h2 className="mt-4 text-4xl md:text-5xl font-black leading-tight">
               More jobs. More <span className="text-gradient-cyan">earnings.</span>
             </h2>
             <p className="mt-4 text-muted-foreground text-lg">
-              Build your reputation, manage active missions and track your cash earnings — all from your phone.
+              Build your reputation, manage active jobs and track your cash earnings — all from your phone.
             </p>
             <div className="mt-8">
               {[
-                { n: "1", t: "Register as a worker", d: "Add skills, category, city, CNIC, photo, rate and experience.", i: BadgeCheck },
+                { n: "1", t: "Register as an ustad", d: "Add skills, category, city, CNIC, photo, rate and experience.", i: BadgeCheck },
                 { n: "2", t: "Go online", d: "Switch on to receive instant or scheduled jobs in your area.", i: Activity },
-                { n: "3", t: "Accept jobs or send proposals", d: "Take instant requests or bid on scheduled jobs that fit you.", i: Bell },
-                { n: "4", t: "Manage active missions", d: "Start, update status and complete jobs from your home screen.", i: Target },
+                { n: "3", t: "Accept jobs or send quotes", d: "Take instant requests or send quotes on scheduled jobs that fit you.", i: Bell },
+                { n: "4", t: "Manage active jobs", d: "Start, update status and complete jobs from your home screen.", i: Target },
                 { n: "5", t: "Track earnings & reviews", d: "See cash history and grow your rating with every job.", i: Wallet },
               ].map((s) => <StepRow key={s.n} n={s.n} title={s.t} desc={s.d} icon={s.i} />)}
             </div>
             <div className="flex flex-wrap gap-3 mt-4">
-              {["More opportunities", "Digital profile", "Location matching", "Mission manager", "Cash history", "Reputation"].map((c) => (
+              {["More opportunities", "Digital profile", "Location matching", "Job manager", "Cash history", "Reputation"].map((c) => (
                 <span key={c} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-accent">{c}</span>
               ))}
             </div>
@@ -625,7 +625,7 @@ function LandingPage() {
                   "Admin approval before going live",
                   "Public ratings and customer reviews",
                   "Full booking records and history",
-                  "Payment ledger for every job",
+                  "Cash payment history for every job",
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-3 text-sm">
                     <BadgeCheck className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
@@ -643,7 +643,7 @@ function LandingPage() {
               <Eyebrow icon={Banknote} tone="accent">Payments</Eyebrow>
               <h3 className="mt-4 text-3xl md:text-4xl font-extrabold mb-3">Simple cash payments — fully tracked.</h3>
               <p className="text-muted-foreground mb-6">
-                ApnaUstad currently supports cash payments. After the job is done, the client pays the worker directly and confirms the payment in the app.
+                ApnaUstad currently supports cash payments. After the job is done, the customer pays the ustad directly and confirms the payment in the app.
               </p>
               <ul className="space-y-3">
                 {[

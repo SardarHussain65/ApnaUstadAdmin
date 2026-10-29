@@ -258,8 +258,8 @@ function PlatformConfigPage() {
   return (
     <div className="space-y-6 pb-20 animate-fade-in">
       <AdminPageHeader
-        title="Platform Rules & Engine Configuration"
-        description="Configure Pakistan operations parameters: commission percentages, instant dispatch radii, wallet lock thresholds, and category urgent rates."
+        title="Platform Configuration"
+        description="Set app commission, search radius, wallet limits, and urgent job fees."
         icon={<Settings2 className="h-4 w-4" />}
         stats={
           <div className="flex flex-wrap gap-2">
@@ -279,48 +279,48 @@ function PlatformConfigPage() {
       <section className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-white font-bold text-sm">
-            <Wallet className="h-4 w-4 text-primary" /> Wallet Thresholds & Commission
+            <Wallet className="h-4 w-4 text-primary" /> Wallet Balance & App Commission
           </div>
           <span className="text-xs text-muted-foreground">Applies across all Pakistani cities</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <NumberField
-            label="Platform Commission (%)"
+            label="App Commission (%)"
             value={walletForm.platformFeePercentage}
             suffix="%"
-            helper="Deducted upon cash job completion"
+            helper="App fee on completed jobs"
             onChange={(val) => setWalletForm((prev) => ({ ...prev, platformFeePercentage: val }))}
           />
 
           <NumberField
-            label="Minimum Wallet Threshold (PKR)"
+            label="Minimum Wallet Balance (PKR)"
             value={walletForm.minimumWalletBalance}
             prefix="Rs."
-            helper="Workers below this balance cannot accept jobs"
+            helper="Ustads below this balance cannot accept new jobs"
             onChange={(val) => setWalletForm((prev) => ({ ...prev, minimumWalletBalance: val }))}
           />
 
           <NumberField
-            label="CNIC Verification Starter Bonus (PKR)"
+            label="CNIC Approval Welcome Bonus (PKR)"
             value={walletForm.cnicVerificationBonus}
             prefix="Rs."
-            helper="Auto-credited to worker upon CNIC approval"
+            helper="Added to ustad wallet after CNIC is approved"
             onChange={(val) => setWalletForm((prev) => ({ ...prev, cnicVerificationBonus: val }))}
           />
 
           <NumberField
-            label="Additional Specialty Fee (PKR/mo)"
+            label="Extra Category Monthly Fee (PKR)"
             value={walletForm.additionalCategoryMonthlyFee}
             prefix="Rs."
-            helper="Charged monthly for 2nd+ trade categories"
+            helper="Monthly fee for each extra work category"
             onChange={(val) => setWalletForm((prev) => ({ ...prev, additionalCategoryMonthlyFee: val }))}
           />
 
           <div className="p-3.5 rounded-xl bg-surface-light border border-border/60 flex flex-col justify-between">
             <div>
-              <span className="text-xs font-bold text-white block">Commission Engine</span>
-              <span className="text-[11px] text-muted-foreground mt-0.5 block">Toggle automatic ledger fee collection</span>
+              <span className="text-xs font-bold text-white block">App Commission</span>
+              <span className="text-[11px] text-muted-foreground mt-0.5 block">Turn commission on or off</span>
             </div>
             <label className="flex items-center gap-2 text-xs font-bold text-white cursor-pointer mt-3">
               <input
@@ -329,7 +329,7 @@ function PlatformConfigPage() {
                 onChange={(e) => setWalletForm((prev) => ({ ...prev, commissionEnabled: e.target.checked }))}
                 className="w-4 h-4 rounded border-border accent-primary"
               />
-              <span>{walletForm.commissionEnabled ? "Engine Active (10%)" : "Commission Paused (0%)"}</span>
+              <span>{walletForm.commissionEnabled ? "Commission Active (10%)" : "Commission Paused (0%)"}</span>
             </label>
           </div>
         </div>
@@ -339,17 +339,17 @@ function PlatformConfigPage() {
       <section className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-white font-bold text-sm">
-            <Globe className="h-4 w-4 text-accent" /> Instant Match Dispatch Engine
+            <Globe className="h-4 w-4 text-accent" /> Instant Job Matching Radius
           </div>
-          <span className="text-xs text-muted-foreground">Haversine geo-expansion formula</span>
+          <span className="text-xs text-muted-foreground">Search radius in kilometers</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <NumberField
-            label="Initial Broadcast Radius"
+            label="Initial Search Radius"
             value={geo.instantJobInitialRadiusKm}
             suffix="km"
-            helper="Stage 1 search radius for nearest Ustads"
+            helper="Initial search area for nearest Ustads"
             onChange={(val) => setGeo((prev) => ({ ...prev, instantJobInitialRadiusKm: val }))}
           />
 
@@ -357,7 +357,7 @@ function PlatformConfigPage() {
             label="Expanded Search Radius"
             value={geo.instantJobExpandedRadiusKm}
             suffix="km"
-            helper="Stage 2 outer perimeter fallback"
+            helper="Expanded search area if no ustad responds"
             onChange={(val) => setGeo((prev) => ({ ...prev, instantJobExpandedRadiusKm: val }))}
           />
 

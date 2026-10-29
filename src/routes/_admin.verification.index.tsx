@@ -82,8 +82,8 @@ function VerificationRequestsIndexPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <AdminPageHeader
-        title="Worker Identity & NADRA Verification Queue"
-        description="Click any submission to open the dedicated full-page Side-by-Side Facial Match & NADRA CNIC Inspector."
+        title="CNIC Verification Queue"
+        description="Check submitted CNIC photos and approve verified ustads."
         icon={<Fingerprint className="h-4 w-4" />}
         stats={
           <div className="flex flex-wrap gap-2">

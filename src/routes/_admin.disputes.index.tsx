@@ -30,11 +30,11 @@ export function getDisputeReasonLabel(reason: string) {
     case "incomplete_work":
       return "Work not completed";
     case "unfair_pricing":
-      return "Overcharged / unfair price";
+      return "Charged too much";
     case "no_show":
       return "Ustad did not show up";
     case "poor_quality":
-      return "Poor workmanship";
+      return "Poor quality work";
     case "payment_issue":
       return "Cash payment issue";
     default:
@@ -71,7 +71,7 @@ function DisputesIndexPage() {
   const columns: Column<any>[] = [
     {
       key: "id",
-      header: "Case",
+      header: "Complaint",
       render: (dispute: any) => (
         <div className="flex flex-col">
           <span className="font-mono text-xs font-semibold text-foreground">
@@ -238,7 +238,7 @@ function DisputesIndexPage() {
               }`}
             >
               {isPending ? <Gavel className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
-              {isPending ? "Case Room" : "View Dossier"}
+              {isPending ? "Review Case" : "View Details"}
             </Link>
           </div>
         );
@@ -282,7 +282,7 @@ function DisputesIndexPage() {
             <div className="font-mono text-2xl font-bold tabular-nums text-amber-500">
               {stats?.underReview ?? 0}
             </div>
-            <div className="text-xs text-muted-foreground">Under Investigation</div>
+            <div className="text-xs text-muted-foreground">Under Review</div>
           </div>
         </div>
 
@@ -294,7 +294,7 @@ function DisputesIndexPage() {
             <div className="font-mono text-2xl font-bold tabular-nums text-emerald-500">
               {stats?.closed ?? 0}
             </div>
-            <div className="text-xs text-muted-foreground">Closed Cases in History</div>
+            <div className="text-xs text-muted-foreground">Resolved Complaints</div>
           </div>
         </div>
       </div>
@@ -325,7 +325,7 @@ function DisputesIndexPage() {
               : "text-muted-foreground hover:bg-card hover:text-foreground"
           }`}
         >
-          <span>Case History (Closed)</span>
+          <span>Resolved History</span>
           <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px]">
             {stats?.closed ?? 0}
           </span>
@@ -336,7 +336,7 @@ function DisputesIndexPage() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search by client, Ustad, description or ID..."
+          placeholder="Search by customer, Ustad, description or ID..."
         />
         <Select
           value={reasonFilter}
@@ -344,9 +344,9 @@ function DisputesIndexPage() {
           label="All Reasons"
           options={[
             { value: "incomplete_work", label: "Work not completed" },
-            { value: "unfair_pricing", label: "Overcharged" },
-            { value: "no_show", label: "Ustad no-show" },
-            { value: "poor_quality", label: "Poor workmanship" },
+            { value: "unfair_pricing", label: "Charged too much" },
+            { value: "no_show", label: "Ustad did not show up" },
+            { value: "poor_quality", label: "Poor quality work" },
             { value: "payment_issue", label: "Cash payment issue" },
             { value: "other", label: "Other" },
           ]}
@@ -361,11 +361,11 @@ function DisputesIndexPage() {
         onRowClick={(dispute: any) =>
           navigate({ to: "/disputes/$id", params: { id: String(dispute._id) } })
         }
-        emptyTitle={scopeTab === "active" ? "No active disputes" : "No closed case history"}
+        emptyTitle={scopeTab === "active" ? "No active complaints" : "No resolved history"}
         emptyDescription={
           scopeTab === "active"
             ? "When a customer or Ustad reports an issue, it will appear here."
-            : "Resolved and dismissed cases will be archived here."
+            : "Resolved and closed complaints will be archived here."
         }
         pagination={{
           page,

@@ -29,18 +29,18 @@ export function ActionCenter() {
   const { data: workers } = useWorkersPage({ verified: false, limit: 3 });
 
   const queueCards = [
-    { label: "Identity Reviews", count: badges.pendingVerifications, href: "/verification", icon: Fingerprint, color: "text-accent" },
-    { label: "Specialty Requests", count: badges.pendingSpecialties, href: "/specialty-requests", icon: Layers, color: "text-primary" },
+    { label: "CNIC Verification", count: badges.pendingVerifications, href: "/verification", icon: Fingerprint, color: "text-accent" },
+    { label: "Extra Categories", count: badges.pendingSpecialties, href: "/specialty-requests", icon: Layers, color: "text-primary" },
     { label: "Wallet Top-ups", count: badges.pendingTopUps, href: "/wallets", icon: Wallet, color: "text-success" },
     { label: "Support Tickets", count: badges.openTickets, href: "/support", icon: HelpCircle, color: "text-secondary" },
-    { label: "Open Disputes", count: badges.openDisputes, href: "/disputes", icon: Scale, color: "text-destructive" },
-    { label: "Unverified Workers", count: badges.unverifiedWorkers, href: "/workers", icon: Wrench, color: "text-gold" },
+    { label: "Open Complaints", count: badges.openDisputes, href: "/disputes", icon: Scale, color: "text-destructive" },
+    { label: "Unverified Ustads", count: badges.unverifiedWorkers, href: "/workers", icon: Wrench, color: "text-gold" },
   ];
 
   const items: QueueItem[] = [
   ...(verifications?.items || []).map((item: any) => ({
     id: `verification-${item._id}`,
-    title: item.worker?.fullName || "Worker verification",
+    title: item.worker?.fullName || "Ustad CNIC check",
     subtitle: "CNIC review pending",
     href: "/verification",
   })),
@@ -51,7 +51,7 @@ export function ActionCenter() {
       .map((specialty: any) => ({
         id: `specialty-${worker._id}-${specialty._id}`,
         title: worker.fullName,
-        subtitle: `Specialty request: ${typeof specialty.categoryId === "object" ? specialty.categoryId?.name : "Category"}`,
+        subtitle: `Extra category: ${typeof specialty.categoryId === "object" ? specialty.categoryId?.name : "Category"}`,
         href: "/specialty-requests",
       }))
   ),
@@ -70,14 +70,14 @@ export function ActionCenter() {
   })),
   ...(disputes?.items || []).map((item: any) => ({
     id: `dispute-${item._id}`,
-    title: `Dispute #${String(item._id).slice(-6)}`,
-    subtitle: item.reason || "Booking dispute",
+    title: `Complaint #${String(item._id).slice(-6)}`,
+    subtitle: item.reason || "Customer complaint",
     href: "/disputes",
   })),
   ...(workers?.items || []).map((item: any) => ({
     id: `worker-${item._id}`,
     title: item.fullName,
-    subtitle: "Worker awaiting verification",
+    subtitle: "Ustad awaiting CNIC approval",
     href: `/workers/${item._id}`,
   })),
   ].slice(0, 12);
@@ -90,7 +90,7 @@ export function ActionCenter() {
           <p className="text-xs text-dim">Prioritized queues that need admin attention today.</p>
         </div>
         <Link to="/verification" className="text-xs font-semibold text-primary hover:underline">
-          View identity reviews
+          View CNIC reviews
         </Link>
       </div>
 

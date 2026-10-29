@@ -199,9 +199,9 @@ function WalletsPage() {
       </div>
 
       <div className="app-glass flex flex-wrap gap-2 rounded-2xl p-2">
-        <WorkspaceTab active={workspace === "topups"} onClick={() => setWorkspace("topups")} icon={AlertTriangle} label="Top-Up Queue" helper="Verify incoming deposits" />
-        <WorkspaceTab active={workspace === "balances"} onClick={() => setWorkspace("balances")} icon={Wallet} label="Worker Balances" helper="Monitor eligibility and corrections" />
-        <WorkspaceTab active={workspace === "configuration"} onClick={() => setWorkspace("configuration")} icon={Smartphone} label="Payment Configuration" helper="Commission and recharge methods" />
+        <WorkspaceTab active={workspace === "topups"} onClick={() => setWorkspace("topups")} icon={AlertTriangle} label="Top-Up Queue" helper="Verify top-up receipts" />
+        <WorkspaceTab active={workspace === "balances"} onClick={() => setWorkspace("balances")} icon={Wallet} label="Ustad Balances" helper="Check balances and top-ups" />
+        <WorkspaceTab active={workspace === "configuration"} onClick={() => setWorkspace("configuration")} icon={Smartphone} label="Payment Settings" helper="Commission and deposit accounts" />
       </div>
 
       {workspace === "configuration" && (
@@ -281,11 +281,11 @@ function WalletsPage() {
                 <div className="text-[10px] text-muted-foreground">{format(new Date(request.createdAt), "dd MMM yyyy HH:mm")}</div>
               </div>
             ) },
-            { key: "worker", header: "Worker", render: (request: WalletTopUpRequest) => (
+            { key: "worker", header: "Ustad", render: (request: WalletTopUpRequest) => (
               <div className="flex items-center gap-3">
-                <Avatar src={request.worker?.profileImage} name={request.worker?.fullName || "Worker"} />
+                <Avatar src={request.worker?.profileImage} name={request.worker?.fullName || "Ustad"} />
                 <div>
-                  <div className="font-semibold">{request.worker?.fullName || "Unknown worker"}</div>
+                  <div className="font-semibold">{request.worker?.fullName || "Unknown ustad"}</div>
                   <div className="text-xs text-muted-foreground">{request.worker?.phone || "No phone"}</div>
                 </div>
               </div>
@@ -307,7 +307,7 @@ function WalletsPage() {
       {workspace === "balances" && (
         <>
           <div className="toolbar-panel flex flex-wrap gap-2 p-3">
-            <SearchInput value={q} onChange={setQ} placeholder="Search workers, phone, or email..." />
+            <SearchInput value={q} onChange={setQ} placeholder="Search ustads, phone, or email..." />
             <Select value={balanceStatus} onChange={setBalanceStatus} label="All Balances" options={[
               { value: "sufficient", label: "Sufficient" },
               { value: "low", label: "Low" },
@@ -317,8 +317,8 @@ function WalletsPage() {
 
           <section className="space-y-3">
             <div>
-              <h2 className="text-lg font-extrabold">Worker Balances</h2>
-              <p className="text-xs text-muted-foreground">Monitor wallet eligibility, commission deductions, and manual corrections.</p>
+              <h2 className="text-lg font-extrabold">Ustad Balances</h2>
+              <p className="text-xs text-muted-foreground">Monitor ustad wallet balances, app fees, and balance adjustments.</p>
             </div>
 
             <DataTable
@@ -333,7 +333,7 @@ function WalletsPage() {
           }}
           onRowClick={(wallet) => setSelectedWorkerId(wallet.worker._id)}
           columns={[
-            { key: "worker", header: "Worker", render: (wallet) => (
+            { key: "worker", header: "Ustad", render: (wallet) => (
               <div className="flex items-center gap-3">
                 <Avatar src={wallet.worker.profileImage} name={wallet.worker.fullName} />
                 <div>
@@ -344,17 +344,17 @@ function WalletsPage() {
             ) },
             { key: "phone", header: "Phone", render: (wallet) => <span className="font-mono text-xs">{wallet.worker.phone}</span> },
             { key: "balance", header: "Available", render: (wallet) => <span className={`font-extrabold ${(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "text-destructive" : "text-success"}`}>{fmtPKR(wallet.availableBalance ?? wallet.balance)}</span> },
-            { key: "held", header: "Held", render: (wallet) => <span className="text-xs font-semibold text-gold">{fmtPKR(wallet.reservedBalance || 0)}</span> },
+            { key: "held", header: "Reserved Fee", render: (wallet) => <span className="text-xs font-semibold text-gold">{fmtPKR(wallet.reservedBalance || 0)}</span> },
             { key: "recharged", header: "Approved Top-Ups", render: (wallet) => <span className="text-xs font-semibold text-muted-foreground">{fmtPKR(wallet.totalRecharged)}</span> },
-            { key: "commission", header: "Commission", render: (wallet) => <span className="text-xs font-semibold text-muted-foreground">{fmtPKR(wallet.totalCommissionDeducted)}</span> },
-            { key: "status", header: "Eligibility", render: (wallet) => (
+            { key: "commission", header: "App Fee", render: (wallet) => <span className="text-xs font-semibold text-muted-foreground">{fmtPKR(wallet.totalCommissionDeducted)}</span> },
+            { key: "status", header: "Status", render: (wallet) => (
               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
-                {(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "Blocked" : "Eligible"}
+                {(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "Low Balance" : "Active"}
               </span>
             ) },
             { key: "actions", header: "", render: (wallet) => (
               <div className="flex justify-end gap-1">
-                <button onClick={(e) => handleOpenRecharge(wallet, e)} className="p-2 rounded-lg hover:bg-success/15 text-success transition" title="Manual recharge">
+                <button onClick={(e) => handleOpenRecharge(wallet, e)} className="p-2 rounded-lg hover:bg-success/15 text-success transition" title="Manual top-up">
                   <Banknote className="w-4 h-4" />
                 </button>
                 <button onClick={(e) => handleOpenAdjust(wallet, e)} className="p-2 rounded-lg hover:bg-primary/15 text-primary transition" title="Manual correction">
@@ -368,7 +368,7 @@ function WalletsPage() {
         </>
       )}
 
-      <Drawer open={!!selectedTopUp} onClose={() => setSelectedTopUp(null)} title="Top-Up Verification" width="max-w-2xl">
+      <Drawer open={!!selectedTopUp} onClose={() => setSelectedTopUp(null)} title="Top-Up Receipt Verification" width="max-w-2xl">
         {selectedTopUp && (
           <TopUpDetail
             request={selectedTopUp}

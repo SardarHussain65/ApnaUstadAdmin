@@ -160,7 +160,7 @@ function PaymentsPage() {
     },
     {
       key: "commission",
-      header: "Commission",
+      header: "App Fee",
       sortable: true,
       render: (p: any) => (
         <span className="font-mono text-xs font-semibold text-emerald-400">
@@ -170,7 +170,7 @@ function PaymentsPage() {
     },
     {
       key: "workerEarning",
-      header: "Worker Net",
+      header: "Ustad Net",
       render: (p: any) => (
         <span className="font-mono text-xs text-muted-foreground">
           {formatPKR(p.workerEarning || 0)}
@@ -231,7 +231,7 @@ function PaymentsPage() {
                 <div className="rounded-xl border border-border bg-surface p-3.5">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase text-muted-foreground">
                     <DollarSign className="h-3.5 w-3.5 text-primary" />
-                    <span>Gross Payment Amount</span>
+                    <span>Total Cash Amount</span>
                   </div>
                   <div className="mt-1 font-mono text-base font-bold text-foreground">
                     {formatPKR(selectedPayment.amount || 0)}
@@ -241,7 +241,7 @@ function PaymentsPage() {
                 <div className="rounded-xl border border-border bg-surface p-3.5">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase text-muted-foreground">
                     <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>Platform Commission</span>
+                    <span>App Fee (Commission)</span>
                   </div>
                   <div className="mt-1 font-mono text-base font-bold text-emerald-400">
                     {formatPKR(selectedPayment.platformFee || 0)}
@@ -261,7 +261,7 @@ function PaymentsPage() {
                 <div className="rounded-xl border border-border bg-surface p-3.5">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase text-muted-foreground">
                     <Briefcase className="h-3.5 w-3.5 text-primary" />
-                    <span>Ustad Payee</span>
+                    <span>Assigned Ustad</span>
                   </div>
                   <div className="mt-1 text-sm font-semibold text-foreground">
                     {selectedPayment.worker?.fullName || "—"}
@@ -274,14 +274,14 @@ function PaymentsPage() {
                     <span>Payment Method</span>
                   </div>
                   <div className="mt-1 text-sm font-semibold text-foreground capitalize">
-                    {selectedPayment.method || "Cash Settlement"}
+                    {selectedPayment.method || "Cash Payment"}
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-border bg-surface p-3.5">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5 text-primary" />
-                    <span>Settlement Timestamp</span>
+                    <span>Payment Date & Time</span>
                   </div>
                   <div className="mt-1 font-mono text-sm text-foreground">
                     {selectedPayment.paidAt ? formatDate(selectedPayment.paidAt, "dd MMM yyyy, h:mm a") : "Pending"}
@@ -307,10 +307,10 @@ function PaymentsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Financial Payments Ledger
+            Payments & Cash Records
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Reconcile cash settlements, commission cuts, and worker payouts in real time
+            Check cash payments, app fees, and ustad earnings in real time
           </p>
         </div>
 
@@ -337,17 +337,17 @@ function PaymentsPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="app-glass rounded-2xl border border-border bg-card p-5 shadow-card">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Settled Cash</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Cash Paid</span>
           <div className="mt-2 text-2xl font-bold tracking-tight text-foreground tabular-nums font-mono">
             {formatPKR(summary.paid?.totalAmount || 0)}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {summary.paid?.count || 0} completed settlements
+            {summary.paid?.count || 0} completed bookings
           </p>
         </div>
 
         <div className="app-glass rounded-2xl border border-border bg-card p-5 shadow-card">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Awaiting Settlement</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Awaiting Payment</span>
           <div className="mt-2 text-2xl font-bold tracking-tight text-amber-400 tabular-nums font-mono">
             {formatPKR(summary.payable?.totalAmount || 0)}
           </div>
@@ -357,12 +357,12 @@ function PaymentsPage() {
         </div>
 
         <div className="app-glass rounded-2xl border border-border bg-card p-5 shadow-card">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Commission Earned</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">App Fees Earned</span>
           <div className="mt-2 text-2xl font-bold tracking-tight text-emerald-400 tabular-nums font-mono">
             {formatPKR(summary.paid?.platformFees || 0)}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Platform take-rate earnings
+            App commission on bookings
           </p>
         </div>
       </div>

@@ -251,12 +251,12 @@ function JobDetailPage() {
           tone={acceptedBid ? "success" : "default"}
         />
         <KpiTile
-          label="Submitted Bids"
+          label="Quotes Received"
           value={bids.length}
           hint={
             job.notifiedWorkersCount
               ? `${job.notifiedWorkersCount} Ustads notified nearby`
-              : "Marketplace bidding"
+              : "Ustad quotes"
           }
           icon={<Users />}
         />
@@ -296,7 +296,7 @@ function JobDetailPage() {
               </p>
               {delta !== 0 && acceptedBid && (
                 <div className="mt-4 rounded-xl border border-primary/25 bg-primary/5 p-3.5 text-xs">
-                  <span className="font-semibold text-primary">Counter-Offer Explanation: </span>
+                  <span className="font-semibold text-primary">Negotiated Price: </span>
                   <span className="text-foreground">
                     Customer initially offered{" "}
                     <strong className="font-mono">{formatPKR(clientOffer)}</strong>. Ustad{" "}
@@ -310,8 +310,8 @@ function JobDetailPage() {
             </Section>
 
             <Section
-              title={`Submitted Ustad Bids (${bids.length})`}
-              description="All quotes and proposals submitted by service professionals for this job"
+              title={`Received Ustad Quotes (${bids.length})`}
+              description="All quotes received from ustads for this job"
               icon={<Users />}
               bodyClassName="p-0"
             >
@@ -319,8 +319,8 @@ function JobDetailPage() {
                 <div className="p-5">
                   <EmptyBlock
                     icon={<Users />}
-                    title="No bids submitted yet"
-                    hint="No Ustads have placed a quote on this job post yet."
+                    title="No quotes submitted yet"
+                    hint="No Ustads have sent a quote for this job yet."
                   />
                 </div>
               ) : (
@@ -329,9 +329,9 @@ function JobDetailPage() {
                     <thead>
                       <tr className="border-b border-hairline text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                         <th className="px-5 py-2.5">Ustad</th>
-                        <th className="px-5 py-2.5">Message / Pitch</th>
+                        <th className="px-5 py-2.5">Ustad Note</th>
                         <th className="px-5 py-2.5">Mode</th>
-                        <th className="px-5 py-2.5 text-right">Proposed Price</th>
+                        <th className="px-5 py-2.5 text-right">Offered Rate</th>
                         <th className="px-5 py-2.5">Status</th>
                       </tr>
                     </thead>

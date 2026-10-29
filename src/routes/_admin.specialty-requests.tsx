@@ -85,8 +85,8 @@ function SpecialtyRequestsPage() {
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        title="Specialty Requests"
-        description="Approve or reject paid category add-ons before Ustads can offer new services."
+        title="Extra Category Requests"
+        description="Review and approve extra work categories requested by Ustads."
         icon={<Layers className="h-3.5 w-3.5" />}
         stats={
           <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-primary">

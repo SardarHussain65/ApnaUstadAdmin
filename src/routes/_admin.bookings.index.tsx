@@ -36,11 +36,11 @@ export const Route = createFileRoute("/_admin/bookings/")({
 });
 
 const CANCEL_REASONS = [
-  "Client requested cancellation before work began",
-  "Ustad failed to arrive (no-show violation)",
-  "Scope of work cannot be safely completed",
-  "Severe pricing disagreement between parties",
-  "Administrative override due to fraud check",
+  "Customer asked to cancel before work started",
+  "Ustad did not arrive (no-show)",
+  "Work cannot be completed safely",
+  "Price disagreement between customer and ustad",
+  "Cancelled by admin after security check",
 ];
 
 function BookingsPage() {

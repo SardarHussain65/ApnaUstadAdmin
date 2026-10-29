@@ -663,8 +663,8 @@ export function LiveOpsMap() {
                     {selectedPin.type === "booking"
                       ? "Booking & Tracking Map"
                       : selectedPin.type === "worker"
-                      ? "Ustad Dossier"
-                      : "Customer 360° Profile"}
+                      ? "Ustad Profile"
+                      : "Customer Profile"}
                   </span>
                   <ArrowUpRight className="w-4 h-4" />
                 </Link>

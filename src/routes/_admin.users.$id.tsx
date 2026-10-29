@@ -47,11 +47,11 @@ import { useToggleUserStatus, useUserOverview } from "@/lib/api-hooks";
 export const Route = createFileRoute("/_admin/users/$id")({ component: CustomerDetailPage });
 
 const SUSPEND_REASONS = [
-  "Violation of platform safety policies",
-  "Abusive conduct towards ustads or staff",
-  "Suspected fraudulent or duplicate profile",
-  "Unpaid service dispute non-compliance",
-  "User-requested account termination",
+  "Safety policy violation",
+  "Rude or abusive behavior towards ustad",
+  "Fake or duplicate account",
+  "Refusing to settle complaint",
+  "Customer asked to close account",
 ];
 
 /** Placeholder cities that came from emulators / bad geocoding. */

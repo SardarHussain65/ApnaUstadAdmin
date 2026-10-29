@@ -32,9 +32,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "People",
     items: [
       { to: "/users", label: "Customers", icon: Users, permission: "users" },
-      { to: "/workers", label: "Professionals", icon: Wrench, permission: "workers" },
-      { to: "/verification", label: "Identity Reviews", icon: Fingerprint, permission: "verification", badgeKey: "pendingVerifications" },
-      { to: "/specialty-requests", label: "Specialty Requests", icon: Layers, permission: "specialty-requests", badgeKey: "pendingSpecialties" },
+      { to: "/workers", label: "Ustads", icon: Wrench, permission: "workers" },
+      { to: "/verification", label: "CNIC Verification", icon: Fingerprint, permission: "verification", badgeKey: "pendingVerifications" },
+      { to: "/specialty-requests", label: "Extra Categories", icon: Layers, permission: "specialty-requests", badgeKey: "pendingSpecialties" },
     ],
   },
   {
@@ -42,7 +42,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/jobs", label: "Job Posts", icon: ClipboardList, permission: "jobs", badgeKey: "openJobs" },
       { to: "/bookings", label: "Bookings", icon: Calendar, permission: "bookings", badgeKey: "pendingBookings" },
-      { to: "/disputes", label: "Disputes", icon: Scale, permission: "disputes", badgeKey: "openDisputes" },
+      { to: "/disputes", label: "Complaints", icon: Scale, permission: "disputes", badgeKey: "openDisputes" },
     ],
   },
   {
@@ -74,26 +74,26 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 export const PAGE_META: Record<string, { title: string; description: string }> = {
-  "/dashboard": { title: "Dashboard", description: "A live view of marketplace health and priority work." },
-  "/users": { title: "Customers", description: "Manage customer accounts, access, and booking activity." },
-  "/workers": { title: "Service Professionals", description: "Review worker profiles, availability, and performance." },
-  "/verification": { title: "Identity Reviews", description: "Audit submitted documents and approve trusted professionals." },
-  "/specialty-requests": { title: "Specialty Requests", description: "Approve paid category add-ons requested by workers." },
-  "/jobs": { title: "Job Posts", description: "Monitor customer requests, bids, and marketplace fulfillment." },
-  "/bookings": { title: "Bookings", description: "Track service delivery, payments, and booking outcomes." },
-  "/payments": { title: "Payments Ledger", description: "Reconcile cash payments, commissions, and worker earnings." },
-  "/wallets": { title: "Wallets & Top-ups", description: "Manage balances, top-ups, and platform commission rules." },
+  "/dashboard": { title: "Dashboard", description: "A live view of business activity and priority work." },
+  "/users": { title: "Customers", description: "Manage customer accounts, bookings, and customer history." },
+  "/workers": { title: "Ustads", description: "Review ustad profiles, active status, ratings, and skills." },
+  "/verification": { title: "CNIC Verification", description: "Check submitted CNIC photos and approve verified ustads." },
+  "/specialty-requests": { title: "Extra Category Requests", description: "Review and approve extra work categories requested by ustads." },
+  "/jobs": { title: "Job Posts", description: "Monitor customer job posts, ustad quotes, and hires." },
+  "/bookings": { title: "Bookings", description: "Track active jobs, cash payments, and completed work." },
+  "/payments": { title: "Payments & Cash Records", description: "Check cash payments, app fees, and ustad earnings." },
+  "/wallets": { title: "Wallets & Top-ups", description: "Manage ustad balances, top-up receipts, and fee rules." },
   "/categories": { title: "Services", description: "Manage service types customers can book — Plumber, Electrician, AC repair, and more." },
-  "/reviews": { title: "Reviews & Ratings", description: "Moderate feedback and monitor service quality." },
-  "/notifications": { title: "Notifications", description: "Compose targeted announcements and review delivery history." },
-  "/support": { title: "Support Desk", description: "Resolve customer and professional support requests." },
-  "/disputes": { title: "Booking Disputes", description: "Investigate conflicts and record fair resolutions." },
-  "/reports": { title: "Reports & Analytics", description: "Explore revenue, demand, and marketplace performance." },
+  "/reviews": { title: "Reviews & Ratings", description: "Check customer reviews and keep work quality high." },
+  "/notifications": { title: "Notifications", description: "Send announcements and notices to customers and ustads." },
+  "/support": { title: "Support Desk", description: "Help customers and ustads with their questions and issues." },
+  "/disputes": { title: "Customer Complaints", description: "Resolve customer and ustad issues fairly." },
+  "/reports": { title: "Reports & Analytics", description: "Explore earnings, popular jobs, and marketplace growth." },
   "/audit": { title: "Audit Trail", description: "Review administrative actions and system events." },
   "/admins": { title: "Admin Access", description: "Control administrative accounts and permissions." },
-  "/promos": { title: "Promotions", description: "Create offers and manage checkout incentives." },
-  "/settings": { title: "Settings", description: "Update your account and platform operating rules." },
-  "/platform-config": { title: "Platform Configuration", description: "Manage commission, urgent pricing, and geo matching rules." },
+  "/promos": { title: "Promotions", description: "Create discounts and coupon codes for customers." },
+  "/settings": { title: "Settings", description: "Update your account details and app settings." },
+  "/platform-config": { title: "Platform Configuration", description: "Set commission rates, urgent job fees, and search radius." },
 };
 
 export function findNav(path: string): { group?: NavGroup; item?: NavItem } {
@@ -118,10 +118,10 @@ export function findPageMeta(path: string) {
     return { title: "Job Post Details", description: "Customer service request, Ustad bids, and moderation controls." };
   }
   if (path.startsWith("/disputes/")) {
-    return { title: "Dispute Arbitration", description: "Complaint evidence, booking chat transcript, and wallet refund/penalty ruling." };
+    return { title: "Complaint Details", description: "Review customer issue, chat history, and team decision." };
   }
   if (path.startsWith("/verification/")) {
-    return { title: "Identity Verification Inspector", description: "Side-by-side facial match and NADRA CNIC document inspection." };
+    return { title: "CNIC Verification", description: "Check ustad profile photo and CNIC card photos." };
   }
   const match = Object.entries(PAGE_META).find(([k]) => path === k || path.startsWith(`${k}/`));
   return match?.[1] ?? { title: "ApnaUstad Admin", description: "Manage your marketplace with confidence." };

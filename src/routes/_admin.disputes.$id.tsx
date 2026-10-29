@@ -132,14 +132,14 @@ function DisputeDetailPage() {
     };
   }, [id, refetchMessages, refetch]);
 
-  if (isLoading) return <DetailLoading label="Loading dispute arbitration dossier..." />;
+  if (isLoading) return <DetailLoading label="Loading complaint details..." />;
   if (isError || !dispute) {
     return (
       <DetailError
-        title="Dispute not found"
-        description="The requested dispute record could not be loaded."
+        title="Complaint not found"
+        description="The requested complaint record could not be loaded."
         backTo="/disputes"
-        backLabel="Back to Disputes"
+        backLabel="Back to Complaints"
         onRetry={() => refetch()}
       />
     );
@@ -218,16 +218,16 @@ function DisputeDetailPage() {
             ev.type === "opened"
               ? `Complaint Filed by ${ev.actorType === "customer" ? "Customer" : "Ustad"}`
               : ev.type === "evidence_added"
-              ? `Evidence Photos Added (${ev.actorName || ev.actorType})`
+              ? `Photos Added (${ev.actorName || ev.actorType})`
               : ev.type === "under_review"
-              ? "Under Investigation by ApnaUstad Team"
+              ? "Under Review by ApnaUstad Team"
               : ev.type === "withdrawn"
               ? "Complaint Withdrawn (Settled by Parties)"
               : ev.type === "resolved"
-              ? "Resolved in Customer's Favour"
+              ? "Resolved in Customer's Favor"
               : ev.type === "dismissed"
-              ? "Dismissed in Ustad's Favour"
-              : "Case Closed";
+              ? "Resolved in Ustad's Favor"
+              : "Complaint Closed";
 
           return {
             id: `timeline-${index}`,
@@ -240,7 +240,7 @@ function DisputeDetailPage() {
       : [
           {
             id: "filed",
-            title: `Dispute filed by ${
+            title: `Complaint filed by ${
               dispute.raisedByType === "customer" ? "Customer" : "Ustad"
             }`,
             subtitle: getDisputeReasonLabel(dispute.reason),
@@ -273,8 +273,8 @@ function DisputeDetailPage() {
     <DetailPage>
       <DetailBreadcrumbs
         items={[
-          { label: "Disputes", to: "/disputes" },
-          { label: `Case #${String(dispute._id).slice(-8)}` },
+          { label: "Complaints", to: "/disputes" },
+          { label: `Complaint #${String(dispute._id).slice(-8)}` },
         ]}
       />
 
@@ -296,7 +296,7 @@ function DisputeDetailPage() {
         }
         meta={
           <>
-            <CopyableId id={String(dispute._id)} label="Dispute ID" />
+            <CopyableId id={String(dispute._id)} label="Complaint ID" />
             {dispute.createdAt && (
               <MetaItem icon={<Calendar className="h-3.5 w-3.5" />}>
                 Filed {format(new Date(dispute.createdAt), "dd MMM yyyy, hh:mm a")}
@@ -311,7 +311,7 @@ function DisputeDetailPage() {
               params={{ id: String(bookingId) }}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-hairline bg-surface px-3 text-xs font-semibold text-foreground hover:border-primary/40 hover:text-primary"
             >
-              Inspect Booking <ArrowUpRight className="h-3.5 w-3.5" />
+              View Booking <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           ) : null
         }
@@ -364,8 +364,8 @@ function DisputeDetailPage() {
           <>
             {/* Complainant Statement & Attached Proof */}
             <Section
-              title="Complaint Summary & Evidence"
-              description="Initial statement and evidence attached by the reporter"
+              title="Complaint Summary & Photos"
+              description="Initial statement and photos attached by the reporter"
               icon={<FileText className="h-4 w-4" />}
             >
               <div className="space-y-4">
@@ -376,7 +376,7 @@ function DisputeDetailPage() {
                 {dispute.proofImages && dispute.proofImages.length > 0 ? (
                   <div>
                     <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Attached Proof ({dispute.proofImages.length})
+                      Attached Photos ({dispute.proofImages.length})
                     </div>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                       {dispute.proofImages.map((img: string, idx: number) => (
@@ -388,7 +388,7 @@ function DisputeDetailPage() {
                         >
                           <img
                             src={img}
-                            alt={`Evidence ${idx + 1}`}
+                            alt={`Photo ${idx + 1}`}
                             className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]"
                           />
                         </button>
@@ -397,16 +397,16 @@ function DisputeDetailPage() {
                   </div>
                 ) : (
                   <div className="text-xs text-muted-foreground">
-                    No photo evidence was attached to the initial complaint.
+                    No photos were attached to the initial complaint.
                   </div>
                 )}
               </div>
             </Section>
 
-            {/* 3-Way Case Room Live Chat */}
+            {/* Support Live Chat */}
             <Section
-              title="Case Room: 3-Way Arbitration Chat"
-              description="Real-time multi-party chat between Customer, Ustad and ApnaUstad Team"
+              title="Support Chat (Customer, Ustad & Team)"
+              description="Live chat between customer, ustad, and ApnaUstad team"
               icon={<MessageSquare className="h-4 w-4 text-primary" />}
             >
               <div className="flex flex-col rounded-xl border border-hairline bg-surface">
@@ -439,7 +439,7 @@ function DisputeDetailPage() {
                                 ) : (
                                   <Scale className="h-3.5 w-3.5 text-primary" />
                                 )}
-                                {isDecision ? "Official Ruling" : "System Update"}
+                                {isDecision ? "Team Decision" : "System Update"}
                               </div>
                               <p className="whitespace-pre-line text-foreground">{msg.content}</p>
                               <span className="mt-1 block text-[10px] text-muted-foreground">
@@ -665,11 +665,11 @@ function DisputeDetailPage() {
 
             {/* Administrative Resolution Console */}
             <Section
-              title="Official Ruling & Actions"
+              title="Resolution & Actions"
               description={
                 isClosed
-                  ? "Case resolved and archived in history."
-                  : "Choose an outcome and notify parties."
+                  ? "Complaint resolved and archived in history."
+                  : "Choose a resolution and notify both parties."
               }
               icon={<Landmark className="h-4 w-4" />}
             >
@@ -687,7 +687,7 @@ function DisputeDetailPage() {
                       }`}
                     >
                       <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-500">
-                        <CheckCircle2 className="h-4 w-4" /> Rule in Customer Favor
+                        <CheckCircle2 className="h-4 w-4" /> Resolve in Customer's Favor
                       </span>
                       <span className="text-[11px] text-muted-foreground">
                         Customer complaint upheld. Cash payment agreement cancelled.
@@ -704,7 +704,7 @@ function DisputeDetailPage() {
                       }`}
                     >
                       <span className="flex items-center gap-1.5 text-xs font-bold text-sky-500">
-                        <ShieldCheck className="h-4 w-4" /> Rule in Ustad Favor
+                        <ShieldCheck className="h-4 w-4" /> Resolve in Ustad's Favor
                       </span>
                       <span className="text-[11px] text-muted-foreground">
                         Ustad cleared. Job cash payment continues.
@@ -722,7 +722,7 @@ function DisputeDetailPage() {
                       }}
                       className="w-full text-center text-xs font-semibold text-amber-500 hover:underline py-1"
                     >
-                      Mark Under Investigation (Hold)
+                      Mark Under Review
                     </button>
                   )}
 
@@ -782,7 +782,7 @@ function DisputeDetailPage() {
                     <textarea
                       value={resolutionDetails}
                       onChange={(e) => setResolutionDetails(e.target.value)}
-                      placeholder="Explain the ruling clearly to both sides..."
+                      placeholder="Explain the decision clearly to both sides..."
                       rows={3}
                       className="w-full rounded-xl border border-hairline bg-surface p-3 text-sm text-foreground focus:border-primary focus:outline-none"
                     />
@@ -795,7 +795,7 @@ function DisputeDetailPage() {
                       onClick={() => setShowAdvancedModeration(!showAdvancedModeration)}
                       className="flex w-full items-center justify-between py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
                     >
-                      <span>Account Actions & Penalties</span>
+                      <span>Account Actions & Warnings</span>
                       {showAdvancedModeration ? (
                         <ChevronUp className="h-3.5 w-3.5" />
                       ) : (
@@ -897,13 +897,13 @@ function DisputeDetailPage() {
                     ) : (
                       <ShieldCheck className="h-4 w-4" />
                     )}
-                    Record Ruling & Close Dispute
+                    Save Decision & Close Complaint
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs">
                   <div className="flex items-center gap-2 font-bold text-emerald-500">
-                    <Check className="h-4 w-4" /> Case Closed in History
+                    <Check className="h-4 w-4" /> Complaint Resolved in History
                   </div>
                   <InfoList columns={1}>
                     <InfoRow label="Outcome" value={<StatusBadge status={dispute.status} />} />
@@ -937,7 +937,7 @@ function DisputeDetailPage() {
             </Section>
 
             {/* Case Timeline */}
-            <Section title="Stored History Timeline" icon={<Clock className="h-4 w-4" />}>
+            <Section title="Complaint History Timeline" icon={<Clock className="h-4 w-4" />}>
               <Timeline items={timelineItems} />
             </Section>
           </>
@@ -959,7 +959,7 @@ function DisputeDetailPage() {
           </button>
           <img
             src={lightbox}
-            alt="Dispute evidence"
+            alt="Complaint photo"
             className="max-h-full max-w-full rounded-2xl shadow-2xl"
           />
         </div>

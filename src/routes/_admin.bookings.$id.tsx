@@ -56,11 +56,11 @@ export const Route = createFileRoute("/_admin/bookings/$id")({
 });
 
 const CANCEL_REASONS = [
-  "Client requested cancellation before work began",
-  "Ustad failed to arrive (no-show violation)",
-  "Scope of work cannot be safely completed",
-  "Severe pricing disagreement between parties",
-  "Administrative override due to fraud check",
+  "Customer asked to cancel before work started",
+  "Ustad did not arrive (no-show)",
+  "Work cannot be completed safely",
+  "Price disagreement between customer and ustad",
+  "Cancelled by admin after security check",
 ];
 
 function BookingDetailPage() {
@@ -232,7 +232,7 @@ function BookingDetailPage() {
             <MessageSquareWarning className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
             <div>
               <p className="text-sm font-semibold text-foreground">
-                Active Dispute Linked ({dispute.reason?.replace(/_/g, " ")})
+                Active Complaint Linked ({dispute.reason?.replace(/_/g, " ")})
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {dispute.description}
@@ -240,7 +240,7 @@ function BookingDetailPage() {
             </div>
           </div>
           <Link to="/disputes/$id" params={{ id: String(dispute._id) }}>
-            <ActionButton tone="default">Inspect Dispute</ActionButton>
+            <ActionButton tone="default">View Complaint</ActionButton>
           </Link>
         </div>
       )}
@@ -258,13 +258,13 @@ function BookingDetailPage() {
           value={formatPKR(agreedPrice)}
           hint={
             clientOffer && clientOffer !== agreedPrice
-              ? `Client originally offered ${formatPKR(clientOffer)}`
+              ? `Customer originally offered ${formatPKR(clientOffer)}`
               : `Price mode: ${(agreement.priceSource || "direct_rate").replace(/_/g, " ")}`
           }
           icon={<ReceiptText />}
         />
         <KpiTile
-          label="Platform Commission"
+          label="App Commission"
           value={formatPKR(commissionAmount)}
           hint={
             agreement.commissionRateSnapshot
@@ -290,8 +290,8 @@ function BookingDetailPage() {
         main={
           <>
             <Section
-              title="Financial Agreement & Pricing Breakdown"
-              description="Locked commercial terms between the customer, Ustad, and platform"
+              title="Pricing & Payment Breakdown"
+              description="Payment details agreed between customer and ustad"
               icon={<Banknote />}
             >
               <div className="space-y-3 text-sm">
@@ -319,7 +319,7 @@ function BookingDetailPage() {
                 )}
                 <div className="flex items-center justify-between py-1.5 border-b border-hairline">
                   <span className="text-muted-foreground">
-                    Platform Commission {agreement.commissionRateSnapshot ? `(${agreement.commissionRateSnapshot}%)` : ""}
+                    App Commission {agreement.commissionRateSnapshot ? `(${agreement.commissionRateSnapshot}%)` : ""}
                   </span>
                   <span className="font-mono font-semibold tabular-nums text-primary">
                     {formatPKR(commissionAmount)}
@@ -341,8 +341,8 @@ function BookingDetailPage() {
             </Section>
 
             <Section
-              title="Booking Chat Transcript"
-              description="Read-only conversation log for compliance and dispute investigation"
+              title="Booking Chat Messages"
+              description="Chat messages between customer and ustad for this booking"
               icon={<MessageSquare />}
             >
               {messages.length === 0 ? (
@@ -407,8 +407,8 @@ function BookingDetailPage() {
             )}
 
             <Section
-              title="Administrative Override"
-              description="Force-transition booking state or cancel with mandatory audit logging"
+              title="Update Status Directly"
+              description="Change booking status or cancel directly"
               icon={<ShieldAlert />}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -417,7 +417,7 @@ function BookingDetailPage() {
                   onChange={(e) => setStatusOverride(e.target.value)}
                   className="h-10 flex-1 rounded-xl border border-hairline-strong bg-surface px-3 text-xs font-semibold text-foreground outline-none focus:border-primary"
                 >
-                  <option value="">Select status to force-apply…</option>
+                  <option value="">Select status to update…</option>
                   <option value="pending">Pending</option>
                   <option value="accepted">Accepted</option>
                   <option value="ongoing">Ongoing</option>
@@ -429,7 +429,7 @@ function BookingDetailPage() {
                   disabled={!statusOverride || updateStatusMutation.isPending}
                   onClick={handleStatusOverride}
                 >
-                  Apply Status Override
+                  Apply Status
                 </ActionButton>
               </div>
             </Section>

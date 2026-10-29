@@ -175,7 +175,7 @@ function VerificationDetailPage() {
     <DetailPage>
       <DetailBreadcrumbs
         items={[
-          { label: "Identity Verification", to: "/verification" },
+          { label: "CNIC Verification", to: "/verification" },
           {
             label: `${selectedRequest.worker?.fullName || "Ustad"} (${formatCnic(
               selectedRequest.cnicNumber
@@ -197,7 +197,7 @@ function VerificationDetailPage() {
               <Badge variant="danger">Rejected</Badge>
             ) : (
               <Badge variant="warning" pulse>
-                Pending Audit
+                Pending Review
               </Badge>
             )}
             <Badge variant="orange">{selectedRequest.worker?.category || "General"}</Badge>
@@ -252,14 +252,14 @@ function VerificationDetailPage() {
         }
       />
 
-      {/* Side-by-Side Facial Match & NADRA CNIC Inspector */}
+      {/* Side-by-Side Facial Match & CNIC Inspector */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* LEFT PANE: Worker Profile Photo & Facial Match */}
         <Section
-          title="1. Live Ustad Profile Photo"
-          description="Compare facial features against the photo printed on the NADRA CNIC card"
+          title="1. Ustad Profile Photo"
+          description="Compare face photo against the photo on the CNIC card"
           icon={<User className="h-4 w-4" />}
-          actions={<Badge variant="info">Live Profile</Badge>}
+          actions={<Badge variant="info">Profile Photo</Badge>}
         >
           <div className="space-y-4">
             <div
@@ -340,10 +340,10 @@ function VerificationDetailPage() {
           </div>
         </Section>
 
-        {/* RIGHT PANE: NADRA CNIC Document */}
+        {/* RIGHT PANE: CNIC Photos */}
         <Section
-          title="2. NADRA CNIC Document"
-          description="Inspect both sides of the National Identity Card for authenticity and clarity"
+          title="2. CNIC Photos"
+          description="Check both sides of the CNIC card to make sure name and photo are clear"
           icon={<Fingerprint className="h-4 w-4" />}
           actions={
             <div className="flex items-center rounded-lg border border-hairline bg-surface p-0.5 text-xs">

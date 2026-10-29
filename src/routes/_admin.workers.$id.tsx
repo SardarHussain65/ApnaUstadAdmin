@@ -57,11 +57,11 @@ function WorkerDetail() {
     return (
       <div className="space-y-5">
         <Link to="/workers" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
-          <ArrowLeft className="w-4 h-4" /> Back to Workers
+          <ArrowLeft className="w-4 h-4" /> Back to Ustads
         </Link>
         <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground shadow-card">
           <div className="w-8 h-8 border-4 border-t-primary border-border rounded-full animate-spin mx-auto mb-3" />
-          Loading worker details...
+          Loading ustad details...
         </div>
       </div>
     );
@@ -71,11 +71,11 @@ function WorkerDetail() {
     return (
       <div className="space-y-5">
         <Link to="/workers" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
-          <ArrowLeft className="w-4 h-4" /> Back to Workers
+          <ArrowLeft className="w-4 h-4" /> Back to Ustads
         </Link>
         <div className="bg-card border border-border rounded-2xl p-10 text-center shadow-card">
-          <div className="text-lg font-bold">Worker not found</div>
-          <p className="mt-2 text-sm text-muted-foreground">{(error as any)?.message || "The worker may have been removed or the link is invalid."}</p>
+          <div className="text-lg font-bold">Ustad not found</div>
+          <p className="mt-2 text-sm text-muted-foreground">{(error as any)?.message || "The ustad may have been removed or the link is invalid."}</p>
           <button
             onClick={() => refetch()}
             className="mt-5 inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-primary/15 text-primary border border-primary/30 font-semibold"
@@ -146,21 +146,21 @@ function WorkerDetail() {
   return (
     <div className="space-y-5">
       <Link to="/workers" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
-        <ArrowLeft className="w-4 h-4" /> Back to Workers
+        <ArrowLeft className="w-4 h-4" /> Back to Ustads
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Worker Profile Card */}
         <div className="bg-card border border-border rounded-2xl p-6 shadow-card text-center">
           <div className="relative inline-block">
-            <Avatar src={worker.profileImage} name={worker.fullName || "Worker"} size={120} />
+            <Avatar src={worker.profileImage} name={worker.fullName || "Ustad"} size={120} />
             {worker.isVerified && (
               <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full gradient-success flex items-center justify-center border-4 border-card">
                 <CheckCircle2 className="w-5 h-5 text-white" />
               </div>
             )}
           </div>
-          <h2 className="text-2xl font-bold mt-4 text-foreground">{worker.fullName || "Unnamed Worker"}</h2>
+          <h2 className="text-2xl font-bold mt-4 text-foreground">{worker.fullName || "Unnamed Ustad"}</h2>
           <div className="mt-1 flex justify-center">
             <CopyableId id={worker._id} label="ID" />
           </div>
@@ -286,7 +286,7 @@ function WorkerDetail() {
             onClick={toggleActiveStatus}
             className="mt-2 btn-press w-full h-11 rounded-xl bg-surface-light hover:bg-accent/15 hover:text-accent border border-border font-bold flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <Power className="w-4 h-4" /> {worker.isActive ? "Deactivate Worker" : "Activate Worker"}
+            <Power className="w-4 h-4" /> {worker.isActive ? "Suspend Ustad" : "Activate Ustad"}
           </button>
         </div>
 
@@ -303,7 +303,7 @@ function WorkerDetail() {
           {/* Identity Verification */}
           <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-              <h3 className="font-bold text-foreground">Identity Verification</h3>
+              <h3 className="font-bold text-foreground">CNIC Verification</h3>
               <div className="flex flex-wrap gap-2">
                 {worker.isVerified ? (
                   <Badge variant="success">Verified ✅</Badge>
@@ -318,7 +318,7 @@ function WorkerDetail() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div>
-                <div className="text-[10px] uppercase text-muted-foreground mb-1">CNIC Number (Audited)</div>
+                <div className="text-[10px] uppercase text-muted-foreground mb-1">CNIC Number</div>
                 <CnicRevealModal
                   workerId={worker._id}
                   maskedCnic={worker.cnicNumber}
@@ -336,7 +336,7 @@ function WorkerDetail() {
 
             {!(worker.cnicFrontImage || worker.cnicBackImage || worker.cnicNumber) && !worker.isVerified ? (
               <div className="mt-4 p-3.5 rounded-xl bg-surface border border-border text-center text-xs text-muted-foreground">
-                No CNIC documents submitted yet. Identity verification is optional and will appear here when submitted by the worker.
+                No CNIC documents submitted yet. CNIC verification will appear here once submitted by the ustad.
               </div>
             ) : (
               <div className="mt-4 flex flex-wrap gap-2">
@@ -345,14 +345,14 @@ function WorkerDetail() {
                     onClick={() => setConfirm("verify")}
                     className="btn-press flex-1 min-w-[180px] h-11 rounded-xl gradient-cyan text-background font-bold glow-cyan flex items-center justify-center gap-2"
                   >
-                    <CheckCircle2 className="w-4 h-4" /> Verify Worker & Award Bonus
+                    <CheckCircle2 className="w-4 h-4" /> Approve CNIC & Award Bonus
                   </button>
                 )}
                 <button
                   onClick={() => setConfirm("reject")}
                   className="btn-press flex-1 min-w-[180px] h-11 rounded-xl bg-destructive/20 text-destructive border border-destructive/40 font-bold flex items-center justify-center gap-2"
                 >
-                  <XCircle className="w-4 h-4" /> {worker.isVerified ? "Revoke Verification" : "Reject Documents"}
+                  <XCircle className="w-4 h-4" /> {worker.isVerified ? "Revoke CNIC Verification" : "Reject CNIC"}
                 </button>
               </div>
             )}

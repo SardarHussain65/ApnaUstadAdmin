@@ -165,7 +165,7 @@ function JobsPage() {
     },
     {
       key: "clientOffer",
-      header: "Client Budget",
+      header: "Customer Budget",
       sortable: true,
       render: (j) => (
         <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
@@ -175,7 +175,7 @@ function JobsPage() {
     },
     {
       key: "acceptedBid",
-      header: "Selected Bid",
+      header: "Agreed Rate",
       render: (j) =>
         j.acceptedBid ? (
           <span className="font-mono text-xs font-bold tabular-nums text-success">
@@ -242,7 +242,7 @@ function JobsPage() {
             Customer Job Posts
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Browse, inspect, and moderate open client service requests and Ustad quotes
+            Browse, inspect, and manage open customer job posts and ustad quotes
           </p>
         </div>
 

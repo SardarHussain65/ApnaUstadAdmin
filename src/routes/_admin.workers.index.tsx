@@ -45,11 +45,11 @@ export const Route = createFileRoute("/_admin/workers/")({
 });
 
 const DEACTIVATE_REASONS = [
-  "Document forgery or identity verification failure",
-  "Repeated client complaints or no-show violations",
-  "Off-platform cash payment evasion",
-  "Substandard workmanship or policy breach",
-  "Worker-requested account closure",
+  "Fake documents or CNIC verification failed",
+  "Multiple customer complaints or no-shows",
+  "Taking payments off-platform",
+  "Poor work quality or rule violations",
+  "Ustad requested account closure",
 ];
 
 function WorkersPage() {
@@ -188,10 +188,10 @@ function WorkersPage() {
             <span>Workforce & Credential Directory</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Professionals & Ustads
+            Ustads (Workers)
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Directory of vetted service providers, trade specialties, NADRA identity checks, and performance ratings
+            Directory of registered ustads, work categories, CNIC verification, and customer ratings
           </p>
         </div>
 
@@ -213,13 +213,13 @@ function WorkersPage() {
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex items-center justify-between">
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Total Professionals
+              Total Ustads
             </div>
             <div className="mt-1.5 text-2xl font-bold tracking-tight text-foreground tabular-nums">
               {summaryStats.totalItems.toLocaleString()}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Registered service providers
+              Registered ustads
             </div>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -230,7 +230,7 @@ function WorkersPage() {
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex items-center justify-between">
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              NADRA Verified
+              CNIC Verified
             </div>
             <div className="mt-1.5 text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
               {summaryStats.verifiedCount}
@@ -239,7 +239,7 @@ function WorkersPage() {
               </span>
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Identity & skills vetted
+              CNIC & work categories approved
             </div>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -250,13 +250,13 @@ function WorkersPage() {
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm flex items-center justify-between">
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Pending Verification
+              Pending CNIC Check
             </div>
             <div className="mt-1.5 text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400 tabular-nums">
               {summaryStats.pendingCount}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              Awaiting credential approval
+              Awaiting CNIC review
             </div>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
@@ -273,7 +273,7 @@ function WorkersPage() {
               {summaryStats.totalJobsInView.toLocaleString()}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              {summaryStats.activeCount} active providers on page
+              {summaryStats.activeCount} active ustads on page
             </div>
           </div>
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
@@ -601,7 +601,7 @@ function WorkersPage() {
                     params={{ id: w._id }}
                     className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary/10 px-3 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground"
                   >
-                    <span>Open Dossier</span>
+                    <span>Open Profile</span>
                     <ArrowUpRight className="h-3.5 w-3.5" />
                   </Link>
 
@@ -727,7 +727,7 @@ function WorkersPage() {
                     params={{ id: w._id }}
                     className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-primary/10 px-3.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-primary-foreground"
                   >
-                    <span>Dossier</span>
+                    <span>Profile</span>
                     <ArrowUpRight className="h-3.5 w-3.5" />
                   </Link>
                   {!w.isVerified && (

@@ -42,11 +42,11 @@ export const Route = createFileRoute("/_admin/users/")({
 });
 
 const DEACTIVATE_REASONS = [
-  "Violation of platform safety policies",
-  "Abusive conduct towards ustads or staff",
-  "Suspected fraudulent or duplicate profile",
-  "Unpaid service dispute non-compliance",
-  "User-requested account termination",
+  "Safety policy violation",
+  "Rude or abusive behavior towards ustad",
+  "Fake or duplicate account",
+  "Refusing to settle complaint",
+  "Customer asked to close account",
 ];
 
 function UsersPage() {
@@ -178,13 +178,13 @@ function UsersPage() {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-primary mb-2">
             <Users className="h-3.5 w-3.5" />
-            <span>Customer Intelligence Directory</span>
+            <span>Customer Directory</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Customer Accounts
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Inspect customer dossiers, booking activity, lifetime spend, and account standing
+            Inspect customer profiles, booking history, spending, and account status
           </p>
         </div>
 
@@ -371,7 +371,7 @@ function UsersPage() {
                     ? "bg-card text-primary shadow-sm border border-border/80"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                title="Dossier Cards View"
+                title="Cards View"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Cards</span>
