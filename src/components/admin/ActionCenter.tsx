@@ -34,7 +34,7 @@ export function ActionCenter() {
     { label: "Wallet Top-ups", count: badges.pendingTopUps, href: "/wallets", icon: Wallet, color: "text-success" },
     { label: "Support Tickets", count: badges.openTickets, href: "/support", icon: HelpCircle, color: "text-secondary" },
     { label: "Open Disputes", count: badges.openDisputes, href: "/disputes", icon: Scale, color: "text-destructive" },
-    { label: "Unverified Workers", count: badges.unverifiedWorkers, href: "/onboarding", icon: Wrench, color: "text-gold" },
+    { label: "Unverified Workers", count: badges.unverifiedWorkers, href: "/workers", icon: Wrench, color: "text-gold" },
   ];
 
   const items: QueueItem[] = [
@@ -78,7 +78,7 @@ export function ActionCenter() {
     id: `worker-${item._id}`,
     title: item.fullName,
     subtitle: "Worker awaiting verification",
-    href: "/onboarding",
+    href: `/workers/${item._id}`,
   })),
   ].slice(0, 12);
 
@@ -89,8 +89,8 @@ export function ActionCenter() {
           <h3 className="text-lg font-bold text-white">Action Center</h3>
           <p className="text-xs text-dim">Prioritized queues that need admin attention today.</p>
         </div>
-        <Link to="/onboarding" className="text-xs font-semibold text-primary hover:underline">
-          View onboarding pipeline
+        <Link to="/verification" className="text-xs font-semibold text-primary hover:underline">
+          View identity reviews
         </Link>
       </div>
 

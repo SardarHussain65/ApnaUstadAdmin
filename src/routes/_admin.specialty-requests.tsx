@@ -43,7 +43,7 @@ function SpecialtyRequestsPage() {
     () =>
       (data?.items || []).flatMap((worker: any) =>
         (worker.specialties || [])
-          .filter((specialty: any) => specialty.approvalStatus === "pending")
+          .filter((specialty: any) => specialty.approvalStatus === "pending" && specialty.priority > 1)
           .map((specialty: any) => ({
             worker,
             specialty,

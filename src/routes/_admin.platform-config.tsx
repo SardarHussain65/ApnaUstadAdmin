@@ -67,6 +67,7 @@ function PlatformConfigPage() {
     minimumWalletBalance: 500,
     additionalCategoryMonthlyFee: 500,
     commissionEnabled: true,
+    cnicVerificationBonus: 500,
   });
 
   const [urgentRates, setUrgentRates] = useState<Record<string, { baseRatePerHour: number; minimumPrice: number }>>({});
@@ -92,6 +93,7 @@ function PlatformConfigPage() {
       minimumWalletBalance: walletSettings.minimumWalletBalance ?? 500,
       additionalCategoryMonthlyFee: walletSettings.additionalCategoryMonthlyFee ?? 500,
       commissionEnabled: walletSettings.commissionEnabled ?? true,
+      cnicVerificationBonus: walletSettings.cnicVerificationBonus ?? 500,
     });
   }, [walletSettings]);
 
@@ -123,6 +125,14 @@ function PlatformConfigPage() {
           category: "Wallet & Finance",
           liveValue: fmtPKR(walletSettings.additionalCategoryMonthlyFee),
           stagedValue: fmtPKR(walletForm.additionalCategoryMonthlyFee),
+        });
+      }
+      if (walletForm.cnicVerificationBonus !== (walletSettings.cnicVerificationBonus ?? 500)) {
+        diffs.push({
+          field: "CNIC Verification Starter Bonus",
+          category: "Wallet & Finance",
+          liveValue: fmtPKR(walletSettings.cnicVerificationBonus ?? 500),
+          stagedValue: fmtPKR(walletForm.cnicVerificationBonus),
         });
       }
       if (walletForm.commissionEnabled !== walletSettings.commissionEnabled) {
@@ -203,6 +213,7 @@ function PlatformConfigPage() {
         minimumWalletBalance: walletSettings.minimumWalletBalance,
         additionalCategoryMonthlyFee: walletSettings.additionalCategoryMonthlyFee,
         commissionEnabled: walletSettings.commissionEnabled,
+        cnicVerificationBonus: walletSettings.cnicVerificationBonus ?? 500,
       });
     }
     if (platformSettings) {
@@ -288,6 +299,14 @@ function PlatformConfigPage() {
             prefix="Rs."
             helper="Workers below this balance cannot accept jobs"
             onChange={(val) => setWalletForm((prev) => ({ ...prev, minimumWalletBalance: val }))}
+          />
+
+          <NumberField
+            label="CNIC Verification Starter Bonus (PKR)"
+            value={walletForm.cnicVerificationBonus}
+            prefix="Rs."
+            helper="Auto-credited to worker upon CNIC approval"
+            onChange={(val) => setWalletForm((prev) => ({ ...prev, cnicVerificationBonus: val }))}
           />
 
           <NumberField

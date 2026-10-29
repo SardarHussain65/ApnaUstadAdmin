@@ -305,7 +305,13 @@ function WorkerDetail() {
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
               <h3 className="font-bold text-foreground">Identity Verification</h3>
               <div className="flex flex-wrap gap-2">
-                {worker.isVerified ? <Badge variant="success">Verified</Badge> : <Badge variant="warning" pulse>Pending</Badge>}
+                {worker.isVerified ? (
+                  <Badge variant="success">Verified ✅</Badge>
+                ) : (worker.cnicFrontImage || worker.cnicBackImage || worker.cnicNumber) ? (
+                  <Badge variant="warning" pulse>Pending Review</Badge>
+                ) : (
+                  <Badge variant="muted">Not Submitted</Badge>
+                )}
                 <Badge variant={worker.isAvailable ? "info" : "muted"}>{worker.isAvailable ? "Available" : "Unavailable"}</Badge>
               </div>
             </div>
@@ -328,22 +334,28 @@ function WorkerDetail() {
               <DocumentImage label="CNIC Back" src={worker.cnicBackImage} onOpen={setLightbox} />
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {!worker.isVerified && (
+            {!(worker.cnicFrontImage || worker.cnicBackImage || worker.cnicNumber) && !worker.isVerified ? (
+              <div className="mt-4 p-3.5 rounded-xl bg-surface border border-border text-center text-xs text-muted-foreground">
+                No CNIC documents submitted yet. Identity verification is optional and will appear here when submitted by the worker.
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {!worker.isVerified && (
+                  <button
+                    onClick={() => setConfirm("verify")}
+                    className="btn-press flex-1 min-w-[180px] h-11 rounded-xl gradient-cyan text-background font-bold glow-cyan flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> Verify Worker & Award Bonus
+                  </button>
+                )}
                 <button
-                  onClick={() => setConfirm("verify")}
-                  className="btn-press flex-1 min-w-[180px] h-11 rounded-xl gradient-cyan text-background font-bold glow-cyan flex items-center justify-center gap-2"
+                  onClick={() => setConfirm("reject")}
+                  className="btn-press flex-1 min-w-[180px] h-11 rounded-xl bg-destructive/20 text-destructive border border-destructive/40 font-bold flex items-center justify-center gap-2"
                 >
-                  <CheckCircle2 className="w-4 h-4" /> Verify Worker
+                  <XCircle className="w-4 h-4" /> {worker.isVerified ? "Revoke Verification" : "Reject Documents"}
                 </button>
-              )}
-              <button
-                onClick={() => setConfirm("reject")}
-                className="btn-press flex-1 min-w-[180px] h-11 rounded-xl bg-destructive/20 text-destructive border border-destructive/40 font-bold flex items-center justify-center gap-2"
-              >
-                <XCircle className="w-4 h-4" /> {worker.isVerified ? "Revoke Verification" : "Reject"}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Specialty subscriptions */}
@@ -376,16 +388,16 @@ function WorkerDetail() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-bold">{categoryName}</span>
                           <Badge variant={specialty.priority === 1 ? "info" : "orange"}>{tier}</Badge>
-                          <Badge variant={specialty.approvalStatus === "approved" ? "success" : specialty.approvalStatus === "rejected" ? "danger" : "warning"}>
-                            {specialty.approvalStatus}
+                          <Badge variant={specialty.priority === 1 || specialty.approvalStatus === "approved" ? "success" : specialty.approvalStatus === "rejected" ? "danger" : "warning"}>
+                            {specialty.priority === 1 ? "Approved (Live)" : specialty.approvalStatus}
                           </Badge>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {specialty.priority === 1 ? "Included free" : `${formatPKR(configuredFee)} / month`} · {specialty.subscriptionStatus.replace(/_/g, " ")}
+                          {specialty.priority === 1 ? "Included free · Active" : `${formatPKR(configuredFee)} / month · ${specialty.subscriptionStatus.replace(/_/g, " ")}`}
                           {specialty.nextBillingAt ? ` · renews ${formatDate(specialty.nextBillingAt)}` : ""}
                         </div>
                       </div>
-                      {specialty.approvalStatus === "pending" && (
+                      {specialty.priority > 1 && specialty.approvalStatus === "pending" && (
                         <div className="flex gap-2">
                           <button disabled={reviewSpecialtyMutation.isPending}
                             onClick={() => reviewSpecialtyMutation.mutate({ workerId: worker._id, categoryId, approvalStatus: "approved" })}

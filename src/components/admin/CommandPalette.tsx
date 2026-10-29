@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   Search, LayoutDashboard, Users, Wrench, ClipboardList, Calendar,
   FolderKanban, Star, Bell, Settings, ArrowRight, Wallet, HelpCircle,
-  BarChart3, History, UserCog, Scale, Tag, Fingerprint, Banknote, Layers, Route,
+  BarChart3, History, UserCog, Scale, Tag, Fingerprint, Banknote, Layers,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { canAccessRoute } from "@/lib/admin-permissions";
@@ -35,7 +35,6 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { id: "n-dash", label: "Dashboard", group: "Navigate", icon: LayoutDashboard, action: go("/dashboard") },
       { id: "n-users", label: "Customers", group: "Navigate", icon: Users, action: go("/users") },
       { id: "n-workers", label: "Professionals", group: "Navigate", icon: Wrench, action: go("/workers") },
-      { id: "n-onboarding", label: "Onboarding Queue", group: "Navigate", icon: Route, action: go("/onboarding") },
       { id: "n-verification", label: "Identity Reviews", group: "Navigate", icon: Fingerprint, action: go("/verification") },
       { id: "n-specialty", label: "Specialty Requests", group: "Navigate", icon: Layers, action: go("/specialty-requests") },
       { id: "n-jobs", label: "Job Posts", group: "Navigate", icon: ClipboardList, action: go("/jobs") },
@@ -68,7 +67,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         ? item.action
         : go;
       const target = {
-        "n-dash": "/dashboard", "n-users": "/users", "n-workers": "/workers", "n-onboarding": "/onboarding",
+        "n-dash": "/dashboard", "n-users": "/users", "n-workers": "/workers",
         "n-verification": "/verification", "n-specialty": "/specialty-requests", "n-jobs": "/jobs",
         "n-bookings": "/bookings", "n-payments": "/payments", "n-wallets": "/wallets", "n-cats": "/categories",
         "n-promos": "/promos", "n-rev": "/reviews", "n-not": "/notifications", "n-support": "/support",

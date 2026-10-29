@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useDeferredValue, useEffect, useMemo } from "react";
-import { useDisputesPage } from "@/lib/api-hooks";
+import { useState, useDeferredValue, useEffect } from "react";
+import { useDisputesPage, useDisputeStats } from "@/lib/api-hooks";
 import {
   DataTable,
   FilterToolbar,
@@ -16,6 +16,7 @@ import {
   Clock,
   ArrowUpRight,
   Gavel,
+  MessageSquare,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fmtPKR, shortId } from "@/lib/format";
@@ -43,36 +44,29 @@ export function getDisputeReasonLabel(reason: string) {
 
 function DisputesIndexPage() {
   const navigate = useNavigate();
+  const [scopeTab, setScopeTab] = useState<"active" | "history">("active");
   const [statusFilter, setStatusFilter] = useState("");
   const [reasonFilter, setReasonFilter] = useState("");
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [page, setPage] = useState(1);
 
+  const { data: stats } = useDisputeStats();
+
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, reasonFilter, deferredSearch]);
+  }, [scopeTab, statusFilter, reasonFilter, deferredSearch]);
 
   const { data: disputesData, isLoading } = useDisputesPage({
     page,
     limit: 12,
+    scope: scopeTab,
     status: statusFilter || undefined,
     reason: reasonFilter || undefined,
     search: deferredSearch || undefined,
   });
 
   const disputes = disputesData?.items || [];
-
-  const stats = useMemo(() => {
-    return {
-      total: disputesData?.pagination.totalItems ?? 0,
-      open: disputes.filter((d: any) => d.status === "open").length,
-      review: disputes.filter((d: any) => d.status === "under_review").length,
-      resolved: disputes.filter(
-        (d: any) => d.status === "resolved" || d.status === "dismissed"
-      ).length,
-    };
-  }, [disputes, disputesData?.pagination.totalItems]);
 
   const columns: Column<any>[] = [
     {
@@ -187,11 +181,19 @@ function DisputesIndexPage() {
     },
     {
       key: "reason",
-      header: "Reason",
+      header: "Issue & Chat",
       render: (dispute: any) => (
-        <span className="inline-flex rounded-full border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-foreground">
-          {getDisputeReasonLabel(dispute.reason)}
-        </span>
+        <div className="flex flex-col gap-1 max-w-xs">
+          <span className="inline-flex w-fit rounded-full border border-hairline bg-surface px-2.5 py-0.5 text-xs font-medium text-foreground">
+            {getDisputeReasonLabel(dispute.reason)}
+          </span>
+          {dispute.lastMessagePreview && (
+            <span className="truncate text-[11px] text-muted-foreground flex items-center gap-1">
+              <MessageSquare className="h-3 w-3 shrink-0 text-primary" />
+              {dispute.lastMessagePreview}
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -207,7 +209,16 @@ function DisputesIndexPage() {
     {
       key: "status",
       header: "Status",
-      render: (dispute: any) => <StatusBadge status={dispute.status} />,
+      render: (dispute: any) => (
+        <div className="flex flex-col gap-1">
+          <StatusBadge status={dispute.status} />
+          {dispute.outcomeLabel && (
+            <span className="text-[10px] font-semibold text-muted-foreground">
+              {dispute.outcomeLabel}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: "actions",
@@ -227,7 +238,7 @@ function DisputesIndexPage() {
               }`}
             >
               {isPending ? <Gavel className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}
-              {isPending ? "Resolve" : "View Case"}
+              {isPending ? "Case Room" : "View Dossier"}
             </Link>
           </div>
         );
@@ -237,19 +248,17 @@ function DisputesIndexPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm leading-relaxed text-muted-foreground">
-        <strong className="text-foreground">Pakistan cash-booking arbitration:</strong> Customers and Ustads report complaints directly from the mobile app. Job value is locked from the booking agreement. Click any case to open the full-page arbitration console with chat transcripts, photo evidence, and wallet refund/penalty controls.
-      </div>
-
-      {/* Summary Stats */}
+      {/* KPI Cards from Stats Endpoint */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="flex items-center gap-4 rounded-xl border border-hairline bg-card p-4">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
             <Scale className="h-5 w-5" />
           </div>
           <div>
-            <div className="font-mono text-2xl font-bold tabular-nums text-foreground">{stats.total}</div>
-            <div className="text-xs text-muted-foreground">Total Complaints</div>
+            <div className="font-mono text-2xl font-bold tabular-nums text-foreground">
+              {stats?.active ?? 0}
+            </div>
+            <div className="text-xs text-muted-foreground">Active Complaints</div>
           </div>
         </div>
 
@@ -258,8 +267,10 @@ function DisputesIndexPage() {
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div>
-            <div className="font-mono text-2xl font-bold tabular-nums text-destructive">{stats.open}</div>
-            <div className="text-xs text-muted-foreground">Open (On Page)</div>
+            <div className="font-mono text-2xl font-bold tabular-nums text-destructive">
+              {stats?.open ?? 0}
+            </div>
+            <div className="text-xs text-muted-foreground">New / Unopened</div>
           </div>
         </div>
 
@@ -268,8 +279,10 @@ function DisputesIndexPage() {
             <Clock className="h-5 w-5" />
           </div>
           <div>
-            <div className="font-mono text-2xl font-bold tabular-nums text-amber-500">{stats.review}</div>
-            <div className="text-xs text-muted-foreground">Under Review (On Page)</div>
+            <div className="font-mono text-2xl font-bold tabular-nums text-amber-500">
+              {stats?.underReview ?? 0}
+            </div>
+            <div className="text-xs text-muted-foreground">Under Investigation</div>
           </div>
         </div>
 
@@ -278,28 +291,52 @@ function DisputesIndexPage() {
             <CheckCircle2 className="h-5 w-5" />
           </div>
           <div>
-            <div className="font-mono text-2xl font-bold tabular-nums text-emerald-500">{stats.resolved}</div>
-            <div className="text-xs text-muted-foreground">Closed (On Page)</div>
+            <div className="font-mono text-2xl font-bold tabular-nums text-emerald-500">
+              {stats?.closed ?? 0}
+            </div>
+            <div className="text-xs text-muted-foreground">Closed Cases in History</div>
           </div>
         </div>
+      </div>
+
+      {/* Tabs: Active vs History */}
+      <div className="flex items-center gap-2 border-b border-hairline pb-2">
+        <button
+          type="button"
+          onClick={() => setScopeTab("active")}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition ${
+            scopeTab === "active"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-card hover:text-foreground"
+          }`}
+        >
+          <span>Active Complaints</span>
+          <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px]">
+            {stats?.active ?? 0}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setScopeTab("history")}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition ${
+            scopeTab === "history"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-card hover:text-foreground"
+          }`}
+        >
+          <span>Case History (Closed)</span>
+          <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px]">
+            {stats?.closed ?? 0}
+          </span>
+        </button>
       </div>
 
       <FilterToolbar>
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search disputes by name, phone, description or ID..."
-        />
-        <Select
-          value={statusFilter}
-          onChange={setStatusFilter}
-          label="All Statuses"
-          options={[
-            { value: "open", label: "Open / Unresolved" },
-            { value: "under_review", label: "Under Review" },
-            { value: "resolved", label: "Resolved (Client Favour)" },
-            { value: "dismissed", label: "Dismissed (Ustad Favour)" },
-          ]}
+          placeholder="Search by client, Ustad, description or ID..."
         />
         <Select
           value={reasonFilter}
@@ -324,8 +361,12 @@ function DisputesIndexPage() {
         onRowClick={(dispute: any) =>
           navigate({ to: "/disputes/$id", params: { id: String(dispute._id) } })
         }
-        emptyTitle="No disputes found"
-        emptyDescription="Customers and Ustads report issues from the mobile app under booking details."
+        emptyTitle={scopeTab === "active" ? "No active disputes" : "No closed case history"}
+        emptyDescription={
+          scopeTab === "active"
+            ? "When a customer or Ustad reports an issue, it will appear here."
+            : "Resolved and dismissed cases will be archived here."
+        }
         pagination={{
           page,
           totalPages: disputesData?.pagination.totalPages ?? 1,

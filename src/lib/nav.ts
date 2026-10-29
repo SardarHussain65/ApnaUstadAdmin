@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, Wrench, ClipboardList, Calendar, FolderKanban, Star, Bell, Settings,
-  Wallet, HelpCircle, BarChart3, History, UserCog, Scale, Tag, Fingerprint, Layers, Banknote, Route,
+  Wallet, HelpCircle, BarChart3, History, UserCog, Scale, Tag, Fingerprint, Layers, Banknote,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import type { AdminPermission } from "@/lib/admin-permissions";
@@ -32,8 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "People",
     items: [
       { to: "/users", label: "Customers", icon: Users, permission: "users" },
-      { to: "/workers", label: "Professionals", icon: Wrench, permission: "workers", badgeKey: "unverifiedWorkers" },
-      { to: "/onboarding", label: "Onboarding Queue", icon: Route, permission: "onboarding", badgeKey: "unverifiedWorkers" },
+      { to: "/workers", label: "Professionals", icon: Wrench, permission: "workers" },
       { to: "/verification", label: "Identity Reviews", icon: Fingerprint, permission: "verification", badgeKey: "pendingVerifications" },
       { to: "/specialty-requests", label: "Specialty Requests", icon: Layers, permission: "specialty-requests", badgeKey: "pendingSpecialties" },
     ],
@@ -78,7 +77,6 @@ export const PAGE_META: Record<string, { title: string; description: string }> =
   "/dashboard": { title: "Dashboard", description: "A live view of marketplace health and priority work." },
   "/users": { title: "Customers", description: "Manage customer accounts, access, and booking activity." },
   "/workers": { title: "Service Professionals", description: "Review worker profiles, availability, and performance." },
-  "/onboarding": { title: "Onboarding Pipeline", description: "Track worker verification, specialty, and wallet readiness." },
   "/verification": { title: "Identity Reviews", description: "Audit submitted documents and approve trusted professionals." },
   "/specialty-requests": { title: "Specialty Requests", description: "Approve paid category add-ons requested by workers." },
   "/jobs": { title: "Job Posts", description: "Monitor customer requests, bids, and marketplace fulfillment." },

@@ -913,6 +913,7 @@ export interface WalletSettings {
   minimumWalletBalance: number;
   additionalCategoryMonthlyFee: number;
   commissionEnabled: boolean;
+  cnicVerificationBonus?: number;
   updatedAt?: string;
 }
 
@@ -1421,6 +1422,29 @@ export const useDeleteAdmin = () => {
 };
 
 // --- Dispute Queries & Mutations ---
+export interface DisputeTimelineEvent {
+  type: 'opened' | 'evidence_added' | 'under_review' | 'withdrawn' | 'resolved' | 'dismissed' | 'closed';
+  actorType: 'customer' | 'worker' | 'admin' | 'system';
+  actorName?: string;
+  note?: string;
+  at: string;
+}
+
+export interface DisputeMessage {
+  _id: string;
+  dispute: string;
+  disputeId?: string;
+  senderType: 'customer' | 'worker' | 'admin' | 'system';
+  sender?: string | null;
+  senderName?: string;
+  content: string;
+  attachments: string[];
+  kind: 'message' | 'system' | 'decision';
+  replyTo?: string | null;
+  replySnapshot?: { content: string; senderType: string; senderName?: string } | null;
+  createdAt: string;
+}
+
 export interface Dispute {
   _id: string;
   booking?: any;
@@ -1429,19 +1453,31 @@ export interface Dispute {
   raisedBy: string;
   raisedByType: 'customer' | 'worker';
   reason: string;
+  reasonLabel?: string;
   description: string;
-  status: 'open' | 'under_review' | 'resolved' | 'dismissed';
+  status: 'open' | 'under_review' | 'resolved' | 'dismissed' | 'withdrawn';
   amountDisputed: number;
   proofImages: string[];
   adminNotes?: string;
   resolutionDetails?: string;
   resolvedBy?: any;
   resolvedAt?: string;
+  closedAt?: string | null;
+  outcome?: 'customer_favor' | 'worker_favor' | 'settled' | null;
+  outcomeLabel?: string;
+  phase?: 'reported' | 'checking' | 'closed';
+  isClosed?: boolean;
+  timeline?: DisputeTimelineEvent[];
+  lastMessageAt?: string | null;
+  lastMessagePreview?: string;
+  lastMessageSenderType?: string | null;
+  messageCount?: number;
   createdAt: string;
   moderationApplied?: {
     warnedCustomer?: boolean;
     warnedWorker?: boolean;
     customerRefund?: number;
+    workerCommissionRefund?: number;
     workerPenalty?: number;
     customerBlocked?: boolean;
     workerBlocked?: boolean;
@@ -1449,7 +1485,27 @@ export interface Dispute {
   updatedAt: string;
 }
 
-export const useDisputes = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string } = {}) => {
+export interface DisputeStats {
+  total: number;
+  active: number;
+  open: number;
+  underReview: number;
+  closed: number;
+  resolved: number;
+  dismissed: number;
+  withdrawn: number;
+  awaitingAdminReply: number;
+}
+
+export const useDisputeStats = () => {
+  return useQuery({
+    queryKey: ['dispute-stats'],
+    queryFn: () => api.get<DisputeStats>('/admin/disputes/stats'),
+    refetchInterval: 30000,
+  });
+};
+
+export const useDisputes = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string; scope?: string } = {}) => {
   const qs = toQueryString(params);
   return useQuery({
     queryKey: ['disputes', params],
@@ -1457,7 +1513,7 @@ export const useDisputes = (params: { page?: number; limit?: number; status?: st
   });
 };
 
-export const useDisputesPage = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string } = {}) =>
+export const useDisputesPage = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string; scope?: string } = {}) =>
   usePaginatedQuery<Dispute>('disputes', '/admin/disputes', params);
 
 export const useDisputeDetails = (id: string, enabled = true) => {
@@ -1465,6 +1521,31 @@ export const useDisputeDetails = (id: string, enabled = true) => {
     queryKey: ['dispute', id],
     queryFn: () => api.get<Dispute>(`/admin/disputes/${id}`),
     enabled: !!id && enabled,
+  });
+};
+
+export const useAdminDisputeMessages = (disputeId: string, enabled = true) => {
+  return useQuery({
+    queryKey: ['dispute-messages', disputeId],
+    queryFn: () => api.get<{ messages: DisputeMessage[]; hasMore: boolean }>(`/admin/disputes/${disputeId}/messages`),
+    enabled: !!disputeId && enabled,
+  });
+};
+
+export const useSendAdminDisputeMessage = (disputeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { content: string; attachments?: string[]; replyTo?: string | null }) =>
+      api.post<DisputeMessage>(`/admin/disputes/${disputeId}/messages`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dispute-messages', disputeId] });
+      queryClient.invalidateQueries({ queryKey: ['dispute', disputeId] });
+      queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      queryClient.invalidateQueries({ queryKey: ['dispute-stats'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to send message');
+    },
   });
 };
 
@@ -1477,10 +1558,14 @@ export const useResolveDispute = () => {
       adminNotes?: string;
       resolutionDetails?: string;
       refundAmount?: number;
+      refundWorkerCommission?: boolean;
+      workerCommissionRefund?: number;
       moderation?: {
         warnCustomer?: boolean;
         warnWorker?: boolean;
         workerPenalty?: number;
+        refundWorkerCommission?: boolean;
+        workerCommissionRefund?: number;
         blockCustomer?: boolean;
         blockWorker?: boolean;
         blockReason?: string;
@@ -1491,6 +1576,8 @@ export const useResolveDispute = () => {
       toast.success('Dispute resolution saved');
       queryClient.invalidateQueries({ queryKey: ['disputes'] });
       queryClient.invalidateQueries({ queryKey: ['dispute', data._id || data.data?._id] });
+      queryClient.invalidateQueries({ queryKey: ['dispute-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dispute-messages'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to resolve dispute');
