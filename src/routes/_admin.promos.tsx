@@ -32,6 +32,8 @@ type PromoFormState = {
   userUsageLimit: number;
   startDate: string;
   endDate: string;
+  firstTimeOnly: boolean;
+  city: string;
 };
 
 function PromosPage() {
@@ -71,6 +73,8 @@ function PromosPage() {
     userUsageLimit: 1,
     startDate: new Date().toISOString().split("T")[0],
     endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    firstTimeOnly: false,
+    city: "all",
   });
 
   // Copy helper
@@ -135,7 +139,9 @@ function PromosPage() {
       startDate: new Date(form.startDate).toISOString(),
       endDate: new Date(form.endDate).toISOString(),
       usageLimit: Number(form.usageLimit),
-      userUsageLimit: Number(form.userUsageLimit)
+      userUsageLimit: Number(form.userUsageLimit),
+      firstTimeOnly: form.firstTimeOnly,
+      city: form.city
     }, {
       onSuccess: () => {
         setIsCreateOpen(false);
@@ -150,6 +156,8 @@ function PromosPage() {
           userUsageLimit: 1,
           startDate: new Date().toISOString().split("T")[0],
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          firstTimeOnly: false,
+          city: "all",
         });
       }
     });
@@ -173,10 +181,10 @@ function PromosPage() {
       {/* 🚀 Header & Description */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">
             Promo & Coupon Management
           </h2>
-          <p className="text-sm text-dim mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Create coupons, configure checkout rules, track usages, and manage active system discounts.
           </p>
           <div className="mt-2"><Badge variant="info">Matching Coupons: {data?.pagination.totalItems ?? 0}</Badge></div>
@@ -336,6 +344,18 @@ function PromosPage() {
                           <span>Max Cap: {fmtPKR(p.maxDiscountAmount)}</span>
                         </div>
                       )}
+                      {p.firstTimeOnly && (
+                        <div className="flex items-center gap-1.5 text-amber-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          <span className="font-semibold">First-Time Customers Only</span>
+                        </div>
+                      )}
+                      {p.city && p.city !== "all" && (
+                        <div className="flex items-center gap-1.5 text-cyan-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                          <span className="font-semibold">City: {p.city}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -410,15 +430,24 @@ function PromosPage() {
               },
               {
                 key: "actions",
-                header: "",
+                header: "Actions",
                 render: (p) => (
-                  <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <button
+                      type="button"
+                      onClick={() => handleToggleStatus(p)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40 hover:text-primary transition"
+                    >
+                      <Power className="w-3.5 h-3.5" />
+                      {p.isActive ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setConfirmDelete(p)}
-                      className="p-2 rounded-lg hover:bg-destructive/15 text-muted-foreground hover:text-destructive transition-all"
+                      className="inline-flex items-center gap-1 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/20 transition-all"
                       title="Delete Promo Code"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
                     </button>
                   </div>
                 )
@@ -594,6 +623,53 @@ function PromosPage() {
                 required
               />
             </div>
+          </div>
+
+          {/* City Restriction */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block mb-1">
+              Geographic Scope (Pakistani City)
+            </label>
+            <select
+              value={form.city}
+              onChange={e => setForm({ ...form, city: e.target.value })}
+              className="w-full h-11 px-4 rounded-xl bg-surface-light border border-border focus:border-primary focus:outline-none transition-all text-white text-sm cursor-pointer"
+            >
+              <option value="all">All Pakistan (National Coverage)</option>
+              <option value="Karachi">Karachi</option>
+              <option value="Lahore">Lahore</option>
+              <option value="Islamabad">Islamabad</option>
+              <option value="Rawalpindi">Rawalpindi</option>
+              <option value="Peshawar">Peshawar</option>
+              <option value="Faisalabad">Faisalabad</option>
+              <option value="Multan">Multan</option>
+            </select>
+          </div>
+
+          {/* First-Time Customer Only Toggle */}
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-surface-light border border-border">
+            <div>
+              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>First-Time Customers Only</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Only users booking their first-ever service can apply this discount.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, firstTimeOnly: !form.firstTimeOnly })}
+              className={`w-12 h-6 rounded-full transition-colors relative flex items-center p-1 ${
+                form.firstTimeOnly ? "bg-amber-400" : "bg-card border border-border"
+              }`}
+            >
+              <div
+                className={`w-4 h-4 rounded-full transition-transform ${
+                  form.firstTimeOnly ? "translate-x-6 bg-black" : "translate-x-0 bg-muted-foreground"
+                }`}
+              />
+            </button>
           </div>
 
           {/* Submit Button */}

@@ -5,13 +5,15 @@ import {
   Wrench,
   Calendar,
   DollarSign,
-  CheckCircle2,
-  AlertCircle,
-  Inbox,
-  ArrowRight,
   TrendingUp,
   AlertTriangle,
-  Award
+  ArrowRight,
+  ShieldCheck,
+  Scale,
+  Wallet,
+  Activity,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -24,548 +26,601 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
   BarChart,
-  Bar
+  Bar,
 } from "recharts";
-import { StatCard, StatusBadge, Avatar, Badge } from "@/components/admin/ui";
-import { fmtPKR } from "@/lib/format";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { rangeFromPreset, toQueryDate, type DateRange } from "@/lib/date-range";
+import { fmtPKR, formatCompact, formatDate, formatPKR, shortId } from "@/lib/format";
 import { ActionCenter } from "@/components/admin/ActionCenter";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LiveOpsMap } from "@/components/admin/LiveOpsMap";
 import {
-  useDashboardStats,
+  useDashboardSummary,
+  useAnalyticsTimeseries,
   useBookings,
-  useVerifyWorker,
-  useWorkersPage,
-  useSupportRequests,
-  useWalletTopUpSummary
 } from "@/lib/api-hooks";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_admin/dashboard")({
   component: DashboardPage,
 });
 
+const CATEGORY_COLORS = ["#00F5FF", "#34C759", "#FF9500", "#BF5AF2", "#FF3B30", "#FFCC00", "#5AC8FA"];
+
 function DashboardPage() {
-  const [timeRange, setTimeRange] = useState<"7d" | "30d">("7d");
+  const [range, setRange] = useState<DateRange>(() => rangeFromPreset("30d"));
+  const [compare, setCompare] = useState<boolean>(true);
+  const [trendMetric, setTrendMetric] = useState<"finance" | "volume">("finance");
 
-  // Queries
-  const { data: statsData, isError: statsError } = useDashboardStats();
-  const { data: bookingsData } = useBookings({ limit: 100 }); // fetch more to populate trends and stats
-  const { data: workersData } = useWorkersPage({ verified: false, limit: 5 });
-  const { data: openTickets = [] } = useSupportRequests({ status: "open" });
-  const { data: topUpSummary } = useWalletTopUpSummary();
-  const verifyWorkerMutation = useVerifyWorker();
+  const queryParams = useMemo(() => ({
+    from: toQueryDate(range.from),
+    to: toQueryDate(range.to),
+    compare,
+  }), [range, compare]);
 
-  const recentBookings = useMemo(() => {
-    return ((bookingsData as any) || []).slice(0, 8);
-  }, [bookingsData]);
+  const { data: summaryData, isLoading: summaryLoading, isError: summaryError, refetch: refetchSummary } = useDashboardSummary(queryParams);
 
-  const pendingWorkers = useMemo(() => {
-    return (workersData?.items || []).filter((w: any) => !w.isVerified).slice(0, 5);
-  }, [workersData]);
+  const timeseriesParams = useMemo(() => ({
+    metrics: trendMetric === "finance"
+      ? ["revenue", "commission"]
+      : ["bookings", "completedBookings", "cancelledBookings"],
+    from: toQueryDate(range.from),
+    to: toQueryDate(range.to),
+    interval: range.preset === "90d" ? ("week" as const) : ("day" as const),
+  }), [trendMetric, range]);
 
-  // Dynamic Real-time Activity Logs Ticker
-  const liveActivityLogs = useMemo(() => {
-    const logs: { id: string; type: 'booking' | 'user' | 'worker' | 'finance'; text: string; time: string; color: string }[] = [];
-    
-    // Add bookings events
-    const bookings = (bookingsData as any) || [];
-    bookings.slice(0, 5).forEach((b: any) => {
-      const timeStr = b.createdAt ? new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
-      const customer = b.customer?.fullName || "A client";
-      const total = fmtPKR(b.totalAmount || 0);
-      if (b.status === 'completed') {
-        logs.push({
-          id: `b-c-${b._id}`,
-          type: 'finance',
-          text: `Booking completed: ${customer} paid ${total} to worker`,
-          time: timeStr,
-          color: 'text-success'
-        });
-      } else if (b.status === 'ongoing') {
-        logs.push({
-          id: `b-o-${b._id}`,
-          type: 'booking',
-          text: `Ustad assigned: Job #${b._id.slice(-4)} is now in progress`,
-          time: timeStr,
-          color: 'text-accent'
-        });
-      } else {
-        logs.push({
-          id: `b-p-${b._id}`,
-          type: 'booking',
-          text: `New job request: ${customer} requested ${b.category || 'service'}`,
-          time: timeStr,
-          color: 'text-primary'
-        });
+  const { data: timeseriesData, isLoading: timeseriesLoading } = useAnalyticsTimeseries(timeseriesParams);
+
+  // Recent bookings for live operations list
+  const { data: bookingsData, isLoading: bookingsLoading } = useBookings({ limit: 8 });
+
+  const metrics = summaryData?.metrics;
+  const rangeInfo = summaryData?.range;
+
+  // Transform timeseries points for chart display
+  const chartPoints = useMemo(() => {
+    if (!timeseriesData?.points || timeseriesData.points.length === 0) return [];
+    return timeseriesData.points.map((p) => {
+      let label = p.date;
+      if (p.date && p.date.length === 10) {
+        const [year, month, day] = p.date.split("-");
+        label = range.preset === "7d"
+          ? new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString("en-US", { weekday: "short" })
+          : `${day} ${new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString("en-US", { month: "short" })}`;
       }
-    });
-
-    // Add support tickets events
-    openTickets.slice(0, 3).forEach((t: any) => {
-      const timeStr = t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '2h ago';
-      logs.push({
-        id: `t-${t._id}`,
-        type: 'user',
-        text: `Support ticket: "${t.subject || 'Dispute raising'}" under review`,
-        time: timeStr,
-        color: 'text-secondary'
-      });
-    });
-
-    if (logs.length === 0) {
-      return [
-        { id: 'empty', type: 'booking', text: 'No recent booking or support activity.', time: 'Now', color: 'text-muted-foreground' }
-      ];
-    }
-
-    return logs;
-  }, [bookingsData, openTickets]);
-
-  // Real % Growth Calculation
-  const calculateGrowthPct = (total: number, newLastMonth: number) => {
-    if (!total || total === 0) return 0;
-    const previous = total - newLastMonth;
-    if (previous <= 0) return 100;
-    return Math.round((newLastMonth / previous) * 100);
-  };
-
-  const stats = useMemo(() => {
-    if (statsData?.counts) {
-      const usersGrowth = calculateGrowthPct(statsData.counts.users, statsData.growth.newUsersLastMonth);
-      const workersGrowth = calculateGrowthPct(statsData.counts.workers, statsData.growth.newWorkersLastMonth);
-      const bookingsGrowth = calculateGrowthPct(statsData.counts.bookings, statsData.growth.newBookingsLastMonth);
-      const revenueGrowth = calculateGrowthPct(statsData.counts.revenue, statsData.growth.newRevenueLastMonth);
-      
       return {
-        totalUsers: statsData.counts.users,
-        usersChange: usersGrowth,
-        totalWorkers: statsData.counts.workers,
-        workersChange: workersGrowth,
-        totalBookings: statsData.counts.bookings,
-        bookingsChange: bookingsGrowth,
-        totalRevenue: statsData.counts.revenue,
-        revenueChange: revenueGrowth
+        ...p,
+        label,
       };
-    }
-    return {
-      totalUsers: 0,
-      usersChange: 0,
-      totalWorkers: 0,
-      workersChange: 0,
-      totalBookings: 0,
-      bookingsChange: 0,
-      totalRevenue: 0,
-      revenueChange: 0
-    };
-  }, [statsData]);
+    });
+  }, [timeseriesData, range.preset]);
 
-  // Dynamic Bookings Trend Chart based on actual bookings
-  const bookingsTrendData = useMemo(() => {
-    const bookings = (bookingsData as any) || [];
-    const limitDays = timeRange === "7d" ? 7 : 30;
-    
-    if (bookings.length === 0) {
-      return Array.from({ length: limitDays }).map((_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (limitDays - 1 - i));
-        return {
-          day: timeRange === "7d" ? d.toLocaleDateString('en-US', { weekday: 'short' }) : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
-          bookings: 0
-        };
-      });
-    }
-
-    const lastNDays: { day: string; dateStr: string; count: number }[] = [];
-
-    // Setup past N dates
-    for (let i = limitDays - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toDateString();
-      const label = timeRange === "7d" 
-        ? d.toLocaleDateString('en-US', { weekday: 'short' }) 
-        : d.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-      
-      lastNDays.push({
-        day: label,
-        dateStr,
-        count: 0
-      });
-    }
-
-    // Populate counts
-    bookings.forEach((b: any) => {
-      if (b.createdAt) {
-        const bDateStr = new Date(b.createdAt).toDateString();
-        const match = lastNDays.find(dayObj => dayObj.dateStr === bDateStr);
-        if (match) {
-          match.count++;
-        }
-      }
+  // Category breakdown aggregated from real bookings
+  const categoryBreakdown = useMemo(() => {
+    const list = (bookingsData as any) || [];
+    if (!list.length) return [];
+    const counts: Record<string, number> = {};
+    let total = 0;
+    list.forEach((b: any) => {
+      const cat = b.category || "General";
+      counts[cat] = (counts[cat] || 0) + (b.totalAmount || 1);
+      total += b.totalAmount || 1;
     });
 
-    return lastNDays.map(item => ({
-      day: item.day,
-      bookings: item.count
-    }));
-  }, [bookingsData, timeRange]);
-
-  // Dynamic status distribution from fetched bookings
-  const dynamicStatusDistribution = useMemo(() => {
-    const bookings = (bookingsData as any) || [];
-    if (bookings.length === 0) return [];
-
-    const counts: Record<string, number> = {
-      completed: 0,
-      ongoing: 0,
-      pending: 0,
-      cancelled: 0
-    };
-
-    bookings.forEach((b: any) => {
-      if (b.status && counts[b.status] !== undefined) {
-        counts[b.status]++;
-      }
-    });
-
-    const colors = {
-      completed: "#34C759", // green
-      ongoing: "#FF9500", // orange
-      pending: "#FFCC00", // yellow
-      cancelled: "#FF3B30" // red
-    } as any;
-
-    return Object.entries(counts).map(([name, value]) => ({
-      name: name.toUpperCase(),
+    const entries = Object.entries(counts).map(([name, value], i) => ({
+      name,
       value,
-      color: colors[name] || "#8E8E93"
-    })).filter(item => item.value > 0);
+      pct: total > 0 ? Math.round((value / total) * 100) : 0,
+      color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+    }));
+
+    return entries.sort((a, b) => b.value - a.value);
   }, [bookingsData]);
 
-  // Revenue by Category based on real bookings
-  const revenueByCategory = useMemo(() => {
-    const bookings = (bookingsData as any) || [];
-    const grouped = bookings
-      .filter((b: any) => b.status === "completed")
-      .reduce((acc: Record<string, number>, b: any) => {
-        const cat = b.category || "General";
-        acc[cat] = (acc[cat] ?? 0) + (b.totalAmount || 0);
-        return acc;
-      }, {} as Record<string, number>);
-
-    return Object.entries(grouped)
-      .map(([category, revenue]) => ({ category, revenue }))
-      .sort((a: any, b: any) => b.revenue - a.revenue)
-      .slice(0, 5);
-  }, [bookingsData]);
-
-  const pendingTopUpsCount = topUpSummary?.pending?.count || 0;
-  const pendingWorkersCount = workersData?.pagination.totalItems ?? 0;
+  const categoryTotal = useMemo(() => {
+    return categoryBreakdown.reduce((sum, item) => sum + item.value, 0);
+  }, [categoryBreakdown]);
 
   return (
     <div className="space-y-6">
-      {statsError && (
-        <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Live dashboard totals are temporarily unavailable. Values remain at zero until the API responds.
+      {/* Top Filter Controls: Date Range + Compare Toggle */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">Platform Overview</h2>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
+              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+              Live Ops
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Real-time analytics for Pakistan operations (PKT UTC+5)
+            {rangeInfo && compare && rangeInfo.previousFrom && (
+              <span className="hidden md:inline">
+                {" "}· Comparing with previous {rangeInfo.days} days
+              </span>
+            )}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangePicker value={range} onChange={setRange} />
+
+          <button
+            type="button"
+            onClick={() => setCompare(!compare)}
+            className={cn(
+              "inline-flex h-8 items-center gap-1.5 rounded-xl border px-3 text-13 font-semibold transition",
+              compare
+                ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+                : "border-hairline bg-surface/70 text-muted-foreground hover:text-foreground"
+            )}
+            title="Toggle period-over-period comparison"
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            <span>Compare</span>
+          </button>
+        </div>
+      </div>
+
+      {summaryError && (
+        <div role="alert" className="flex items-center justify-between rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <span>Failed to load live dashboard summary. Showing default figures.</span>
+          <button
+            type="button"
+            onClick={() => refetchSummary()}
+            className="text-xs font-bold underline underline-offset-2 hover:opacity-80"
+          >
+            Retry
+          </button>
         </div>
       )}
-      
-      {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+
+      {/* Primary Financial & Core Metrics Row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Total Users"
-          value={Number(stats.totalUsers) || 0}
-          change={stats.usersChange}
-          gradient="gradient-cyan glow-cyan"
-          icon={<Users className="w-6 h-6 text-background" />}
+          label="Gross Revenue"
+          value={metrics?.revenue?.current ?? 0}
+          previous={compare ? (metrics?.revenue?.previous ?? null) : undefined}
+          sparkline={metrics?.revenue?.sparkline}
+          format="currency"
+          icon={<DollarSign className="h-5 w-5 text-cyan-400" />}
+          iconClassName="bg-cyan-500/10 border border-cyan-500/20"
+          tooltip="Total value of settled service payments in selected period"
+          loading={summaryLoading}
+          index={0}
         />
         <StatCard
-          label="Total Workers"
-          value={Number(stats.totalWorkers) || 0}
-          change={stats.workersChange}
-          gradient="gradient-orange glow-orange"
-          icon={<Wrench className="w-6 h-6 text-white" />}
+          label="App Commission"
+          value={metrics?.commission?.current ?? 0}
+          previous={compare ? (metrics?.commission?.previous ?? null) : undefined}
+          sparkline={metrics?.commission?.sparkline}
+          format="currency"
+          icon={<TrendingUp className="h-5 w-5 text-emerald-400" />}
+          iconClassName="bg-emerald-500/10 border border-emerald-500/20"
+          tooltip="App fee earned by ApnaUstad on completed bookings"
+          loading={summaryLoading}
+          index={1}
         />
         <StatCard
-          label="Total Bookings"
-          value={Number(stats.totalBookings) || 0}
-          change={stats.bookingsChange}
-          gradient="gradient-purple glow-purple"
-          icon={<Calendar className="w-6 h-6 text-white" />}
+          label="Service Bookings"
+          value={metrics?.bookings?.current ?? 0}
+          previous={compare ? (metrics?.bookings?.previous ?? null) : undefined}
+          sparkline={metrics?.bookings?.sparkline}
+          format="number"
+          icon={<Calendar className="h-5 w-5 text-amber-400" />}
+          iconClassName="bg-amber-500/10 border border-amber-500/20"
+          tooltip="Total customer bookings made during this period"
+          loading={summaryLoading}
+          index={2}
         />
         <StatCard
-          label="Total Revenue"
-          value={Number(stats.totalRevenue) || 0}
-          change={stats.revenueChange}
-          isCurrency
-          gradient="gradient-success"
-          icon={<DollarSign className="w-6 h-6 text-white" />}
+          label="Cancellation Rate"
+          value={metrics?.cancellationRate?.current ?? 0}
+          previous={compare ? (metrics?.cancellationRate?.previous ?? null) : undefined}
+          sparkline={metrics?.cancellationRate?.sparkline}
+          format="percent"
+          decimals={1}
+          invertDelta={true}
+          icon={<AlertTriangle className="h-5 w-5 text-rose-400" />}
+          iconClassName="bg-rose-500/10 border border-rose-500/20"
+          tooltip="% of created bookings that ended in cancellation (lower is better)"
+          loading={summaryLoading}
+          index={3}
         />
       </div>
 
-      <ActionCenter />
-
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        
-        {/* Bookings Trend */}
-        <div className="lg:col-span-3 bg-card border border-border rounded-2xl p-5 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-bold text-lg text-white">Recent Bookings Trend</h3>
-              <p className="text-xs text-dim">Daily count from the latest 100 bookings ({timeRange === "7d" ? "past week" : "past month"})</p>
-            </div>
-            
-            <div className="flex items-center gap-1 bg-surface-light/40 border border-border/60 p-0.5 rounded-xl">
-              <button
-                onClick={() => setTimeRange("7d")}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  timeRange === "7d" ? "bg-primary text-background shadow-md" : "text-muted-foreground hover:text-white"
-                }`}
-              >
-                7 Days
-              </button>
-              <button
-                onClick={() => setTimeRange("30d")}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  timeRange === "30d" ? "bg-primary text-background shadow-md" : "text-muted-foreground hover:text-white"
-                }`}
-              >
-                30 Days
-              </button>
-            </div>
+      {/* Secondary Operational Metrics Row */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-hairline bg-surface/60 p-3.5 backdrop-blur-sm transition hover:border-hairline-strong">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>New Customers</span>
+            <Users className="h-3.5 w-3.5 text-primary" />
           </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={bookingsTrendData}>
-              <defs>
-                <linearGradient id="colorBookings" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#00F5FF" stopOpacity={0.6} />
-                  <stop offset="100%" stopColor="#00F5FF" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1C1C2E" />
-              <XAxis dataKey="day" stroke="#5B5B5E" fontSize={11} />
-              <YAxis stroke="#5B5B5E" fontSize={11} />
-              <Tooltip
-                contentStyle={{
-                  background: "#0F0F1A",
-                  border: "1px solid #1C1C2E",
-                  borderRadius: 12,
-                  color: "#fff"
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="bookings"
-                stroke="#00F5FF"
-                strokeWidth={2.5}
-                fill="url(#colorBookings)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Status Distribution */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-5 shadow-card">
-          <h3 className="font-bold text-lg text-white">Recent Status Distribution</h3>
-          <p className="text-xs text-dim mb-4">Latest 100 bookings categorized by status</p>
-          {dynamicStatusDistribution.length === 0 ? (
-            <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">No booking data available</div>
-          ) : (
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={dynamicStatusDistribution}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={90}
-                paddingAngle={3}
-              >
-                {dynamicStatusDistribution.map(s => (
-                  <Cell key={s.name} fill={s.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  background: "#0F0F1A",
-                  border: "1px solid #1C1C2E",
-                  borderRadius: 12
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: 11, color: "#8E8E93" }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="mt-1.5 text-xl font-bold font-mono tracking-tight text-foreground">
+            {metrics?.newUsers?.current ?? 0}
+          </div>
+          {compare && metrics?.newUsers?.deltaPct !== null && (
+            <div className={cn("text-[11px] font-semibold mt-0.5", (metrics?.newUsers?.deltaPct ?? 0) >= 0 ? "text-success" : "text-destructive")}>
+              {(metrics?.newUsers?.deltaPct ?? 0) > 0 ? "+" : ""}{metrics?.newUsers?.deltaPct}% vs prev
+            </div>
           )}
         </div>
 
-      </div>
-
-      {/* Revenue by Category */}
-      <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-bold text-lg text-white">Recent Revenue by Category</h3>
-            <p className="text-xs text-dim">Completed totals from the latest 100 bookings</p>
+        <div className="rounded-xl border border-hairline bg-surface/60 p-3.5 backdrop-blur-sm transition hover:border-hairline-strong">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>New Ustads</span>
+            <Wrench className="h-3.5 w-3.5 text-amber-400" />
           </div>
-          <Badge variant="orange">PKR ₨</Badge>
+          <div className="mt-1.5 text-xl font-bold font-mono tracking-tight text-foreground">
+            {metrics?.newWorkers?.current ?? 0}
+          </div>
+          {compare && metrics?.newWorkers?.deltaPct !== null && (
+            <div className={cn("text-[11px] font-semibold mt-0.5", (metrics?.newWorkers?.deltaPct ?? 0) >= 0 ? "text-success" : "text-destructive")}>
+              {(metrics?.newWorkers?.deltaPct ?? 0) > 0 ? "+" : ""}{metrics?.newWorkers?.deltaPct}% vs prev
+            </div>
+          )}
         </div>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart
-            data={
-              revenueByCategory.length > 0
-                ? revenueByCategory
-                : [{ category: "No Data", revenue: 0 }]
-            }
-          >
-            <defs>
-              <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#FF8C00" stopOpacity={0.95} />
-                <stop offset="100%" stopColor="#BF5AF2" stopOpacity={0.7} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1C1C2E" />
-            <XAxis dataKey="category" stroke="#5B5B5E" fontSize={11} />
-            <YAxis stroke="#5B5B5E" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-            <Tooltip
-              contentStyle={{
-                background: "#0F0F1A",
-                border: "1px solid #1C1C2E",
-                borderRadius: 12,
-                color: "#fff"
-              }}
-              formatter={(v: number) => fmtPKR(v)}
-            />
-            <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+
+        <div className="rounded-xl border border-hairline bg-surface/60 p-3.5 backdrop-blur-sm transition hover:border-hairline-strong">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Wallet Top-ups</span>
+            <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+          </div>
+          <div className="mt-1.5 text-xl font-bold font-mono tracking-tight text-foreground">
+            {fmtPKR(metrics?.topupVolume?.current ?? 0)}
+          </div>
+          {compare && metrics?.topupVolume?.deltaPct !== null && (
+            <div className={cn("text-[11px] font-semibold mt-0.5", (metrics?.topupVolume?.deltaPct ?? 0) >= 0 ? "text-success" : "text-destructive")}>
+              {(metrics?.topupVolume?.deltaPct ?? 0) > 0 ? "+" : ""}{metrics?.topupVolume?.deltaPct}% vs prev
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-hairline bg-surface/60 p-3.5 backdrop-blur-sm transition hover:border-hairline-strong">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Complaints</span>
+            <Scale className="h-3.5 w-3.5 text-rose-400" />
+          </div>
+          <div className="mt-1.5 text-xl font-bold font-mono tracking-tight text-foreground">
+            {metrics?.disputes?.current ?? 0}
+          </div>
+          {compare && metrics?.disputes?.deltaPct !== null && (
+            <div className={cn("text-[11px] font-semibold mt-0.5", (metrics?.disputes?.deltaPct ?? 0) <= 0 ? "text-success" : "text-destructive")}>
+              {(metrics?.disputes?.deltaPct ?? 0) > 0 ? "+" : ""}{metrics?.disputes?.deltaPct}% vs prev
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Recent bookings + pending workers */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        
-        {/* Recent Bookings */}
-        <div className="xl:col-span-2 bg-card border border-border rounded-2xl shadow-card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <h3 className="font-bold text-white">Recent Bookings</h3>
-            <Link to="/bookings" className="text-xs text-primary font-semibold hover:underline">
-              View All Bookings →
-            </Link>
+      {/* Action Center Banner */}
+      <ActionCenter />
+
+      {/* Analytics Charts Row */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        {/* Main Timeseries Chart (3 Cols) */}
+        <div className="rounded-2xl border border-hairline bg-card p-5 shadow-card lg:col-span-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Performance Timeseries</h3>
+              <p className="text-xs text-muted-foreground">
+                {trendMetric === "finance"
+                  ? "Daily Gross Revenue vs Platform Commission"
+                  : "Daily Bookings volume: requested, completed and cancelled"}
+              </p>
+            </div>
+
+            <div className="inline-flex items-center gap-1 rounded-xl border border-hairline bg-surface/70 p-1">
+              <button
+                type="button"
+                onClick={() => setTrendMetric("finance")}
+                className={cn(
+                  "h-7 rounded-lg px-2.5 text-xs font-semibold transition",
+                  trendMetric === "finance"
+                    ? "bg-card text-foreground shadow-card"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Revenue
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrendMetric("volume")}
+                className={cn(
+                  "h-7 rounded-lg px-2.5 text-xs font-semibold transition",
+                  trendMetric === "volume"
+                    ? "bg-card text-foreground shadow-card"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Bookings
+              </button>
+            </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="text-[11px] uppercase tracking-wider text-dim border-b border-border/80 bg-surface-light/10">
-                  <th className="px-5 py-3">Booking ID</th>
-                  <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Worker</th>
-                  <th className="px-5 py-3">Amount</th>
-                  <th className="px-5 py-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {recentBookings.map((b: any, i: number) => (
-                  <tr
-                    key={b._id}
-                    className="hover:bg-surface-light/10 transition animate-fade-in"
-                    style={{ animationDelay: `${i * 30}ms` }}
-                  >
-                    <td className="px-5 py-3.5 font-mono text-xs text-primary">
-                      #{b._id.slice(-6)}
+
+          <div className="h-[280px] w-full">
+            {timeseriesLoading ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              </div>
+            ) : chartPoints.length === 0 ? (
+              <div className="flex h-full items-center justify-center">
+                <EmptyState
+                  title="No activity in period"
+                  description="Try selecting a wider date range or clearing filters."
+                  variant="empty"
+                />
+              </div>
+            ) : chartPoints.length < 3 ? (
+              // Bar chart fallback for sparse data points
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartPoints} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
+                  <XAxis dataKey="label" stroke="#888" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#888" fontSize={11} tickLine={false} tickFormatter={(v) => trendMetric === "finance" ? formatCompact(v) : String(v)} />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const item = payload[0].payload;
+                      return (
+                        <div className="rounded-xl border border-hairline-strong bg-card/95 p-3 shadow-xl backdrop-blur-md">
+                          <div className="text-xs font-bold text-foreground mb-1">{item.date}</div>
+                          {payload.map((entry: any) => (
+                            <div key={entry.name} className="flex items-center justify-between gap-4 text-xs">
+                              <span className="text-muted-foreground capitalize">{entry.name}:</span>
+                              <span className="font-mono font-bold text-foreground">
+                                {trendMetric === "finance" ? formatPKR(entry.value) : entry.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }}
+                  />
+                  {trendMetric === "finance" ? (
+                    <>
+                      <Bar dataKey="revenue" fill="#00F5FF" radius={[6, 6, 0, 0]} name="Gross Revenue" />
+                      <Bar dataKey="commission" fill="#34C759" radius={[6, 6, 0, 0]} name="Commission" />
+                    </>
+                  ) : (
+                    <>
+                      <Bar dataKey="bookings" fill="#FF9500" radius={[6, 6, 0, 0]} name="Requested" />
+                      <Bar dataKey="completedBookings" fill="#34C759" radius={[6, 6, 0, 0]} name="Completed" />
+                      <Bar dataKey="cancelledBookings" fill="#FF3B30" radius={[6, 6, 0, 0]} name="Cancelled" />
+                    </>
+                  )}
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              // Smooth area chart for dense data points
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartPoints} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00F5FF" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#00F5FF" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="colorComm" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#34C759" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#34C759" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="colorBook" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#FF9500" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#FF9500" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
+                  <XAxis dataKey="label" stroke="#888" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#888" fontSize={11} tickLine={false} tickFormatter={(v) => trendMetric === "finance" ? formatCompact(v) : String(v)} />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const item = payload[0].payload;
+                      return (
+                        <div className="rounded-xl border border-hairline-strong bg-card/95 p-3 shadow-xl backdrop-blur-md">
+                          <div className="text-xs font-bold text-foreground mb-1">{item.date}</div>
+                          {payload.map((entry: any) => (
+                            <div key={entry.name} className="flex items-center justify-between gap-4 text-xs py-0.5">
+                              <span className="text-muted-foreground capitalize">{entry.name}:</span>
+                              <span className="font-mono font-bold text-foreground">
+                                {trendMetric === "finance" ? formatPKR(entry.value) : entry.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }}
+                  />
+                  {trendMetric === "finance" ? (
+                    <>
+                      <Area type="monotone" dataKey="revenue" stroke="#00F5FF" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" name="Revenue" />
+                      <Area type="monotone" dataKey="commission" stroke="#34C759" strokeWidth={2} fillOpacity={1} fill="url(#colorComm)" name="Commission" />
+                    </>
+                  ) : (
+                    <>
+                      <Area type="monotone" dataKey="bookings" stroke="#FF9500" strokeWidth={2} fillOpacity={1} fill="url(#colorBook)" name="Bookings" />
+                      <Area type="monotone" dataKey="completedBookings" stroke="#34C759" strokeWidth={2} fillOpacity={0} name="Completed" />
+                      <Area type="monotone" dataKey="cancelledBookings" stroke="#FF3B30" strokeWidth={2} fillOpacity={0} name="Cancelled" />
+                    </>
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Category Breakdown Donut (2 Cols) */}
+        <div className="rounded-2xl border border-hairline bg-card p-5 shadow-card lg:col-span-2">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Category Share</h3>
+              <p className="text-xs text-muted-foreground">Volume distribution by service</p>
+            </div>
+            <span className="text-xs font-mono font-bold text-muted-foreground">
+              {categoryBreakdown.length} Services
+            </span>
+          </div>
+
+          <div className="relative h-[200px] w-full flex items-center justify-center">
+            {categoryBreakdown.length === 0 ? (
+              <EmptyState title="No category data" description="Bookings will appear here." variant="empty" />
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryBreakdown}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={85}
+                      paddingAngle={categoryBreakdown.length > 1 ? 3 : 0}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {categoryBreakdown.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const data = payload[0].payload;
+                        return (
+                          <div className="rounded-xl border border-hairline-strong bg-card/95 p-2.5 shadow-xl text-xs backdrop-blur-md">
+                            <div className="font-bold text-foreground">{data.name}</div>
+                            <div className="font-mono text-muted-foreground mt-0.5">
+                              {fmtPKR(data.value)} ({data.pct}%)
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center total */}
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">Total</span>
+                  <span className="font-mono text-base font-bold text-foreground">
+                    {formatCompact(categoryTotal)}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Legend Chips */}
+          <div className="mt-3 space-y-1.5 max-h-[90px] overflow-y-auto scrollbar-thin pr-1">
+            {categoryBreakdown.map((cat) => (
+              <div key={cat.name} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                  <span className="truncate text-foreground font-medium">{cat.name}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 font-mono">
+                  <span className="text-muted-foreground">{cat.pct}%</span>
+                  <span className="font-semibold text-foreground">{fmtPKR(cat.value)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 🇵🇰 Pakistan Operations Radar Map */}
+      <LiveOpsMap />
+
+      {/* Recent Bookings Queue Table */}
+      <div className="rounded-2xl border border-hairline bg-card overflow-hidden shadow-card">
+        <div className="flex items-center justify-between border-b border-hairline p-5">
+          <div>
+            <h3 className="text-base font-bold text-foreground">Recent Bookings Queue</h3>
+            <p className="text-xs text-muted-foreground">Latest customer booking requests across all service areas</p>
+          </div>
+          <Link
+            to="/bookings"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline underline-offset-4"
+          >
+            <span>View All</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-hairline bg-surface/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <th className="px-5 py-3">Booking ID</th>
+                <th className="px-5 py-3">Customer</th>
+                <th className="px-5 py-3">Assigned Ustad</th>
+                <th className="px-5 py-3">Category</th>
+                <th className="px-5 py-3">Amount</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Scheduled</th>
+                <th className="px-5 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-hairline text-13">
+              {bookingsLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={8} className="px-5 py-3.5">
+                      <div className="h-4 rounded bg-surface-light/40" />
                     </td>
-                    <td className="px-5 py-3.5 font-medium text-white">
+                  </tr>
+                ))
+              ) : ((bookingsData as any) || []).length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                    No recent bookings found.
+                  </td>
+                </tr>
+              ) : (
+                ((bookingsData as any) || []).slice(0, 8).map((b: any) => (
+                  <tr key={String(b._id)} className="transition hover:bg-surface-light/10">
+                    <td className="px-5 py-3.5 font-mono text-xs font-semibold text-primary">
+                      {shortId(b._id)}
+                    </td>
+                    <td className="px-5 py-3.5 font-medium text-foreground">
                       {b.customer?.fullName || "Anonymous"}
                     </td>
-                    <td className="px-5 py-3.5 text-accent font-medium">
-                      {b.worker?.fullName || "Pending"}
+                    <td className="px-5 py-3.5 text-muted-foreground">
+                      {b.worker?.fullName ? (
+                        <span className="text-foreground font-medium">{b.worker.fullName}</span>
+                      ) : (
+                        <span className="italic text-dim text-xs">Unassigned</span>
+                      )}
                     </td>
-                    <td className="px-5 py-3.5 font-bold text-white">
+                    <td className="px-5 py-3.5 text-muted-foreground">
+                      {b.category || "General"}
+                    </td>
+                    <td className="px-5 py-3.5 font-bold font-mono text-foreground">
                       {fmtPKR(b.totalAmount || 0)}
                     </td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={b.status} />
                     </td>
-                  </tr>
-                ))}
-                {recentBookings.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-10 text-center text-dim">
-                      No bookings have been made yet
+                    <td className="px-5 py-3.5 text-xs text-muted-foreground">
+                      {b.scheduledDate ? formatDate(b.scheduledDate, "dd MMM yyyy") : "ASAP"}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <Link
+                        to="/bookings/$id"
+                        params={{ id: String(b._id) }}
+                        className="inline-flex h-7 items-center justify-center rounded-lg border border-hairline px-2.5 text-xs font-semibold text-foreground hover:bg-surface-light transition"
+                      >
+                        Inspect
+                      </Link>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-
-        {/* Pending Verifications */}
-        <div className="bg-card border border-border rounded-2xl shadow-card">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h3 className="font-bold text-white">Pending Verifications</h3>
-            <Link to="/verification" className="text-xs text-primary font-semibold hover:underline">
-              Review Queue →
-            </Link>
-          </div>
-          <div className="p-3 space-y-2">
-            {pendingWorkers.map((w: any, i: number) => (
-              <div
-                key={w._id}
-                className="flex items-center gap-3 p-3 rounded-xl bg-surface-light/20 hover:bg-surface-light/45 transition border border-border/20 animate-fade-in"
-                style={{ animationDelay: `${i * 50}ms` }}
-              >
-                <Avatar src={w.profileImage} name={w.fullName} size={36} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm text-white truncate leading-snug">
-                    {w.fullName}
-                  </div>
-                  <div className="text-[10px] text-dim flex items-center gap-1.5 mt-0.5">
-                    <span className="font-semibold">{w.category}</span>
-                    <span>•</span>
-                    <span>{w.city}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => verifyWorkerMutation.mutate({ id: w._id, isVerified: true })}
-                  disabled={verifyWorkerMutation.isPending}
-                  className="btn-press px-2.5 py-1.5 rounded-lg gradient-cyan text-background text-[11px] font-bold flex items-center gap-1 disabled:opacity-60 shadow-md"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Verify
-                </button>
-              </div>
-            ))}
-            {pendingWorkers.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-dim space-y-2">
-                <Award className="w-8 h-8 text-gold opacity-45" />
-                <div className="text-xs font-semibold text-white">All Clear!</div>
-                <div className="text-[10px] max-w-[180px]">All worker profiles have been verified.</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Live Operations Feed Ticker */}
-        <div className="bg-card border border-border rounded-2xl shadow-card flex flex-col h-[380px] xl:h-auto">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h3 className="font-bold text-white flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-success animate-ping" />
-              Live Operations
-            </h3>
-            <Badge variant="info">Telemetry</Badge>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-[11px] leading-relaxed">
-            {liveActivityLogs.map((log) => (
-              <div key={log.id} className="flex gap-2.5 p-2 rounded-lg bg-surface-light/10 border border-white/[0.02] hover:bg-surface-light/20 transition-all">
-                <span className="text-[10px] text-dim flex-shrink-0">{log.time}</span>
-                <span className="text-muted-foreground flex-shrink-0">|</span>
-                <span className={`flex-1 ${log.color} break-all`}>{log.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
       </div>
     </div>
   );

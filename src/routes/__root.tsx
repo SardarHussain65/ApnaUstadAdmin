@@ -10,6 +10,9 @@ import {
 import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
+import { THEME_BOOT_SCRIPT, ThemeProvider } from "@/components/admin/ThemeProvider";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { usePreferences } from "@/lib/preferences";
 
 function NotFoundComponent() {
   if (typeof window !== "undefined") {
@@ -42,7 +45,7 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  if (import.meta.env.DEV) console.error(error);
   const router = useRouter();
 
   return (
@@ -101,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@500;600;700;800&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" },
       { rel: "stylesheet", href: appCss },
     ],
   }),
@@ -113,8 +116,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        {/* Applies the persisted theme before first paint to avoid a flash */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -125,13 +130,28 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ThemedToaster() {
+  const { theme } = usePreferences();
+  return (
+    <Toaster
+      theme={theme}
+      position="top-right"
+      toastOptions={{ style: { background: "var(--popover)", border: "1px solid var(--hairline-strong)", color: "var(--popover-foreground)" } }}
+    />
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: "#0F0F1A", border: "1px solid #1C1C2E", color: "#fff" } }} />
+      <ThemeProvider>
+        <TooltipProvider delayDuration={200}>
+          <Outlet />
+          <ThemedToaster />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

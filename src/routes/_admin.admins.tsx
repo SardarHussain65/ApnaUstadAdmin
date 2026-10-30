@@ -13,12 +13,15 @@ import {
   Plus,
   Shield,
   ShieldAlert,
+  ShieldCheck,
   Trash2,
   Power,
   Mail,
   User,
   Lock,
-  Clock
+  Clock,
+  Check,
+  X
 } from "lucide-react";
 
 export const Route = createFileRoute("/_admin/admins")({
@@ -30,6 +33,7 @@ function AdminsManagementPage() {
 
   // Dialog / Modal States
   const [createOpen, setCreateOpen] = useState(false);
+  const [matrixOpen, setMatrixOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [statusConfirmId, setStatusConfirmId] = useState<string | null>(null);
 
@@ -103,18 +107,27 @@ function AdminsManagementPage() {
   return (
     <div className="space-y-6">
       {/* Header action bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-white">System Administrators</h2>
           <p className="text-xs text-dim">Add, manage, and configure system sub-admins & super-admins</p>
         </div>
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="flex items-center gap-2 bg-primary hover:bg-primary/95 text-background px-4 py-2 rounded-xl text-sm font-bold shadow-cyan-glow transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Admin</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMatrixOpen(true)}
+            className="flex items-center gap-2 bg-surface-light hover:bg-surface-light/80 border border-border text-white px-3.5 py-2 rounded-xl text-sm font-semibold transition"
+          >
+            <ShieldCheck className="w-4 h-4 text-primary" />
+            <span>Role Permissions Matrix</span>
+          </button>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-2 bg-primary hover:bg-primary/95 text-background px-4 py-2 rounded-xl text-sm font-bold shadow-cyan-glow transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Admin</span>
+          </button>
+        </div>
       </div>
 
       {/* Admin Users Table */}
@@ -194,32 +207,36 @@ function AdminsManagementPage() {
                         <div className="inline-flex gap-1.5">
                           {/* Toggle Status Button */}
                           <button
+                            type="button"
                             onClick={() => setStatusConfirmId(admin._id)}
                             disabled={self}
-                            className={`p-1.5 rounded-lg border border-border transition ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border text-xs font-medium transition ${
                               self
                                 ? "opacity-30 cursor-not-allowed"
                                 : admin.status === "inactive"
-                                ? "hover:border-success/50 hover:text-success text-muted-foreground"
-                                : "hover:border-destructive/50 hover:text-destructive text-muted-foreground"
+                                ? "hover:border-success/50 hover:text-success text-foreground"
+                                : "hover:border-destructive/50 hover:text-destructive text-foreground"
                             }`}
                             title={self ? "Cannot deactivate yourself" : admin.status === "inactive" ? "Activate Account" : "Deactivate Account"}
                           >
-                            <Power className="w-4 h-4" />
+                            <Power className="w-3.5 h-3.5" />
+                            {admin.status === "inactive" ? "Activate" : "Deactivate"}
                           </button>
 
                           {/* Delete Button */}
                           <button
+                            type="button"
                             onClick={() => setDeleteConfirmId(admin._id)}
                             disabled={self}
-                            className={`p-1.5 rounded-lg border border-border transition ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border text-xs font-medium transition ${
                               self
                                 ? "opacity-30 cursor-not-allowed"
-                                : "hover:border-destructive/50 hover:text-destructive text-muted-foreground"
+                                : "hover:border-destructive/50 hover:text-destructive text-destructive"
                             }`}
                             title={self ? "Cannot delete yourself" : "Delete Account"}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -248,7 +265,7 @@ function AdminsManagementPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="e.g., Ali Ahmed"
-              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary focus:glow-cyan transition text-white"
+              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary transition text-foreground"
             />
           </div>
 
@@ -262,7 +279,7 @@ function AdminsManagementPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ali.ahmed@apnaustad.com"
-              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary focus:glow-cyan transition text-white"
+              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary transition text-foreground"
             />
           </div>
 
@@ -276,7 +293,7 @@ function AdminsManagementPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary focus:glow-cyan transition text-white"
+              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary transition text-foreground"
             />
           </div>
 
@@ -287,7 +304,7 @@ function AdminsManagementPage() {
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as any)}
-              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary cursor-pointer text-white"
+              className="w-full bg-input border border-border rounded-xl px-3.5 py-2 text-sm outline-none focus:border-primary cursor-pointer text-foreground"
             >
               <option value="admin">Admin (Full legacy access)</option>
               <option value="support">Support (Tickets, users, bookings, disputes)</option>
@@ -378,6 +395,76 @@ function AdminsManagementPage() {
                 <div className="w-4 h-4 border-2 border-t-white border-destructive rounded-full animate-spin" />
               )}
               Confirm Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Permission Matrix Modal */}
+      <Modal
+        open={matrixOpen}
+        onClose={() => setMatrixOpen(false)}
+        title="Role-Based Access Control (RBAC) Matrix"
+      >
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+          <p className="text-xs text-muted-foreground">
+            Overview of functional authorities across ApnaUstad modules by system security role.
+          </p>
+
+          <div className="border border-border rounded-xl overflow-hidden text-xs">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-surface border-b border-border text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                  <th className="py-2.5 px-3 text-left">Module / Feature</th>
+                  <th className="py-2.5 px-2 text-center text-purple-400">Super</th>
+                  <th className="py-2.5 px-2 text-center text-cyan-400">Admin</th>
+                  <th className="py-2.5 px-2 text-center text-blue-400">Support</th>
+                  <th className="py-2.5 px-2 text-center text-amber-400">Verifier</th>
+                  <th className="py-2.5 px-2 text-center text-emerald-400">Finance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40 font-mono">
+                {[
+                  { module: "Realtime Analytics & Dashboard", roles: [true, true, true, true, true] },
+                  { module: "Customer Accounts & Bans", roles: [true, true, true, true, false] },
+                  { module: "Ustads Directory & Activation", roles: [true, true, false, true, false] },
+                  { module: "CNIC Verification Queue", roles: [true, true, false, true, false] },
+                  { module: "Booking Dispatch & Oversight", roles: [true, true, true, false, true] },
+                  { module: "Category & Skills Catalog", roles: [true, true, false, false, false] },
+                  { module: "Wallet Balance & Top-Up Approvals", roles: [true, true, false, false, true] },
+                  { module: "Complaints & Refunds", roles: [true, true, true, false, false] },
+                  { module: "Support Desk & Internal Notes", roles: [true, true, true, false, false] },
+                  { module: "Promo Engine & Discounts", roles: [true, true, false, false, true] },
+                  { module: "Push Broadcasts & Notifications", roles: [true, true, false, false, false] },
+                  { module: "Audit Log Trail & Diff Inspector", roles: [true, true, false, false, false] },
+                  { module: "Platform Rules & Pricing Config", roles: [true, true, false, false, false] },
+                  { module: "Sub-Admin Creation & RBAC Roles", roles: [true, false, false, false, false] },
+                ].map((row, idx) => (
+                  <tr key={idx} className="hover:bg-surface-light/30 transition">
+                    <td className="py-2.5 px-3 font-sans font-medium text-foreground text-[11px]">{row.module}</td>
+                    {row.roles.map((allowed, rIdx) => (
+                      <td key={rIdx} className="py-2.5 px-2 text-center">
+                        {allowed ? (
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-success/20 text-success">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        ) : (
+                          <span className="text-dim/40 font-bold">—</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={() => setMatrixOpen(false)}
+              className="px-4 py-2 bg-surface-light hover:bg-surface-light/80 border border-border text-white text-xs font-semibold rounded-xl transition"
+            >
+              Close
             </button>
           </div>
         </div>

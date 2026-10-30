@@ -41,21 +41,46 @@ const VARIANT_STYLES: Record<
   },
 };
 
-function useOverlayLock(open: boolean, onClose: () => void, focusRef: React.RefObject<HTMLButtonElement | null>) {
+function useOverlayLock(
+  open: boolean,
+  onClose: () => void,
+  panelRef: React.RefObject<HTMLDivElement | null>
+) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
     const previousFocus = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", onKey);
-    focusRef.current?.focus();
+
+    // Focus the first form input inside the modal if available, only once when opening
+    const timer = window.setTimeout(() => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      if (panel.contains(document.activeElement)) return;
+      const firstInput = panel.querySelector<HTMLElement>(
+        'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled])'
+      );
+      if (firstInput) {
+        firstInput.focus();
+      }
+    }, 10);
+
     return () => {
+      window.clearTimeout(timer);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
-      previousFocus?.focus();
+      if (previousFocus && typeof previousFocus.focus === "function") {
+        previousFocus.focus();
+      }
     };
-  }, [open, onClose, focusRef]);
+  }, [open, panelRef]);
 }
 
 function OverlayShell({
@@ -87,17 +112,18 @@ function OverlayShell({
 }) {
   const titleId = useId();
   const descId = useId();
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const styles = VARIANT_STYLES[variant];
   const HeaderIcon = styles.Icon;
 
-  useOverlayLock(open, onClose, closeButtonRef);
+  useOverlayLock(open, onClose, panelRef);
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5" onClick={onClose}>
       <div className="overlay-backdrop absolute inset-0" aria-hidden="true" />
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -109,7 +135,7 @@ function OverlayShell({
         <div className={`pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r ${styles.ring}`} />
         <div className={`pointer-events-none absolute -right-8 -top-16 h-36 w-36 rounded-full blur-3xl ${styles.glow}`} />
 
-        <header className="relative z-10 flex shrink-0 items-start justify-between gap-4 border-b border-white/8 px-5 py-5 sm:px-6">
+        <header className="relative z-10 flex shrink-0 items-start justify-between gap-4 border-b border-hairline px-5 py-5 sm:px-6">
           <div className="flex min-w-0 items-start gap-3.5">
             <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${styles.iconBg}`}>
               {icon ?? <HeaderIcon className={`h-5 w-5 ${styles.iconColor}`} />}
@@ -118,7 +144,7 @@ function OverlayShell({
               <div className={`mb-1 text-[10px] font-bold uppercase tracking-[0.2em] ${styles.iconColor}`}>
                 {eyebrow ?? styles.label}
               </div>
-              <TitleTag id={titleId} className="text-lg font-extrabold tracking-tight text-white sm:text-xl">
+              <TitleTag id={titleId} className="text-lg font-extrabold tracking-tight text-foreground sm:text-xl">
                 {title}
               </TitleTag>
               {description && (
@@ -128,7 +154,7 @@ function OverlayShell({
               )}
             </div>
           </div>
-          <button ref={closeButtonRef} onClick={onClose} aria-label={closeLabel} className="overlay-close-btn">
+          <button type="button" onClick={onClose} aria-label={closeLabel} className="overlay-close-btn">
             <X className="h-4 w-4" />
           </button>
         </header>

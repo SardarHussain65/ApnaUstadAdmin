@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   Search, LayoutDashboard, Users, Wrench, ClipboardList, Calendar,
   FolderKanban, Star, Bell, Settings, ArrowRight, Wallet, HelpCircle,
-  BarChart3, History, UserCog, Scale, Tag, Fingerprint, Banknote, Layers, Route,
+  BarChart3, History, UserCog, Scale, Tag, Fingerprint, Banknote, Layers,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { canAccessRoute } from "@/lib/admin-permissions";
@@ -34,29 +34,28 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     const nav: Item[] = [
       { id: "n-dash", label: "Dashboard", group: "Navigate", icon: LayoutDashboard, action: go("/dashboard") },
       { id: "n-users", label: "Customers", group: "Navigate", icon: Users, action: go("/users") },
-      { id: "n-workers", label: "Professionals", group: "Navigate", icon: Wrench, action: go("/workers") },
-      { id: "n-onboarding", label: "Onboarding Queue", group: "Navigate", icon: Route, action: go("/onboarding") },
-      { id: "n-verification", label: "Identity Reviews", group: "Navigate", icon: Fingerprint, action: go("/verification") },
-      { id: "n-specialty", label: "Specialty Requests", group: "Navigate", icon: Layers, action: go("/specialty-requests") },
+      { id: "n-workers", label: "Ustads", group: "Navigate", icon: Wrench, action: go("/workers") },
+      { id: "n-verification", label: "CNIC Verification", group: "Navigate", icon: Fingerprint, action: go("/verification") },
+      { id: "n-specialty", label: "Extra Category Requests", group: "Navigate", icon: Layers, action: go("/specialty-requests") },
       { id: "n-jobs", label: "Job Posts", group: "Navigate", icon: ClipboardList, action: go("/jobs") },
       { id: "n-bookings", label: "Bookings", group: "Navigate", icon: Calendar, action: go("/bookings") },
-      { id: "n-payments", label: "Payments Ledger", group: "Navigate", icon: Banknote, action: go("/payments") },
-      { id: "n-wallets", label: "Wallets", group: "Navigate", icon: Wallet, action: go("/wallets") },
+      { id: "n-payments", label: "Payments & Cash Records", group: "Navigate", icon: Banknote, action: go("/payments") },
+      { id: "n-wallets", label: "Wallets & Top-ups", group: "Navigate", icon: Wallet, action: go("/wallets") },
       { id: "n-cats", label: "Services", group: "Navigate", icon: FolderKanban, action: go("/categories") },
       { id: "n-promos", label: "Promotions", group: "Navigate", icon: Tag, action: go("/promos") },
       { id: "n-rev", label: "Reviews", group: "Navigate", icon: Star, action: go("/reviews") },
       { id: "n-not", label: "Notifications", group: "Navigate", icon: Bell, action: go("/notifications") },
       { id: "n-support", label: "Support Desk", group: "Navigate", icon: HelpCircle, action: go("/support") },
-      { id: "n-disputes", label: "Booking Disputes", group: "Navigate", icon: Scale, action: go("/disputes") },
+      { id: "n-disputes", label: "Complaints", group: "Navigate", icon: Scale, action: go("/disputes") },
       { id: "n-reports", label: "Reports & Analytics", group: "Navigate", icon: BarChart3, action: go("/reports") },
       { id: "n-audit", label: "Audit Logs", group: "Navigate", icon: History, action: go("/audit") },
       { id: "n-platform", label: "Platform Configuration", group: "Navigate", icon: Settings, action: go("/platform-config") },
       { id: "n-set", label: "My Settings", group: "Navigate", icon: Settings, action: go("/settings") },
       { id: "q-topups", label: "Pending wallet top-ups", hint: "Finance queue", group: "Queues", icon: Wallet, action: go("/wallets") },
-      { id: "q-verification", label: "Pending identity reviews", hint: "Verifier queue", group: "Queues", icon: Fingerprint, action: go("/verification") },
-      { id: "q-specialty", label: "Pending specialty requests", hint: "Verifier queue", group: "Queues", icon: Layers, action: go("/specialty-requests") },
+      { id: "q-verification", label: "Pending CNIC reviews", hint: "Verifier queue", group: "Queues", icon: Fingerprint, action: go("/verification") },
+      { id: "q-specialty", label: "Pending extra category requests", hint: "Verifier queue", group: "Queues", icon: Layers, action: go("/specialty-requests") },
       { id: "q-support", label: "Open support tickets", hint: "Support queue", group: "Queues", icon: HelpCircle, action: go("/support") },
-      { id: "q-disputes", label: "Open booking disputes", hint: "Ops queue", group: "Queues", icon: Scale, action: go("/disputes") },
+      { id: "q-disputes", label: "Open customer complaints", hint: "Ops queue", group: "Queues", icon: Scale, action: go("/disputes") },
     ];
     if (user?.role === "superadmin") {
       nav.splice(nav.length - 6, 0, { id: "n-admins", label: "Admin Users", group: "Navigate", icon: UserCog, action: go("/admins") });
@@ -68,7 +67,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         ? item.action
         : go;
       const target = {
-        "n-dash": "/dashboard", "n-users": "/users", "n-workers": "/workers", "n-onboarding": "/onboarding",
+        "n-dash": "/dashboard", "n-users": "/users", "n-workers": "/workers",
         "n-verification": "/verification", "n-specialty": "/specialty-requests", "n-jobs": "/jobs",
         "n-bookings": "/bookings", "n-payments": "/payments", "n-wallets": "/wallets", "n-cats": "/categories",
         "n-promos": "/promos", "n-rev": "/reviews", "n-not": "/notifications", "n-support": "/support",

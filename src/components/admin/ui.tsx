@@ -1,99 +1,29 @@
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { AlertTriangle, ArrowUpRight, Inbox, Loader2, Star } from "lucide-react";
-import { fmtPKR } from "@/lib/mock-data";
+import { type ButtonHTMLAttributes, type ReactNode } from "react";
+import { Loader2, Star } from "lucide-react";
+import { StatCard as KitStatCard } from "@/components/ui/stat-card";
+import type { Delta } from "@/lib/format";
 
+// Single source of truth lives in components/ui — re-exported so the existing pages keep working.
+export { Badge, StatusBadge } from "@/components/ui/status-badge";
+export { EmptyState, ErrorState } from "@/components/ui/empty-state";
+
+/**
+ * Legacy StatCard signature (label/value/icon/gradient/change/isCurrency) used by older pages.
+ * Delegates to the kit StatCard. `change` is a pre-computed % — the dashboard rebuild (phase 3)
+ * replaces it with real previous-period `previous` values.
+ */
 export function StatCard({
   label, value, icon, gradient, change, isCurrency,
 }: {
-  label: string; value: number; icon: ReactNode; gradient: string; change?: number; isCurrency?: boolean;
+  label: string; value: number; icon: ReactNode; gradient?: string; change?: number; isCurrency?: boolean;
 }) {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    const start = performance.now();
-    const dur = 900;
-    let raf = 0;
-    const fallback = window.setTimeout(() => setN(value), dur);
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / dur);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setN(Math.floor(value * eased));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(fallback);
-    };
-  }, [value]);
-
-  const display = isCurrency ? fmtPKR(n) : n.toLocaleString();
-  const positive = (change ?? 0) >= 0;
-
-  return (
-    <div className="app-glass card-hover relative min-h-[164px] overflow-hidden rounded-[20px] p-5 group">
-      <div className={`absolute -right-10 -top-12 h-32 w-32 rounded-full opacity-[0.18] blur-2xl transition-all duration-500 group-hover:opacity-30 group-hover:scale-125 ${gradient}`} />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-      <div className="flex items-start justify-between relative z-10">
-        <div className={`w-12 h-12 rounded-2xl ${gradient} flex items-center justify-center transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3 shadow-[0_8px_24px_rgba(0,0,0,0.4)]`}>
-          {icon}
-        </div>
-        {change !== undefined && (
-          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${positive ? "bg-success/10 text-success border-success/25" : "bg-destructive/10 text-destructive border-destructive/25"}`}>
-            <ArrowUpRight className={`w-3 h-3 ${positive ? "" : "rotate-90"}`} /> {Math.abs(change)}%
-          </span>
-        )}
-      </div>
-      <div className="mt-5 font-display text-[30px] font-extrabold tracking-[-0.04em] text-white relative z-10">{display}</div>
-      <div className="text-[13px] font-semibold text-muted-foreground mt-1 group-hover:text-foreground transition-colors relative z-10">{label}</div>
-    </div>
-  );
-}
-
-export function Badge({
-  children, variant = "muted", pulse,
-}: { children: ReactNode; variant?: "success" | "warning" | "danger" | "info" | "muted" | "purple" | "orange"; pulse?: boolean }) {
-  const map = {
-    success: "bg-success/15 text-success border-success/30",
-    warning: "bg-gold/15 text-gold border-gold/30",
-    danger: "bg-destructive/15 text-destructive border-destructive/30",
-    info: "bg-primary/15 text-primary border-primary/30",
-    purple: "bg-secondary/15 text-secondary border-secondary/30",
-    orange: "bg-accent/15 text-accent border-accent/30",
-    muted: "bg-surface-light text-muted-foreground border-border",
-  } as const;
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-[0.08em] ${map[variant]}`}>
-      {pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse-dot" />}
-      {children}
-    </span>
-  );
-}
-
-export function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { v: "success" | "warning" | "danger" | "info" | "purple" | "orange" | "muted"; pulse?: boolean }> = {
-    pending: { v: "warning", pulse: true },
-    accepted: { v: "info" },
-    ongoing: { v: "orange", pulse: true },
-    completed: { v: "success" },
-    cancelled: { v: "danger" },
-    open: { v: "info", pulse: true },
-    assigned: { v: "info" },
-    reviewing: { v: "warning" },
-    closed: { v: "success" },
-    active: { v: "success", pulse: true },
-    inactive: { v: "danger" },
-    paid: { v: "success" },
-    unpaid: { v: "danger" },
-    delivered: { v: "success" },
-    sent: { v: "info" },
-    queued: { v: "warning", pulse: true },
-    created: { v: "muted" },
-    failed: { v: "danger" },
-    instant: { v: "orange" },
-    scheduled: { v: "purple" },
-  };
-  const cfg = map[status] ?? { v: "muted" as const };
-  return <Badge variant={cfg.v} pulse={cfg.pulse}>{status}</Badge>;
+  const delta: Delta | undefined =
+    change === undefined
+      ? undefined
+      : change === 0
+        ? { label: "0%", direction: "flat", pct: 0 }
+        : { label: `${change > 0 ? "+" : ""}${change}%`, direction: change > 0 ? "up" : "down", pct: change };
+  return <KitStatCard label={label} value={value} format={isCurrency ? "currency" : "number"} icon={icon} delta={delta} iconClassName={gradient ? `${gradient} text-white border-transparent` : undefined} />;
 }
 
 export function RatingStars({ rating, size = 14 }: { rating: number; size?: number }) {
@@ -118,30 +48,7 @@ export function Avatar({ src, name, size = 36 }: { src?: string; name?: string; 
   );
 }
 
-export function EmptyState({ title, description }: { title: string; description?: string }) {
-  return (
-    <div className="px-6 py-16 text-center text-muted-foreground">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/[0.07] text-primary">
-        <Inbox className="w-6 h-6" />
-      </div>
-      <div className="font-bold text-foreground">{title}</div>
-      {description && <div className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted-foreground">{description}</div>}
-    </div>
-  );
-}
 
-export function ErrorState({ title = "Something went wrong", description, onRetry }: { title?: string; description?: string; onRetry?: () => void }) {
-  return (
-    <div className="surface-panel px-6 py-14 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/[0.07] text-destructive">
-        <AlertTriangle className="w-6 h-6" />
-      </div>
-      <h3 className="text-base font-bold">{title}</h3>
-      {description && <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">{description}</p>}
-      {onRetry && <Button variant="primary" className="mt-5" onClick={onRetry}>Try again</Button>}
-    </div>
-  );
-}
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success" | "outline";
 
@@ -159,12 +66,12 @@ export function Button({
   loading?: boolean;
 }) {
   const variants: Record<ButtonVariant, string> = {
-    primary: "border-primary/30 gradient-cyan text-background shadow-[0_0_22px_rgba(0,245,255,0.22)] hover:shadow-[0_0_28px_rgba(0,245,255,0.34)]",
-    secondary: "border-white/10 bg-surface-light/80 text-white hover:border-primary/35 hover:bg-primary/10",
-    ghost: "border-transparent bg-transparent text-muted-foreground hover:bg-white/[0.05] hover:text-white",
-    danger: "border-destructive/35 bg-destructive/15 text-destructive hover:bg-destructive/22 hover:text-white",
-    success: "border-success/35 bg-success text-white hover:bg-success/90",
-    outline: "border-border bg-transparent text-foreground hover:border-primary/40 hover:bg-primary/8",
+    primary: "border-primary/30 gradient-cyan text-primary-foreground glow-cyan hover:brightness-110",
+    secondary: "border-hairline bg-surface-light/80 text-foreground hover:border-primary/40 hover:bg-primary/10",
+    ghost: "border-transparent bg-transparent text-muted-foreground hover:bg-surface-light hover:text-foreground",
+    danger: "border-destructive/35 bg-destructive/15 text-destructive hover:bg-destructive hover:text-destructive-foreground",
+    success: "border-success/35 bg-success text-success-foreground hover:brightness-110",
+    outline: "border-border bg-transparent text-foreground hover:border-primary/40 hover:bg-primary/10",
   };
   const sizes = {
     sm: "min-h-9 px-3 text-xs",
@@ -216,7 +123,7 @@ export function Textarea({
   return (
     <textarea
       {...props}
-      className={`min-h-28 w-full resize-y rounded-xl border border-border bg-input px-3.5 py-3 text-sm leading-relaxed text-white outline-none transition placeholder:text-dim focus:border-primary/60 focus:ring-3 focus:ring-primary/10 ${className}`}
+      className={`min-h-28 w-full resize-y rounded-xl border border-border bg-input px-3.5 py-3 text-sm leading-relaxed text-foreground outline-none transition placeholder:text-dim focus:border-primary/60 focus:ring-3 focus:ring-primary/10 ${className}`}
     />
   );
 }
@@ -228,7 +135,7 @@ export function Input({
   return (
     <input
       {...props}
-      className={`h-11 w-full rounded-xl border border-border bg-input px-3.5 text-sm text-white outline-none transition placeholder:text-dim focus:border-primary/60 focus:ring-3 focus:ring-primary/10 ${className}`}
+      className={`h-11 w-full rounded-xl border border-border bg-input px-3.5 text-sm text-foreground outline-none transition placeholder:text-dim focus:border-primary/60 focus:ring-3 focus:ring-primary/10 ${className}`}
     />
   );
 }

@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
+import { getSocket } from './socket';
 import { toast } from 'sonner';
 
 type QueryParam = string | number | boolean | undefined | null;
@@ -68,8 +70,10 @@ export interface WorkerSpecialty {
   autoRenew: boolean;
   requestedAt?: string;
   approvedAt?: string | null;
+  currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
   nextBillingAt?: string | null;
+  lastChargedAt?: string | null;
   graceEndsAt?: string | null;
 }
 
@@ -103,6 +107,7 @@ export interface Worker {
   totalReviews: number;
   totalJobs: number;
   totalEarnings: number;
+  certificates?: any[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -179,6 +184,62 @@ export interface AdminPayment {
 }
 
 // --- Dashboard Queries ---
+export interface DashboardMetricSummary {
+  current: number;
+  previous: number | null;
+  deltaPct: number | null;
+  unit: 'count' | 'pkr' | 'percent';
+  sparkline: number[];
+}
+
+export interface DashboardSummaryResponse {
+  range: {
+    from: string;
+    to: string;
+    days: number;
+    previousFrom: string | null;
+    previousTo: string | null;
+    timezone: string;
+  };
+  compare: boolean;
+  metrics: Record<string, DashboardMetricSummary>;
+}
+
+export const useDashboardSummary = (params: { from?: string; to?: string; compare?: boolean } = {}) => {
+  const query = toQueryString(params as any);
+  return useQuery({
+    queryKey: ['dashboard-summary', params],
+    queryFn: () => api.get<DashboardSummaryResponse>(`/admin/dashboard/summary${query ? `?${query}` : ''}`),
+  });
+};
+
+export interface TimeseriesPoint {
+  date: string;
+  [key: string]: number | string;
+}
+
+export interface TimeseriesResponse {
+  interval: 'day' | 'week' | 'month';
+  timezone: string;
+  metrics: string[];
+  points: TimeseriesPoint[];
+  totals: Record<string, number>;
+  range: { from: string; to: string };
+}
+
+export const useAnalyticsTimeseries = (params: { metrics: string[]; from?: string; to?: string; interval?: 'day' | 'week' | 'month' }) => {
+  const query = toQueryString({
+    metrics: params.metrics.join(','),
+    from: params.from,
+    to: params.to,
+    interval: params.interval,
+  });
+  return useQuery({
+    queryKey: ['analytics-timeseries', params],
+    queryFn: () => api.get<TimeseriesResponse>(`/admin/analytics/timeseries?${query}`),
+  });
+};
+
 export const useDashboardStats = () => {
   return useQuery({
     queryKey: ['dashboardStats'],
@@ -211,7 +272,11 @@ export const useJobDetails = (id: string, enabled: boolean = true) => {
 export const useDeleteJob = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/admin/jobs/${id}`),
+    mutationFn: (arg: string | { id: string; reason?: string }) => {
+      const id = typeof arg === 'string' ? arg : arg.id;
+      const reason = typeof arg === 'object' ? arg.reason : undefined;
+      return api.delete(`/admin/jobs/${id}`, reason ? { reason } : undefined);
+    },
     onSuccess: () => {
       toast.success('Job deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
@@ -283,7 +348,7 @@ export const useBookingDetails = (id: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: ['booking', id],
     queryFn: () => api.get<any>(`/admin/bookings/${id}`),
-    enabled,
+    enabled: !!id && enabled,
   });
 };
 
@@ -359,6 +424,37 @@ export const useUserDetails = (id: string, enabled: boolean = true) => {
   });
 };
 
+export interface UserOverview {
+  user: any;
+  stats: {
+    totalBookings: number;
+    completedBookings: number;
+    cancelledBookings: number;
+    activeBookings: number;
+    totalSpent: number;
+    completionRate: number | null;
+    cancellationRate: number | null;
+    totalJobs: number;
+    jobsByStatus: Record<string, number>;
+    openDisputes: number;
+    totalDisputes: number;
+    reviewsGiven: number;
+    avgRatingGiven: number | null;
+    lastBookingAt: string | null;
+  };
+  recentBookings: any[];
+  recentJobs: any[];
+  disputes: any[];
+  reviews: any[];
+}
+
+export const useUserOverview = (id: string) =>
+  useQuery({
+    queryKey: ['user', id, 'overview'],
+    queryFn: () => api.get<UserOverview>(`/admin/users/${id}/overview`),
+    enabled: !!id,
+  });
+
 export const useToggleUserStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -423,6 +519,16 @@ export const useVerifyWorker = () => {
     onError: (error: any) => {
       toast.error(error.message || 'Failed to update worker verification');
     },
+  });
+};
+
+export const useRevealWorkerCnic = () => {
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api.post<{ cnicNumber: string; cnicFrontImage?: string; cnicBackImage?: string }>(
+        `/admin/workers/${id}/reveal-cnic`,
+        { reason }
+      ),
   });
 };
 
@@ -599,6 +705,77 @@ export const useDeleteCategory = () => {
   });
 };
 
+// --- Profession Requests Queries ---
+export interface ProfessionRequest {
+  _id: string;
+  worker?: any;
+  professionName: string;
+  categoryDomain?: string;
+  requirements?: string;
+  description?: string;
+  experience?: number;
+  hourlyRate?: number;
+  skills?: string[];
+  requesterName: string;
+  requesterPhone: string;
+  requesterEmail?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  adminNotes?: string;
+  rejectionReason?: string;
+  createdCategoryId?: any;
+  reviewedBy?: any;
+  reviewedAt?: string;
+  createdAt: string;
+}
+
+export const useProfessionRequestsPage = (params: { page?: number; limit?: number; status?: string; search?: string } = {}) =>
+  usePaginatedQuery<ProfessionRequest>('profession-requests', '/admin/profession-requests', params);
+
+export const useReviewProfessionRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: {
+      id: string;
+      status: 'approved' | 'rejected';
+      rejectionReason?: string;
+      adminNotes?: string;
+      createCategory?: boolean;
+      categoryName?: string;
+      categoryIcon?: string;
+      categoryColor?: string;
+      categoryDescription?: string;
+    }) => api.patch(`/admin/profession-requests/${id}/review`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profession-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+      toast.success('Profession request updated');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to update profession request');
+    }
+  });
+};
+
+export const useReviewWorkerCertificate = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ workerId, certId, verificationStatus, rejectionReason }: {
+      workerId: string;
+      certId: string;
+      verificationStatus: 'verified' | 'rejected';
+      rejectionReason?: string;
+    }) => api.patch(`/admin/workers/${workerId}/certificates/${certId}/review`, { verificationStatus, rejectionReason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
+      toast.success('Certificate review submitted');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to review certificate');
+    }
+  });
+};
+
 // --- Reviews Queries ---
 type ReviewQueryParams = { page?: number; limit?: number; search?: string; rating?: number; category?: string; dateFrom?: string };
 
@@ -738,6 +915,7 @@ export interface WalletSettings {
   minimumWalletBalance: number;
   additionalCategoryMonthlyFee: number;
   commissionEnabled: boolean;
+  cnicVerificationBonus?: number;
   updatedAt?: string;
 }
 
@@ -883,7 +1061,7 @@ export const useAdminAdjustWallet = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ workerId, amount, type, description }: { workerId: string; amount: number; type: 'refund' | 'adjustment'; description: string }) =>
-      api.post(`/admin/wallets/${workerId}/adjust`, { amount, type, description }),
+      api.post(`/admin/wallets/${workerId}/adjust`, { amount, type, description, reason: description }),
     onSuccess: (data, variables) => {
       toast.success('Wallet balance adjusted successfully');
       queryClient.invalidateQueries({ queryKey: ['worker-wallets'] });
@@ -1014,7 +1192,7 @@ export const useAdminNotifications = (params: { page?: number; limit?: number; g
 
 export const useBroadcastNotification = () => {
   return useMutation({
-    mutationFn: (payload: { target: 'users' | 'workers' | 'all' | 'user' | 'worker'; title: string; body: string; recipientId?: string; scheduledAt?: string; type?: string }) =>
+    mutationFn: (payload: { target: 'users' | 'workers' | 'all' | 'user' | 'worker'; title: string; body: string; recipientId?: string; scheduledAt?: string; type?: string; city?: string }) =>
       api.post(`/admin/notifications/global`, payload),
   });
 };
@@ -1098,6 +1276,22 @@ export const useUpdateSupportPriority = () => {
     }
   });
 };
+
+export const useAddSupportInternalNote = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) =>
+      api.post<SupportRequest>(`/admin/support/requests/${id}/notes`, { note }),
+    onSuccess: () => {
+      toast.success('Internal note added');
+      queryClient.invalidateQueries({ queryKey: ['support-requests'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to add internal note');
+    }
+  });
+};
+
 
 export const useUpdateAdminProfile = () => {
   const queryClient = useQueryClient();
@@ -1230,6 +1424,29 @@ export const useDeleteAdmin = () => {
 };
 
 // --- Dispute Queries & Mutations ---
+export interface DisputeTimelineEvent {
+  type: 'opened' | 'evidence_added' | 'under_review' | 'withdrawn' | 'resolved' | 'dismissed' | 'closed';
+  actorType: 'customer' | 'worker' | 'admin' | 'system';
+  actorName?: string;
+  note?: string;
+  at: string;
+}
+
+export interface DisputeMessage {
+  _id: string;
+  dispute: string;
+  disputeId?: string;
+  senderType: 'customer' | 'worker' | 'admin' | 'system';
+  sender?: string | null;
+  senderName?: string;
+  content: string;
+  attachments: string[];
+  kind: 'message' | 'system' | 'decision';
+  replyTo?: string | null;
+  replySnapshot?: { content: string; senderType: string; senderName?: string } | null;
+  createdAt: string;
+}
+
 export interface Dispute {
   _id: string;
   booking?: any;
@@ -1238,19 +1455,31 @@ export interface Dispute {
   raisedBy: string;
   raisedByType: 'customer' | 'worker';
   reason: string;
+  reasonLabel?: string;
   description: string;
-  status: 'open' | 'under_review' | 'resolved' | 'dismissed';
+  status: 'open' | 'under_review' | 'resolved' | 'dismissed' | 'withdrawn';
   amountDisputed: number;
   proofImages: string[];
   adminNotes?: string;
   resolutionDetails?: string;
   resolvedBy?: any;
   resolvedAt?: string;
+  closedAt?: string | null;
+  outcome?: 'customer_favor' | 'worker_favor' | 'settled' | null;
+  outcomeLabel?: string;
+  phase?: 'reported' | 'checking' | 'closed';
+  isClosed?: boolean;
+  timeline?: DisputeTimelineEvent[];
+  lastMessageAt?: string | null;
+  lastMessagePreview?: string;
+  lastMessageSenderType?: string | null;
+  messageCount?: number;
   createdAt: string;
   moderationApplied?: {
     warnedCustomer?: boolean;
     warnedWorker?: boolean;
     customerRefund?: number;
+    workerCommissionRefund?: number;
     workerPenalty?: number;
     customerBlocked?: boolean;
     workerBlocked?: boolean;
@@ -1258,7 +1487,27 @@ export interface Dispute {
   updatedAt: string;
 }
 
-export const useDisputes = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string } = {}) => {
+export interface DisputeStats {
+  total: number;
+  active: number;
+  open: number;
+  underReview: number;
+  closed: number;
+  resolved: number;
+  dismissed: number;
+  withdrawn: number;
+  awaitingAdminReply: number;
+}
+
+export const useDisputeStats = () => {
+  return useQuery({
+    queryKey: ['dispute-stats'],
+    queryFn: () => api.get<DisputeStats>('/admin/disputes/stats'),
+    refetchInterval: 30000,
+  });
+};
+
+export const useDisputes = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string; scope?: string } = {}) => {
   const qs = toQueryString(params);
   return useQuery({
     queryKey: ['disputes', params],
@@ -1266,7 +1515,7 @@ export const useDisputes = (params: { page?: number; limit?: number; status?: st
   });
 };
 
-export const useDisputesPage = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string } = {}) =>
+export const useDisputesPage = (params: { page?: number; limit?: number; status?: string; reason?: string; search?: string; scope?: string } = {}) =>
   usePaginatedQuery<Dispute>('disputes', '/admin/disputes', params);
 
 export const useDisputeDetails = (id: string, enabled = true) => {
@@ -1274,6 +1523,31 @@ export const useDisputeDetails = (id: string, enabled = true) => {
     queryKey: ['dispute', id],
     queryFn: () => api.get<Dispute>(`/admin/disputes/${id}`),
     enabled: !!id && enabled,
+  });
+};
+
+export const useAdminDisputeMessages = (disputeId: string, enabled = true) => {
+  return useQuery({
+    queryKey: ['dispute-messages', disputeId],
+    queryFn: () => api.get<{ messages: DisputeMessage[]; hasMore: boolean }>(`/admin/disputes/${disputeId}/messages`),
+    enabled: !!disputeId && enabled,
+  });
+};
+
+export const useSendAdminDisputeMessage = (disputeId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { content: string; attachments?: string[]; replyTo?: string | null }) =>
+      api.post<DisputeMessage>(`/admin/disputes/${disputeId}/messages`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dispute-messages', disputeId] });
+      queryClient.invalidateQueries({ queryKey: ['dispute', disputeId] });
+      queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      queryClient.invalidateQueries({ queryKey: ['dispute-stats'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to send message');
+    },
   });
 };
 
@@ -1286,10 +1560,14 @@ export const useResolveDispute = () => {
       adminNotes?: string;
       resolutionDetails?: string;
       refundAmount?: number;
+      refundWorkerCommission?: boolean;
+      workerCommissionRefund?: number;
       moderation?: {
         warnCustomer?: boolean;
         warnWorker?: boolean;
         workerPenalty?: number;
+        refundWorkerCommission?: boolean;
+        workerCommissionRefund?: number;
         blockCustomer?: boolean;
         blockWorker?: boolean;
         blockReason?: string;
@@ -1300,6 +1578,8 @@ export const useResolveDispute = () => {
       toast.success('Dispute resolution saved');
       queryClient.invalidateQueries({ queryKey: ['disputes'] });
       queryClient.invalidateQueries({ queryKey: ['dispute', data._id || data.data?._id] });
+      queryClient.invalidateQueries({ queryKey: ['dispute-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dispute-messages'] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to resolve dispute');
@@ -1321,6 +1601,8 @@ export interface PromoCode {
   usageCount: number;
   userUsageLimit: number;
   isActive: boolean;
+  firstTimeOnly?: boolean;
+  city?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -1395,14 +1677,23 @@ export const useVerificationRequests = (params: { page?: number; limit?: number;
 export const useVerificationRequestsPage = (params: { page?: number; limit?: number; status?: string; search?: string } = {}) =>
   usePaginatedQuery<any>('verification-requests', '/admin/verification/requests', params);
 
+export const useVerificationRequestDetails = (id: string, enabled = true) => {
+  return useQuery({
+    queryKey: ['verification-request', id],
+    queryFn: () => api.get<any>(`/admin/verification/requests/${id}`),
+    enabled: !!id && enabled,
+  });
+};
+
 export const useReviewVerificationRequest = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status, rejectionReason, adminNotes }: { id: string; status: 'approved' | 'rejected'; rejectionReason?: string; adminNotes?: string }) =>
       api.patch<any>(`/admin/verification/requests/${id}/review`, { status, rejectionReason, adminNotes }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success('Verification request reviewed successfully');
       queryClient.invalidateQueries({ queryKey: ['verification-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['verification-request', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['workers'] });
       queryClient.invalidateQueries({ queryKey: ['nav-badges'] });
     },
@@ -1413,36 +1704,148 @@ export const useReviewVerificationRequest = () => {
 };
 
 /**
- * Aggregates badge counts for the sidebar navigation.
- * Uses server pagination totals so badges stay accurate beyond the first page.
+ * Open action-item counts for sidebar badges and Action Center.
+ * Replaces repetitive count queries with 1 cached query + live socket updates.
  */
+export interface ActionCounts {
+  openTickets: number;
+  openJobs: number;
+  pendingBookings: number;
+  unverifiedWorkers: number;
+  pendingTopUps: number;
+  openDisputes: number;
+  underReviewDisputes: number;
+  pendingVerifications: number;
+  pendingSpecialties: number;
+  generatedAt: string;
+}
+
+export const useActionCounts = () => {
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ['action-counts'],
+    queryFn: () => api.get<ActionCounts>('/admin/dashboard/action-counts'),
+    refetchInterval: 30000,
+  });
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handler = (counts: ActionCounts) => {
+      queryClient.setQueryData(['action-counts'], counts);
+    };
+    socket.on('admin:counts', handler);
+    return () => {
+      socket.off('admin:counts', handler);
+    };
+  }, [queryClient]);
+
+  return query;
+};
+
 export const useNavBadges = () => {
-  const { data: supportData } = useSupportRequestsPage({ status: 'open', limit: 1 });
-  const { data: jobsData } = useJobsPage({ status: 'open', limit: 1 });
-  const { data: bookingsData } = useBookingsPage({ status: 'pending', limit: 1 });
-  const { data: workersData } = useWorkersPage({ verified: false, status: 'active', limit: 1 });
-  const { data: topUpsData } = useWalletTopUpsPage({ status: 'pending', limit: 1 });
-  const { data: disputesData } = useDisputesPage({ status: 'open', limit: 1 });
-  const { data: verificationsData } = useVerificationRequestsPage({ status: 'pending', limit: 1 });
-  const { data: specialtyData } = useSpecialtyRequestsPage({ limit: 1 });
-
-  const openTickets = supportData?.pagination.totalItems ?? 0;
-  const openJobs = jobsData?.pagination.totalItems ?? 0;
-  const pendingBookings = bookingsData?.pagination.totalItems ?? 0;
-  const unverifiedWorkers = workersData?.pagination.totalItems ?? 0;
-  const pendingTopUps = topUpsData?.pagination.totalItems ?? 0;
-  const openDisputes = disputesData?.pagination.totalItems ?? 0;
-  const pendingVerifications = verificationsData?.pagination.totalItems ?? 0;
-  const pendingSpecialties = specialtyData?.pagination.totalItems ?? 0;
-
+  const { data } = useActionCounts();
   return {
-    openTickets,
-    openJobs,
-    pendingBookings,
-    unverifiedWorkers,
-    pendingTopUps,
-    openDisputes,
-    pendingVerifications,
-    pendingSpecialties,
+    openTickets: data?.openTickets ?? 0,
+    openJobs: data?.openJobs ?? 0,
+    pendingBookings: data?.pendingBookings ?? 0,
+    unverifiedWorkers: data?.unverifiedWorkers ?? 0,
+    pendingTopUps: data?.pendingTopUps ?? 0,
+    openDisputes: data?.openDisputes ?? 0,
+    pendingVerifications: data?.pendingVerifications ?? 0,
+    pendingSpecialties: data?.pendingSpecialties ?? 0,
   };
 };
+
+export interface OperationsRadarCity {
+  id: string;
+  name: string;
+  province: string;
+  lat: number;
+  lng: number;
+  totalUstads: number;
+  activeUstads: number;
+  verifiedUstads: number;
+  totalCustomers: number;
+  activeBookings: number;
+  completedBookings: number;
+  pendingJobs: number;
+  avgSla: string;
+  topTrade: string;
+  demandLevel: 'surging' | 'high' | 'medium' | 'low';
+}
+
+export interface OperationsRadarPin {
+  id: string;
+  type: 'booking' | 'worker' | 'user' | 'job';
+  title: string;
+  subtitle: string;
+  category?: string;
+  status?: string;
+  bookingType?: string;
+  totalAmount?: number;
+  scheduledDate?: string;
+  scheduledTime?: string;
+  address?: string;
+  cityId: string;
+  cityName: string;
+  phone?: string;
+  email?: string;
+  isAvailable?: boolean;
+  isVerified?: boolean;
+  isActive?: boolean;
+  rating?: number;
+  hourlyRate?: number;
+  totalJobs?: number;
+  profileImage?: string;
+  lat: number;
+  lng: number;
+  isExactGps: boolean;
+  customer?: {
+    id: string;
+    fullName: string;
+    phone: string;
+    address: string;
+    lat: number;
+    lng: number;
+  } | null;
+  worker?: {
+    id: string;
+    fullName: string;
+    phone: string;
+    category: string;
+    lat: number;
+    lng: number;
+    isExactGps: boolean;
+  } | null;
+  href: string;
+}
+
+export interface OperationsRadarData {
+  summary: {
+    totalWorkers: number;
+    onlineWorkers: number;
+    verifiedWorkers: number;
+    totalUsers: number;
+    activeBookings: number;
+    completedBookings: number;
+    openJobs: number;
+    totalBookings: number;
+  };
+  cities: OperationsRadarCity[];
+  pins: {
+    bookings: OperationsRadarPin[];
+    workers: OperationsRadarPin[];
+    users: OperationsRadarPin[];
+    jobs: OperationsRadarPin[];
+  };
+}
+
+export const useOperationsRadar = () =>
+  useQuery({
+    queryKey: ['operations-radar'],
+    queryFn: () => api.get<OperationsRadarData>('/admin/dashboard/operations-radar'),
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+

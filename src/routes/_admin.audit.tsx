@@ -1,10 +1,51 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useDeferredValue } from "react";
 import { useAuditLogs } from "@/lib/api-hooks";
 import { Drawer } from "@/components/admin/Drawer";
 import { SearchInput, Select } from "@/components/admin/DataTable";
-import { Badge } from "@/components/admin/ui";
-import { Eye, Shield, Calendar, User, Layers, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { Eye, Shield, User, Layers, Info, ChevronLeft, ChevronRight, Code, Globe, Laptop, ArrowUpRight } from "lucide-react";
+
+function renderEntityLink(entityType?: string, entityId?: string) {
+  if (!entityId) return <span className="text-muted-foreground">N/A</span>;
+  const t = (entityType || "").toLowerCase();
+  const short = entityId.length > 10 ? `#${entityId.slice(-8)}` : entityId;
+  if (t === "user") {
+    return (
+      <Link to="/users/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  if (t === "worker") {
+    return (
+      <Link to="/workers/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  if (t === "booking") {
+    return (
+      <Link to="/bookings/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  if (t === "job" || t === "jobpost") {
+    return (
+      <Link to="/jobs/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  if (t === "dispute") {
+    return (
+      <Link to="/disputes/$id" params={{ id: entityId }} className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-primary hover:underline">
+        {short} <ArrowUpRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  return <span className="font-mono text-xs text-muted-foreground" title={entityId}>{short}</span>;
+}
 
 export const Route = createFileRoute("/_admin/audit")({
   component: AuditLogsPage,
@@ -143,7 +184,7 @@ function AuditLogsPage() {
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-white">
+                      <div className="font-semibold text-foreground">
                         {log.actor?.fullName || "System/Unknown"}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -155,20 +196,21 @@ function AuditLogsPage() {
                         {log.action}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-white font-medium">{log.entityType}</td>
-                    <td className="py-3 px-4 text-xs font-mono text-dim whitespace-nowrap truncate max-w-[120px]" title={log.entityId}>
-                      {log.entityId || "N/A"}
+                    <td className="py-3 px-4 text-foreground font-medium">{log.entityType}</td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {renderEntityLink(log.entityType, log.entityId)}
                     </td>
                     <td className="py-3 px-4 text-muted-foreground max-w-xs truncate" title={log.reason || ""}>
-                      {log.reason || <span className="text-dim">No description provided</span>}
+                      {log.reason || <span className="text-muted-foreground/60">No description provided</span>}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <button
+                        type="button"
                         onClick={() => setSelectedLog(log)}
-                        className="p-1.5 rounded-lg border border-border hover:border-primary/50 text-muted-foreground hover:text-primary transition"
+                        className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40 hover:text-primary transition"
                         title="Inspect Metadata"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" /> Inspect
                       </button>
                     </td>
                   </tr>
@@ -270,28 +312,119 @@ function AuditLogsPage() {
               </div>
             </div>
 
-            {/* JSON Metadata Viewer */}
+            {/* Visual Payload Diff Viewer */}
             <div className="space-y-2">
               <div className="text-sm font-semibold text-white flex items-center gap-1.5">
                 <Shield className="w-4 h-4 text-primary" />
-                <span>Extended Log Metadata</span>
+                <span>Audit Payload & State Inspector</span>
               </div>
-              <pre className="bg-[#05050A] p-4 rounded-xl text-xs overflow-auto border border-border text-primary font-mono leading-relaxed max-h-[300px]">
-                {JSON.stringify(
-                  {
-                    ipAddress: selectedLog.ipAddress,
-                    userAgent: selectedLog.userAgent,
-                    metadata: selectedLog.metadata || {},
-                    id: selectedLog._id
-                  },
-                  null,
-                  2
-                )}
-              </pre>
+              <AuditPayloadDiffViewer log={selectedLog} />
             </div>
           </div>
         )}
       </Drawer>
+    </div>
+  );
+}
+
+function AuditPayloadDiffViewer({ log }: { log: any }) {
+  const meta = log.metadata || {};
+  const hasDiff = (meta.before && meta.after) || (meta.old && meta.new) || (meta.previous && meta.updated);
+  const beforeObj = meta.before || meta.old || meta.previous;
+  const afterObj = meta.after || meta.new || meta.updated;
+
+  // Extract changed keys if before/after objects exist
+  const diffKeys = hasDiff && typeof beforeObj === 'object' && typeof afterObj === 'object'
+    ? Array.from(new Set([...Object.keys(beforeObj || {}), ...Object.keys(afterObj || {})]))
+    : [];
+
+  const otherMetaEntries = Object.entries(meta).filter(
+    ([k]) => !['before', 'after', 'old', 'new', 'previous', 'updated'].includes(k)
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Network & Session Info */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="p-2.5 rounded-xl bg-surface-light border border-border flex items-center gap-2">
+          <Globe className="w-4 h-4 text-primary shrink-0" />
+          <div className="truncate">
+            <span className="text-dim block text-[10px] uppercase">IP Address</span>
+            <span className="font-mono text-white font-medium">{log.ipAddress || '127.0.0.1'}</span>
+          </div>
+        </div>
+        <div className="p-2.5 rounded-xl bg-surface-light border border-border flex items-center gap-2">
+          <Laptop className="w-4 h-4 text-primary shrink-0" />
+          <div className="truncate">
+            <span className="text-dim block text-[10px] uppercase">Client User Agent</span>
+            <span className="font-mono text-white text-[11px] truncate block" title={log.userAgent || 'Internal System'}>
+              {log.userAgent || 'Admin Console / Chrome'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Visual Diff View if before/after exists */}
+      {hasDiff && diffKeys.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-secondary" />
+            <span>State Changes (Before ➔ After)</span>
+          </div>
+          <div className="space-y-2 border border-border rounded-xl p-3 bg-surface/50 divide-y divide-border/40">
+            {diffKeys.map((k) => {
+              const bVal = beforeObj ? JSON.stringify(beforeObj[k]) : 'undefined';
+              const aVal = afterObj ? JSON.stringify(afterObj[k]) : 'undefined';
+              const isChanged = bVal !== aVal;
+
+              return (
+                <div key={k} className="pt-2 first:pt-0">
+                  <span className="font-mono text-xs font-bold text-dim block mb-1">{k}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
+                    <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive line-through truncate">
+                      {bVal}
+                    </div>
+                    <div className="p-2 rounded-lg bg-success/10 border border-success/20 text-success font-semibold flex items-center justify-between truncate">
+                      <span className="truncate">{aVal}</span>
+                      {isChanged && <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/20 text-success uppercase">Modified</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Key-Value Metadata attributes */}
+      {otherMetaEntries.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs font-bold text-white uppercase tracking-wider">Payload Parameters</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {otherMetaEntries.map(([k, v]) => (
+              <div key={k} className="p-2.5 rounded-xl bg-surface-light border border-border">
+                <span className="text-[10px] text-dim uppercase tracking-wider font-semibold block">{k}</span>
+                <span className="text-xs font-mono text-white font-medium break-all mt-0.5 block">
+                  {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Expandable Raw JSON */}
+      <details className="group border border-hairline rounded-xl bg-surface text-xs">
+        <summary className="cursor-pointer p-3 text-muted-foreground hover:text-foreground flex items-center justify-between font-mono select-none">
+          <span className="flex items-center gap-1.5 font-sans font-semibold text-xs">
+            <Code className="w-3.5 h-3.5 text-primary" /> Raw JSON Payload
+          </span>
+          <span className="text-[10px] text-muted-foreground group-open:rotate-90 transition-transform">▶</span>
+        </summary>
+        <pre className="p-3 pt-0 text-[11px] font-mono text-foreground overflow-x-auto leading-relaxed border-t border-hairline">
+          {JSON.stringify({ ipAddress: log.ipAddress, userAgent: log.userAgent, metadata: log.metadata || {}, id: log._id }, null, 2)}
+        </pre>
+      </details>
     </div>
   );
 }

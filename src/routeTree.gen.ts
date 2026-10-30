@@ -13,8 +13,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminWalletsRouteImport } from './routes/_admin.wallets'
-import { Route as AdminVerificationRouteImport } from './routes/_admin.verification'
-import { Route as AdminUsersRouteImport } from './routes/_admin.users'
 import { Route as AdminSupportRouteImport } from './routes/_admin.support'
 import { Route as AdminSpecialtyRequestsRouteImport } from './routes/_admin.specialty-requests'
 import { Route as AdminSettingsRouteImport } from './routes/_admin.settings'
@@ -25,15 +23,22 @@ import { Route as AdminPlatformConfigRouteImport } from './routes/_admin.platfor
 import { Route as AdminPaymentsRouteImport } from './routes/_admin.payments'
 import { Route as AdminOnboardingRouteImport } from './routes/_admin.onboarding'
 import { Route as AdminNotificationsRouteImport } from './routes/_admin.notifications'
-import { Route as AdminJobsRouteImport } from './routes/_admin.jobs'
-import { Route as AdminDisputesRouteImport } from './routes/_admin.disputes'
 import { Route as AdminDashboardRouteImport } from './routes/_admin.dashboard'
 import { Route as AdminCategoriesRouteImport } from './routes/_admin.categories'
-import { Route as AdminBookingsRouteImport } from './routes/_admin.bookings'
 import { Route as AdminAuditRouteImport } from './routes/_admin.audit'
 import { Route as AdminAdminsRouteImport } from './routes/_admin.admins'
 import { Route as AdminWorkersIndexRouteImport } from './routes/_admin.workers.index'
+import { Route as AdminVerificationIndexRouteImport } from './routes/_admin.verification.index'
+import { Route as AdminUsersIndexRouteImport } from './routes/_admin.users.index'
+import { Route as AdminJobsIndexRouteImport } from './routes/_admin.jobs.index'
+import { Route as AdminDisputesIndexRouteImport } from './routes/_admin.disputes.index'
+import { Route as AdminBookingsIndexRouteImport } from './routes/_admin.bookings.index'
 import { Route as AdminWorkersIdRouteImport } from './routes/_admin.workers.$id'
+import { Route as AdminVerificationIdRouteImport } from './routes/_admin.verification.$id'
+import { Route as AdminUsersIdRouteImport } from './routes/_admin.users.$id'
+import { Route as AdminJobsIdRouteImport } from './routes/_admin.jobs.$id'
+import { Route as AdminDisputesIdRouteImport } from './routes/_admin.disputes.$id'
+import { Route as AdminBookingsIdRouteImport } from './routes/_admin.bookings.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -52,16 +57,6 @@ const IndexRoute = IndexRouteImport.update({
 const AdminWalletsRoute = AdminWalletsRouteImport.update({
   id: '/wallets',
   path: '/wallets',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminVerificationRoute = AdminVerificationRouteImport.update({
-  id: '/verification',
-  path: '/verification',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSupportRoute = AdminSupportRouteImport.update({
@@ -114,16 +109,6 @@ const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminJobsRoute = AdminJobsRouteImport.update({
-  id: '/jobs',
-  path: '/jobs',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminDisputesRoute = AdminDisputesRouteImport.update({
-  id: '/disputes',
-  path: '/disputes',
-  getParentRoute: () => AdminRoute,
-} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -132,11 +117,6 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({
 const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminBookingsRoute = AdminBookingsRouteImport.update({
-  id: '/bookings',
-  path: '/bookings',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAuditRoute = AdminAuditRouteImport.update({
@@ -154,9 +134,59 @@ const AdminWorkersIndexRoute = AdminWorkersIndexRouteImport.update({
   path: '/workers/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminVerificationIndexRoute = AdminVerificationIndexRouteImport.update({
+  id: '/verification/',
+  path: '/verification/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersIndexRoute = AdminUsersIndexRouteImport.update({
+  id: '/users/',
+  path: '/users/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminJobsIndexRoute = AdminJobsIndexRouteImport.update({
+  id: '/jobs/',
+  path: '/jobs/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDisputesIndexRoute = AdminDisputesIndexRouteImport.update({
+  id: '/disputes/',
+  path: '/disputes/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBookingsIndexRoute = AdminBookingsIndexRouteImport.update({
+  id: '/bookings/',
+  path: '/bookings/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminWorkersIdRoute = AdminWorkersIdRouteImport.update({
   id: '/workers/$id',
   path: '/workers/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminVerificationIdRoute = AdminVerificationIdRouteImport.update({
+  id: '/verification/$id',
+  path: '/verification/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersIdRoute = AdminUsersIdRouteImport.update({
+  id: '/users/$id',
+  path: '/users/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminJobsIdRoute = AdminJobsIdRouteImport.update({
+  id: '/jobs/$id',
+  path: '/jobs/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDisputesIdRoute = AdminDisputesIdRouteImport.update({
+  id: '/disputes/$id',
+  path: '/disputes/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBookingsIdRoute = AdminBookingsIdRouteImport.update({
+  id: '/bookings/$id',
+  path: '/bookings/$id',
   getParentRoute: () => AdminRoute,
 } as any)
 
@@ -165,11 +195,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admins': typeof AdminAdminsRoute
   '/audit': typeof AdminAuditRoute
-  '/bookings': typeof AdminBookingsRoute
   '/categories': typeof AdminCategoriesRoute
   '/dashboard': typeof AdminDashboardRoute
-  '/disputes': typeof AdminDisputesRoute
-  '/jobs': typeof AdminJobsRoute
   '/notifications': typeof AdminNotificationsRoute
   '/onboarding': typeof AdminOnboardingRoute
   '/payments': typeof AdminPaymentsRoute
@@ -180,10 +207,18 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AdminSettingsRoute
   '/specialty-requests': typeof AdminSpecialtyRequestsRoute
   '/support': typeof AdminSupportRoute
-  '/users': typeof AdminUsersRoute
-  '/verification': typeof AdminVerificationRoute
   '/wallets': typeof AdminWalletsRoute
+  '/bookings/$id': typeof AdminBookingsIdRoute
+  '/disputes/$id': typeof AdminDisputesIdRoute
+  '/jobs/$id': typeof AdminJobsIdRoute
+  '/users/$id': typeof AdminUsersIdRoute
+  '/verification/$id': typeof AdminVerificationIdRoute
   '/workers/$id': typeof AdminWorkersIdRoute
+  '/bookings/': typeof AdminBookingsIndexRoute
+  '/disputes/': typeof AdminDisputesIndexRoute
+  '/jobs/': typeof AdminJobsIndexRoute
+  '/users/': typeof AdminUsersIndexRoute
+  '/verification/': typeof AdminVerificationIndexRoute
   '/workers/': typeof AdminWorkersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -191,11 +226,8 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/admins': typeof AdminAdminsRoute
   '/audit': typeof AdminAuditRoute
-  '/bookings': typeof AdminBookingsRoute
   '/categories': typeof AdminCategoriesRoute
   '/dashboard': typeof AdminDashboardRoute
-  '/disputes': typeof AdminDisputesRoute
-  '/jobs': typeof AdminJobsRoute
   '/notifications': typeof AdminNotificationsRoute
   '/onboarding': typeof AdminOnboardingRoute
   '/payments': typeof AdminPaymentsRoute
@@ -206,10 +238,18 @@ export interface FileRoutesByTo {
   '/settings': typeof AdminSettingsRoute
   '/specialty-requests': typeof AdminSpecialtyRequestsRoute
   '/support': typeof AdminSupportRoute
-  '/users': typeof AdminUsersRoute
-  '/verification': typeof AdminVerificationRoute
   '/wallets': typeof AdminWalletsRoute
+  '/bookings/$id': typeof AdminBookingsIdRoute
+  '/disputes/$id': typeof AdminDisputesIdRoute
+  '/jobs/$id': typeof AdminJobsIdRoute
+  '/users/$id': typeof AdminUsersIdRoute
+  '/verification/$id': typeof AdminVerificationIdRoute
   '/workers/$id': typeof AdminWorkersIdRoute
+  '/bookings': typeof AdminBookingsIndexRoute
+  '/disputes': typeof AdminDisputesIndexRoute
+  '/jobs': typeof AdminJobsIndexRoute
+  '/users': typeof AdminUsersIndexRoute
+  '/verification': typeof AdminVerificationIndexRoute
   '/workers': typeof AdminWorkersIndexRoute
 }
 export interface FileRoutesById {
@@ -219,11 +259,8 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_admin/admins': typeof AdminAdminsRoute
   '/_admin/audit': typeof AdminAuditRoute
-  '/_admin/bookings': typeof AdminBookingsRoute
   '/_admin/categories': typeof AdminCategoriesRoute
   '/_admin/dashboard': typeof AdminDashboardRoute
-  '/_admin/disputes': typeof AdminDisputesRoute
-  '/_admin/jobs': typeof AdminJobsRoute
   '/_admin/notifications': typeof AdminNotificationsRoute
   '/_admin/onboarding': typeof AdminOnboardingRoute
   '/_admin/payments': typeof AdminPaymentsRoute
@@ -234,10 +271,18 @@ export interface FileRoutesById {
   '/_admin/settings': typeof AdminSettingsRoute
   '/_admin/specialty-requests': typeof AdminSpecialtyRequestsRoute
   '/_admin/support': typeof AdminSupportRoute
-  '/_admin/users': typeof AdminUsersRoute
-  '/_admin/verification': typeof AdminVerificationRoute
   '/_admin/wallets': typeof AdminWalletsRoute
+  '/_admin/bookings/$id': typeof AdminBookingsIdRoute
+  '/_admin/disputes/$id': typeof AdminDisputesIdRoute
+  '/_admin/jobs/$id': typeof AdminJobsIdRoute
+  '/_admin/users/$id': typeof AdminUsersIdRoute
+  '/_admin/verification/$id': typeof AdminVerificationIdRoute
   '/_admin/workers/$id': typeof AdminWorkersIdRoute
+  '/_admin/bookings/': typeof AdminBookingsIndexRoute
+  '/_admin/disputes/': typeof AdminDisputesIndexRoute
+  '/_admin/jobs/': typeof AdminJobsIndexRoute
+  '/_admin/users/': typeof AdminUsersIndexRoute
+  '/_admin/verification/': typeof AdminVerificationIndexRoute
   '/_admin/workers/': typeof AdminWorkersIndexRoute
 }
 export interface FileRouteTypes {
@@ -247,11 +292,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/admins'
     | '/audit'
-    | '/bookings'
     | '/categories'
     | '/dashboard'
-    | '/disputes'
-    | '/jobs'
     | '/notifications'
     | '/onboarding'
     | '/payments'
@@ -262,10 +304,18 @@ export interface FileRouteTypes {
     | '/settings'
     | '/specialty-requests'
     | '/support'
-    | '/users'
-    | '/verification'
     | '/wallets'
+    | '/bookings/$id'
+    | '/disputes/$id'
+    | '/jobs/$id'
+    | '/users/$id'
+    | '/verification/$id'
     | '/workers/$id'
+    | '/bookings/'
+    | '/disputes/'
+    | '/jobs/'
+    | '/users/'
+    | '/verification/'
     | '/workers/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -273,11 +323,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/admins'
     | '/audit'
-    | '/bookings'
     | '/categories'
     | '/dashboard'
-    | '/disputes'
-    | '/jobs'
     | '/notifications'
     | '/onboarding'
     | '/payments'
@@ -288,10 +335,18 @@ export interface FileRouteTypes {
     | '/settings'
     | '/specialty-requests'
     | '/support'
+    | '/wallets'
+    | '/bookings/$id'
+    | '/disputes/$id'
+    | '/jobs/$id'
+    | '/users/$id'
+    | '/verification/$id'
+    | '/workers/$id'
+    | '/bookings'
+    | '/disputes'
+    | '/jobs'
     | '/users'
     | '/verification'
-    | '/wallets'
-    | '/workers/$id'
     | '/workers'
   id:
     | '__root__'
@@ -300,11 +355,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/_admin/admins'
     | '/_admin/audit'
-    | '/_admin/bookings'
     | '/_admin/categories'
     | '/_admin/dashboard'
-    | '/_admin/disputes'
-    | '/_admin/jobs'
     | '/_admin/notifications'
     | '/_admin/onboarding'
     | '/_admin/payments'
@@ -315,10 +367,18 @@ export interface FileRouteTypes {
     | '/_admin/settings'
     | '/_admin/specialty-requests'
     | '/_admin/support'
-    | '/_admin/users'
-    | '/_admin/verification'
     | '/_admin/wallets'
+    | '/_admin/bookings/$id'
+    | '/_admin/disputes/$id'
+    | '/_admin/jobs/$id'
+    | '/_admin/users/$id'
+    | '/_admin/verification/$id'
     | '/_admin/workers/$id'
+    | '/_admin/bookings/'
+    | '/_admin/disputes/'
+    | '/_admin/jobs/'
+    | '/_admin/users/'
+    | '/_admin/verification/'
     | '/_admin/workers/'
   fileRoutesById: FileRoutesById
 }
@@ -356,20 +416,6 @@ declare module '@tanstack/react-router' {
       path: '/wallets'
       fullPath: '/wallets'
       preLoaderRoute: typeof AdminWalletsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/verification': {
-      id: '/_admin/verification'
-      path: '/verification'
-      fullPath: '/verification'
-      preLoaderRoute: typeof AdminVerificationRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/users': {
-      id: '/_admin/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/support': {
@@ -442,20 +488,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNotificationsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/_admin/jobs': {
-      id: '/_admin/jobs'
-      path: '/jobs'
-      fullPath: '/jobs'
-      preLoaderRoute: typeof AdminJobsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/disputes': {
-      id: '/_admin/disputes'
-      path: '/disputes'
-      fullPath: '/disputes'
-      preLoaderRoute: typeof AdminDisputesRouteImport
-      parentRoute: typeof AdminRoute
-    }
     '/_admin/dashboard': {
       id: '/_admin/dashboard'
       path: '/dashboard'
@@ -468,13 +500,6 @@ declare module '@tanstack/react-router' {
       path: '/categories'
       fullPath: '/categories'
       preLoaderRoute: typeof AdminCategoriesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/bookings': {
-      id: '/_admin/bookings'
-      path: '/bookings'
-      fullPath: '/bookings'
-      preLoaderRoute: typeof AdminBookingsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/audit': {
@@ -498,11 +523,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWorkersIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/verification/': {
+      id: '/_admin/verification/'
+      path: '/verification'
+      fullPath: '/verification/'
+      preLoaderRoute: typeof AdminVerificationIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/users/': {
+      id: '/_admin/users/'
+      path: '/users'
+      fullPath: '/users/'
+      preLoaderRoute: typeof AdminUsersIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/jobs/': {
+      id: '/_admin/jobs/'
+      path: '/jobs'
+      fullPath: '/jobs/'
+      preLoaderRoute: typeof AdminJobsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/disputes/': {
+      id: '/_admin/disputes/'
+      path: '/disputes'
+      fullPath: '/disputes/'
+      preLoaderRoute: typeof AdminDisputesIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/bookings/': {
+      id: '/_admin/bookings/'
+      path: '/bookings'
+      fullPath: '/bookings/'
+      preLoaderRoute: typeof AdminBookingsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/workers/$id': {
       id: '/_admin/workers/$id'
       path: '/workers/$id'
       fullPath: '/workers/$id'
       preLoaderRoute: typeof AdminWorkersIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/verification/$id': {
+      id: '/_admin/verification/$id'
+      path: '/verification/$id'
+      fullPath: '/verification/$id'
+      preLoaderRoute: typeof AdminVerificationIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/users/$id': {
+      id: '/_admin/users/$id'
+      path: '/users/$id'
+      fullPath: '/users/$id'
+      preLoaderRoute: typeof AdminUsersIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/jobs/$id': {
+      id: '/_admin/jobs/$id'
+      path: '/jobs/$id'
+      fullPath: '/jobs/$id'
+      preLoaderRoute: typeof AdminJobsIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/disputes/$id': {
+      id: '/_admin/disputes/$id'
+      path: '/disputes/$id'
+      fullPath: '/disputes/$id'
+      preLoaderRoute: typeof AdminDisputesIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/bookings/$id': {
+      id: '/_admin/bookings/$id'
+      path: '/bookings/$id'
+      fullPath: '/bookings/$id'
+      preLoaderRoute: typeof AdminBookingsIdRouteImport
       parentRoute: typeof AdminRoute
     }
   }
@@ -511,11 +606,8 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminAuditRoute: typeof AdminAuditRoute
-  AdminBookingsRoute: typeof AdminBookingsRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
-  AdminDisputesRoute: typeof AdminDisputesRoute
-  AdminJobsRoute: typeof AdminJobsRoute
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminOnboardingRoute: typeof AdminOnboardingRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
@@ -526,21 +618,26 @@ interface AdminRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSpecialtyRequestsRoute: typeof AdminSpecialtyRequestsRoute
   AdminSupportRoute: typeof AdminSupportRoute
-  AdminUsersRoute: typeof AdminUsersRoute
-  AdminVerificationRoute: typeof AdminVerificationRoute
   AdminWalletsRoute: typeof AdminWalletsRoute
+  AdminBookingsIdRoute: typeof AdminBookingsIdRoute
+  AdminDisputesIdRoute: typeof AdminDisputesIdRoute
+  AdminJobsIdRoute: typeof AdminJobsIdRoute
+  AdminUsersIdRoute: typeof AdminUsersIdRoute
+  AdminVerificationIdRoute: typeof AdminVerificationIdRoute
   AdminWorkersIdRoute: typeof AdminWorkersIdRoute
+  AdminBookingsIndexRoute: typeof AdminBookingsIndexRoute
+  AdminDisputesIndexRoute: typeof AdminDisputesIndexRoute
+  AdminJobsIndexRoute: typeof AdminJobsIndexRoute
+  AdminUsersIndexRoute: typeof AdminUsersIndexRoute
+  AdminVerificationIndexRoute: typeof AdminVerificationIndexRoute
   AdminWorkersIndexRoute: typeof AdminWorkersIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAdminsRoute: AdminAdminsRoute,
   AdminAuditRoute: AdminAuditRoute,
-  AdminBookingsRoute: AdminBookingsRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminDashboardRoute: AdminDashboardRoute,
-  AdminDisputesRoute: AdminDisputesRoute,
-  AdminJobsRoute: AdminJobsRoute,
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminOnboardingRoute: AdminOnboardingRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
@@ -551,10 +648,18 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSpecialtyRequestsRoute: AdminSpecialtyRequestsRoute,
   AdminSupportRoute: AdminSupportRoute,
-  AdminUsersRoute: AdminUsersRoute,
-  AdminVerificationRoute: AdminVerificationRoute,
   AdminWalletsRoute: AdminWalletsRoute,
+  AdminBookingsIdRoute: AdminBookingsIdRoute,
+  AdminDisputesIdRoute: AdminDisputesIdRoute,
+  AdminJobsIdRoute: AdminJobsIdRoute,
+  AdminUsersIdRoute: AdminUsersIdRoute,
+  AdminVerificationIdRoute: AdminVerificationIdRoute,
   AdminWorkersIdRoute: AdminWorkersIdRoute,
+  AdminBookingsIndexRoute: AdminBookingsIndexRoute,
+  AdminDisputesIndexRoute: AdminDisputesIndexRoute,
+  AdminJobsIndexRoute: AdminJobsIndexRoute,
+  AdminUsersIndexRoute: AdminUsersIndexRoute,
+  AdminVerificationIndexRoute: AdminVerificationIndexRoute,
   AdminWorkersIndexRoute: AdminWorkersIndexRoute,
 }
 

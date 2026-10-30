@@ -2,12 +2,15 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CalendarDays, CheckCircle2, Mail, MapPin, Phone, Power,
-  RotateCcw, X, XCircle, Wallet, Star, Edit, Save, Loader, Layers3
+  RotateCcw, X, XCircle, Wallet, Star, Edit, Save, Loader, Layers3, Award, Eye, Building2,
+  Clock, RefreshCw
 } from "lucide-react";
 import { format } from "date-fns";
 import { Avatar, Badge, StatusBadge, RatingStars } from "@/components/admin/ui";
 import { Modal } from "@/components/admin/Drawer";
-import { fmtPKR } from "@/lib/mock-data";
+import { CnicRevealModal } from "@/components/admin/CnicRevealModal";
+import { CopyableId } from "@/components/ui/copyable-id";
+import { formatPKR, shortId } from "@/lib/format";
 import {
   useBookings, useToggleWorkerStatus, useVerifyWorker,
   useWorkerDetails, useWorkerWalletDetails, useWorkerReviews,
@@ -55,11 +58,11 @@ function WorkerDetail() {
     return (
       <div className="space-y-5">
         <Link to="/workers" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
-          <ArrowLeft className="w-4 h-4" /> Back to Workers
+          <ArrowLeft className="w-4 h-4" /> Back to Ustads
         </Link>
         <div className="bg-card border border-border rounded-2xl p-10 text-center text-muted-foreground shadow-card">
           <div className="w-8 h-8 border-4 border-t-primary border-border rounded-full animate-spin mx-auto mb-3" />
-          Loading worker details...
+          Loading ustad details...
         </div>
       </div>
     );
@@ -69,11 +72,11 @@ function WorkerDetail() {
     return (
       <div className="space-y-5">
         <Link to="/workers" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
-          <ArrowLeft className="w-4 h-4" /> Back to Workers
+          <ArrowLeft className="w-4 h-4" /> Back to Ustads
         </Link>
         <div className="bg-card border border-border rounded-2xl p-10 text-center shadow-card">
-          <div className="text-lg font-bold">Worker not found</div>
-          <p className="mt-2 text-sm text-muted-foreground">{(error as any)?.message || "The worker may have been removed or the link is invalid."}</p>
+          <div className="text-lg font-bold">Ustad not found</div>
+          <p className="mt-2 text-sm text-muted-foreground">{(error as any)?.message || "The ustad may have been removed or the link is invalid."}</p>
           <button
             onClick={() => refetch()}
             className="mt-5 inline-flex items-center gap-2 px-4 h-10 rounded-xl bg-primary/15 text-primary border border-primary/30 font-semibold"
@@ -144,21 +147,24 @@ function WorkerDetail() {
   return (
     <div className="space-y-5">
       <Link to="/workers" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
-        <ArrowLeft className="w-4 h-4" /> Back to Workers
+        <ArrowLeft className="w-4 h-4" /> Back to Ustads
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Worker Profile Card */}
         <div className="bg-card border border-border rounded-2xl p-6 shadow-card text-center">
           <div className="relative inline-block">
-            <Avatar src={worker.profileImage} name={worker.fullName || "Worker"} size={120} />
+            <Avatar src={worker.profileImage} name={worker.fullName || "Ustad"} size={120} />
             {worker.isVerified && (
               <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full gradient-success flex items-center justify-center border-4 border-card">
                 <CheckCircle2 className="w-5 h-5 text-white" />
               </div>
             )}
           </div>
-          <h2 className="text-2xl font-bold mt-4">{worker.fullName || "Unnamed Worker"}</h2>
+          <h2 className="text-2xl font-bold mt-4 text-foreground">{worker.fullName || "Unnamed Ustad"}</h2>
+          <div className="mt-1 flex justify-center">
+            <CopyableId id={worker._id} label="ID" />
+          </div>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
             {activeSpecialties.length > 0
               ? activeSpecialties.slice(0, 3).map((specialty) => {
@@ -181,7 +187,7 @@ function WorkerDetail() {
               <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-destructive">
                 <AlertTriangle className="h-3.5 w-3.5" /> Suspended
               </div>
-              <p className="mt-2 text-sm text-white">{worker.deactivationReason || "Account deactivated by admin. Please contact support for details."}</p>
+              <p className="mt-2 text-sm text-foreground">{worker.deactivationReason || "Account deactivated by admin. Please contact support for details."}</p>
               {worker.deactivatedAt && <p className="mt-1 text-xs text-muted-foreground">Deactivated {formatDate(worker.deactivatedAt)}</p>}
             </div>
           )}
@@ -192,21 +198,41 @@ function WorkerDetail() {
               <div className="space-y-3">
                 {activeSpecialties.map((specialty) => {
                   const category = typeof specialty.categoryId === "string" ? null : specialty.categoryId;
+                  const categoryName = category?.name || "Category";
+                  const specialtyCertificates = (specialty as any).certificates?.length
+                    ? (specialty as any).certificates
+                    : (worker.certificates || []).filter((c: any) =>
+                        c.categoryName === categoryName || (!c.categoryName && specialty.priority === 1)
+                      );
+                  const timeline = getSubscriptionTimeline(specialty);
                   return (
                     <div key={specialty._id} className="rounded-xl bg-card/80 border border-border/70 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-extrabold truncate">{category?.name || "Category"}</div>
+                          <div className="text-sm font-extrabold truncate">{categoryName}</div>
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">{specialty.priority === 1 ? "Primary service" : "Additional service"}</div>
                         </div>
-                        <Badge variant={specialty.subscriptionStatus === "active" || specialty.subscriptionStatus === "free" ? "success" : "warning"}>
-                          {specialty.subscriptionStatus.replace(/_/g, " ")}
+                        <Badge variant={timeline.badgeVariant}>
+                          {timeline.label}
                         </Badge>
+                      </div>
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        {specialty.priority === 1 ? (
+                          <span className="text-success font-medium">Free forever · Active</span>
+                        ) : specialty.subscriptionStatus === "active" ? (
+                          <span>Renews: <strong className="text-foreground">{formatDate(specialty.currentPeriodEnd || specialty.nextBillingAt)}</strong></span>
+                        ) : specialty.subscriptionStatus === "pending_activation" ? (
+                          <span className="text-warning font-medium">Pending activation ({formatPKR(specialty.monthlyFeeSnapshot || 500)})</span>
+                        ) : specialty.subscriptionStatus === "payment_due" ? (
+                          <span className="text-destructive font-medium">Grace ends: {formatDate(specialty.graceEndsAt)}</span>
+                        ) : (
+                          <span className="text-destructive font-medium">Expired: {formatDate(specialty.currentPeriodEnd || specialty.nextBillingAt)}</span>
+                        )}
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-lg bg-surface-light/80 border border-border/60 px-3 py-2">
                           <div className="text-[10px] uppercase text-muted-foreground font-bold">Rate</div>
-                          <div className="text-sm font-extrabold text-accent">{fmtPKR(specialty.hourlyRate || 0)}/hr</div>
+                          <div className="text-sm font-extrabold text-accent">{formatPKR(specialty.hourlyRate || 0)}/hr</div>
                         </div>
                         <div className="rounded-lg bg-surface-light/80 border border-border/60 px-3 py-2">
                           <div className="text-[10px] uppercase text-muted-foreground font-bold">Experience</div>
@@ -219,6 +245,42 @@ function WorkerDetail() {
                           ? specialty.skills.slice(0, 6).map(skill => <span key={skill} className="px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-semibold">{skill}</span>)
                           : <span className="text-[11px] text-muted-foreground">No skills submitted</span>}
                       </div>
+
+                      {specialtyCertificates.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-border/60 space-y-2">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <Award className="w-3.5 h-3.5 text-primary" /> Certificates ({specialtyCertificates.length})
+                          </div>
+                          {specialtyCertificates.map((cert: any, idx: number) => (
+                            <div
+                              key={cert._id || idx}
+                              onClick={() => cert.certificateUrl && setLightbox(cert.certificateUrl)}
+                              className="group flex items-center gap-2.5 rounded-lg border border-border/80 bg-surface-light/60 hover:border-primary/40 p-2 transition cursor-pointer"
+                            >
+                              {cert.certificateUrl ? (
+                                <img
+                                  src={cert.certificateUrl}
+                                  alt={cert.title || "Certificate"}
+                                  className="h-10 w-14 shrink-0 rounded object-cover border border-border"
+                                />
+                              ) : (
+                                <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded bg-surface text-muted-foreground">
+                                  <Award className="w-4 h-4" />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="font-bold text-xs text-foreground truncate">{cert.title || "Certificate"}</div>
+                                {cert.issuingOrg && (
+                                  <div className="text-[11px] text-muted-foreground truncate">{cert.issuingOrg}</div>
+                                )}
+                                <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-primary group-hover:underline">
+                                  <Eye className="w-3 h-3" /> View Document
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -239,7 +301,7 @@ function WorkerDetail() {
             onClick={toggleActiveStatus}
             className="mt-2 btn-press w-full h-11 rounded-xl bg-surface-light hover:bg-accent/15 hover:text-accent border border-border font-bold flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <Power className="w-4 h-4" /> {worker.isActive ? "Deactivate Worker" : "Activate Worker"}
+            <Power className="w-4 h-4" /> {worker.isActive ? "Suspend Ustad" : "Activate Ustad"}
           </button>
         </div>
 
@@ -248,7 +310,7 @@ function WorkerDetail() {
           {/* Stats Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Stat label="Total Jobs" value={(worker.totalJobs || 0).toString()} />
-            <Stat label="Earnings" value={fmtPKR(worker.totalEarnings || 0)} />
+            <Stat label="Earnings" value={formatPKR(worker.totalEarnings || 0)} />
             <Stat label="Rating" value={`${(worker.rating || 0).toFixed(1)}★`} />
             <Stat label="Reviews" value={(worker.totalReviews || 0).toString()} />
           </div>
@@ -256,15 +318,29 @@ function WorkerDetail() {
           {/* Identity Verification */}
           <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
             <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-              <h3 className="font-bold">Identity Verification</h3>
+              <h3 className="font-bold text-foreground">CNIC Verification</h3>
               <div className="flex flex-wrap gap-2">
-                {worker.isVerified ? <Badge variant="success">Verified</Badge> : <Badge variant="warning" pulse>Pending</Badge>}
+                {worker.isVerified ? (
+                  <Badge variant="success">Verified ✅</Badge>
+                ) : (worker.cnicFrontImage || worker.cnicBackImage || worker.cnicNumber) ? (
+                  <Badge variant="warning" pulse>Pending Review</Badge>
+                ) : (
+                  <Badge variant="muted">Not Submitted</Badge>
+                )}
                 <Badge variant={worker.isAvailable ? "info" : "muted"}>{worker.isAvailable ? "Available" : "Unavailable"}</Badge>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-              <Info label="CNIC Number" value={worker.cnicNumber || "Not provided"} mono />
+              <div>
+                <div className="text-[10px] uppercase text-muted-foreground mb-1">CNIC Number</div>
+                <CnicRevealModal
+                  workerId={worker._id}
+                  maskedCnic={worker.cnicNumber}
+                  workerName={worker.fullName}
+                  showImages={true}
+                />
+              </div>
               <Info label="Address" value={worker.address || "Not provided"} />
             </div>
 
@@ -273,22 +349,28 @@ function WorkerDetail() {
               <DocumentImage label="CNIC Back" src={worker.cnicBackImage} onOpen={setLightbox} />
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {!worker.isVerified && (
+            {!(worker.cnicFrontImage || worker.cnicBackImage || worker.cnicNumber) && !worker.isVerified ? (
+              <div className="mt-4 p-3.5 rounded-xl bg-surface border border-border text-center text-xs text-muted-foreground">
+                No CNIC documents submitted yet. CNIC verification will appear here once submitted by the ustad.
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {!worker.isVerified && (
+                  <button
+                    onClick={() => setConfirm("verify")}
+                    className="btn-press flex-1 min-w-[180px] h-11 rounded-xl gradient-cyan text-background font-bold glow-cyan flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> Approve CNIC & Award Bonus
+                  </button>
+                )}
                 <button
-                  onClick={() => setConfirm("verify")}
-                  className="btn-press flex-1 min-w-[180px] h-11 rounded-xl gradient-cyan text-background font-bold glow-cyan flex items-center justify-center gap-2"
+                  onClick={() => setConfirm("reject")}
+                  className="btn-press flex-1 min-w-[180px] h-11 rounded-xl bg-destructive/20 text-destructive border border-destructive/40 font-bold flex items-center justify-center gap-2"
                 >
-                  <CheckCircle2 className="w-4 h-4" /> Verify Worker
+                  <XCircle className="w-4 h-4" /> {worker.isVerified ? "Revoke CNIC Verification" : "Reject CNIC"}
                 </button>
-              )}
-              <button
-                onClick={() => setConfirm("reject")}
-                className="btn-press flex-1 min-w-[180px] h-11 rounded-xl bg-destructive/20 text-destructive border border-destructive/40 font-bold flex items-center justify-center gap-2"
-              >
-                <XCircle className="w-4 h-4" /> {worker.isVerified ? "Revoke Verification" : "Reject"}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Specialty subscriptions */}
@@ -304,27 +386,41 @@ function WorkerDetail() {
               {(worker.specialties || []).slice().sort((a, b) => a.priority - b.priority).map(specialty => {
                 const category = typeof specialty.categoryId === "string" ? null : specialty.categoryId;
                 const categoryId = typeof specialty.categoryId === "string" ? specialty.categoryId : specialty.categoryId._id;
+                const categoryName = category?.name || "Category";
                 const tier = specialty.priority === 1 ? "Primary" : "Additional";
+                const timeline = getSubscriptionTimeline(specialty);
                 const configuredFee = specialty.priority === 1
                   ? 0
                   : Number(walletSettings?.additionalCategoryMonthlyFee ?? specialty.monthlyFeeSnapshot ?? 500);
+                const specialtyCertificates = (specialty as any).certificates?.length
+                  ? (specialty as any).certificates
+                  : (worker.certificates || []).filter((c: any) =>
+                      c.categoryName === categoryName || (!c.categoryName && specialty.priority === 1)
+                    );
                 return (
                   <div key={specialty._id} className="rounded-xl bg-surface border border-border px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold">{category?.name || "Category"}</span>
+                          <span className="font-bold">{categoryName}</span>
                           <Badge variant={specialty.priority === 1 ? "info" : "orange"}>{tier}</Badge>
-                          <Badge variant={specialty.approvalStatus === "approved" ? "success" : specialty.approvalStatus === "rejected" ? "danger" : "warning"}>
-                            {specialty.approvalStatus}
+                          <Badge variant={specialty.priority === 1 || specialty.approvalStatus === "approved" ? "success" : specialty.approvalStatus === "rejected" ? "danger" : "warning"}>
+                            {specialty.priority === 1 ? "Approved (Live)" : specialty.approvalStatus}
                           </Badge>
+                          <Badge variant={timeline.badgeVariant}>{timeline.label}</Badge>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          {specialty.priority === 1 ? "Included free" : `${fmtPKR(configuredFee)} / month`} · {specialty.subscriptionStatus.replace(/_/g, " ")}
-                          {specialty.nextBillingAt ? ` · renews ${formatDate(specialty.nextBillingAt)}` : ""}
+                          {specialty.priority === 1 ? (
+                            <span className="text-success font-medium">Included free · Active</span>
+                          ) : (
+                            <span>
+                              {formatPKR(configuredFee)} / month · Status: <strong className="text-foreground capitalize">{specialty.subscriptionStatus.replace(/_/g, " ")}</strong>
+                              {timeline.endDate ? ` · ${timeline.sublabel}` : ""}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      {specialty.approvalStatus === "pending" && (
+                      {specialty.priority > 1 && specialty.approvalStatus === "pending" && (
                         <div className="flex gap-2">
                           <button disabled={reviewSpecialtyMutation.isPending}
                             onClick={() => reviewSpecialtyMutation.mutate({ workerId: worker._id, categoryId, approvalStatus: "approved" })}
@@ -339,9 +435,111 @@ function WorkerDetail() {
                         </div>
                       )}
                     </div>
+
+                    {/* Subscription Lifecycle & Expiration Timeline */}
+                    {specialty.priority === 1 ? (
+                      <div className="mt-3 rounded-xl border border-success/30 bg-success/5 p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                          <div>
+                            <span className="font-bold text-success">Included Free Forever</span>
+                            <span className="text-muted-foreground ml-2">Primary onboarding category · No monthly fees or expiration</span>
+                          </div>
+                        </div>
+                        <div className="text-muted-foreground text-[11px] font-medium">
+                          Active since {formatDate(specialty.approvedAt || specialty.requestedAt || worker.createdAt)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-xl border border-border/80 bg-background/60 p-3 space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                            <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                            <span>Subscription & Expiration Lifecycle</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {specialty.autoRenew ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-md">
+                                <RefreshCw className="w-3 h-3" /> Auto-Renew ON
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground bg-muted/20 border border-border px-2 py-0.5 rounded-md">
+                                Auto-Renew OFF
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div className="rounded-lg bg-surface/80 border border-border/50 p-2">
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-primary" /> Started On
+                            </div>
+                            <div className="mt-1 font-bold text-foreground truncate">
+                              {timeline.startDate ? formatDate(timeline.startDate) : "Not started"}
+                            </div>
+                          </div>
+
+                          <div className="rounded-lg bg-surface/80 border border-border/50 p-2">
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
+                              <CalendarDays className="w-3 h-3 text-accent" /> Expires / Renews
+                            </div>
+                            <div className="mt-1 font-bold text-foreground truncate">
+                              {timeline.endDate ? formatDate(timeline.endDate) : "Pending Activation"}
+                            </div>
+                          </div>
+
+                          <div className="rounded-lg bg-surface/80 border border-border/50 p-2">
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
+                              <Wallet className="w-3 h-3 text-success" /> Monthly Fee
+                            </div>
+                            <div className="mt-1 font-bold text-foreground">
+                              {formatPKR(configuredFee)}/mo
+                            </div>
+                          </div>
+
+                          <div className="rounded-lg bg-surface/80 border border-border/50 p-2">
+                            <div className="text-[10px] text-muted-foreground uppercase font-bold flex items-center gap-1">
+                              <RefreshCw className="w-3 h-3 text-primary" /> Last Payment
+                            </div>
+                            <div className="mt-1 font-bold text-foreground truncate">
+                              {specialty.lastChargedAt ? formatDate(specialty.lastChargedAt) : (specialty.subscriptionStatus === "active" ? "Active cycle" : "None")}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status notices */}
+                        {specialty.subscriptionStatus === "payment_due" && specialty.graceEndsAt && (
+                          <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-2 text-xs flex items-center gap-2 text-destructive">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            <span>
+                              <strong>Renewal payment failed:</strong> Ustad wallet has insufficient balance. Grace period expires on <strong>{formatDate(specialty.graceEndsAt)}</strong>. Matching is paused after grace ends.
+                            </span>
+                          </div>
+                        )}
+
+                        {specialty.subscriptionStatus === "expired" && (
+                          <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-2 text-xs flex items-center gap-2 text-destructive">
+                            <XCircle className="w-4 h-4 shrink-0" />
+                            <span>
+                              <strong>Trade Expired:</strong> This additional specialty expired on {timeline.endDate ? formatDate(timeline.endDate) : "due date"} and is not active for customer matching.
+                            </span>
+                          </div>
+                        )}
+
+                        {specialty.subscriptionStatus === "pending_activation" && (
+                          <div className="rounded-lg bg-warning/10 border border-warning/30 p-2 text-xs flex items-center gap-2 text-warning">
+                            <Clock className="w-4 h-4 shrink-0" />
+                            <span>
+                              <strong>Pending Activation:</strong> Approved by admin. Trade will activate once Ustad taps "TURN ON & PAY" in the app (Monthly fee: {formatPKR(configuredFee)}).
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="mt-3 rounded-xl bg-card/70 border border-border/70 p-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div><span className="text-muted-foreground">Worker rate:</span> <span className="font-bold text-accent">{fmtPKR(specialty.hourlyRate || 0)}/hr</span></div>
+                        <div><span className="text-muted-foreground">Worker rate:</span> <span className="font-bold text-accent">{formatPKR(specialty.hourlyRate || 0)}/hr</span></div>
                         <div><span className="text-muted-foreground">Experience:</span> <span className="font-bold">{specialty.experience || 0} years</span></div>
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -350,6 +548,58 @@ function WorkerDetail() {
                           : <span className="text-[11px] text-muted-foreground">No skills submitted</span>}
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{specialty.bio || "No category description submitted."}</p>
+
+                      {specialtyCertificates.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border/60">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                            <Award className="w-3.5 h-3.5 text-primary" /> Certificates & Degrees ({specialtyCertificates.length})
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {specialtyCertificates.map((cert: any, idx: number) => (
+                              <div
+                                key={cert._id || idx}
+                                onClick={() => cert.certificateUrl && setLightbox(cert.certificateUrl)}
+                                className="group flex items-center gap-3 rounded-xl border border-border/80 bg-surface hover:border-primary/40 hover:bg-surface-light/50 p-2.5 transition cursor-pointer"
+                              >
+                                <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-surface-light">
+                                  {cert.certificateUrl ? (
+                                    <>
+                                      <img
+                                        src={cert.certificateUrl}
+                                        alt={cert.title || "Certificate"}
+                                        className="h-full w-full object-cover transition duration-200 group-hover:scale-105"
+                                      />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                        <Eye className="w-4 h-4 text-white" />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                      <Award className="w-5 h-5" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-xs text-foreground truncate">{cert.title || "Trade Certificate"}</div>
+                                  {cert.issuingOrg ? (
+                                    <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                                      <Building2 className="w-3 h-3 shrink-0 text-primary/80" />
+                                      <span className="truncate">{cert.issuingOrg}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="mt-0.5 text-[11px] text-muted-foreground">Issuing board not specified</div>
+                                  )}
+                                  {cert.certificateUrl && (
+                                    <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-primary group-hover:underline">
+                                      <Eye className="w-3 h-3" /> View Document
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -396,10 +646,22 @@ function WorkerDetail() {
                   </td></tr>}
                   {!bookingsLoading && recentBookings.map((booking: any) => (
                     <tr key={booking._id} className="border-b border-border/60 hover:bg-surface-light/40 transition">
-                      <td className="px-4 py-2.5 font-medium">{booking.customer?.fullName || "N/A"}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{booking.category || "N/A"}</td>
+                      <td className="px-4 py-2.5 font-medium">
+                        {booking.customer?._id ? (
+                          <Link to="/users/$id" params={{ id: booking.customer._id }} className="text-foreground hover:text-primary font-semibold">
+                            {booking.customer.fullName || "Customer"}
+                          </Link>
+                        ) : (
+                          booking.customer?.fullName || "N/A"
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Link to="/bookings/$id" params={{ id: booking._id }} className="text-foreground hover:text-primary font-medium">
+                          {booking.category || "Service"} <span className="font-mono text-xs text-primary">{shortId(booking._id)}</span>
+                        </Link>
+                      </td>
                       <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(booking.scheduledDate)}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold">{fmtPKR(booking.totalAmount || 0)}</td>
+                      <td className="px-4 py-2.5 text-right font-mono font-semibold tabular-nums">{formatPKR(booking.totalAmount || 0)}</td>
                       <td className="px-4 py-2.5"><StatusBadge status={booking.status || "pending"} /></td>
                     </tr>
                   ))}
@@ -418,22 +680,22 @@ function WorkerDetail() {
                   </div>
                 ) : walletData ? (
                   <>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div className="p-4 rounded-xl bg-surface border border-border">
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Balance</div>
-                        <div className="text-2xl font-extrabold text-primary mt-1">{fmtPKR(walletData.wallet?.balance || 0)}</div>
+                        <div className="text-2xl font-mono tabular-nums font-extrabold text-primary mt-1">{formatPKR(walletData.wallet?.balance || 0)}</div>
                       </div>
                       <div className="p-4 rounded-xl bg-surface border border-border">
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Total Recharged</div>
-                        <div className="text-2xl font-extrabold text-success mt-1">{fmtPKR(walletData.wallet?.totalRecharged || 0)}</div>
+                        <div className="text-2xl font-mono tabular-nums font-extrabold text-success mt-1">{formatPKR(walletData.wallet?.totalRecharged || 0)}</div>
                       </div>
                       <div className="p-4 rounded-xl bg-surface border border-border">
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Commission Deducted</div>
-                        <div className="text-2xl font-extrabold text-destructive mt-1">{fmtPKR(walletData.wallet?.totalCommissionDeducted || 0)}</div>
+                        <div className="text-2xl font-mono tabular-nums font-extrabold text-destructive mt-1">{formatPKR(walletData.wallet?.totalCommissionDeducted || 0)}</div>
                       </div>
                       <div className="p-4 rounded-xl bg-surface border border-border">
                         <div className="text-xs text-muted-foreground uppercase font-semibold">Specialty Renewals</div>
-                        <div className="text-2xl font-extrabold text-accent mt-1">{fmtPKR(walletData.wallet?.totalSubscriptionDeducted || 0)}</div>
+                        <div className="text-2xl font-mono tabular-nums font-extrabold text-accent mt-1">{formatPKR(walletData.wallet?.totalSubscriptionDeducted || 0)}</div>
                       </div>
                     </div>
                     <div className="overflow-x-auto">
@@ -456,10 +718,10 @@ function WorkerDetail() {
                                 </Badge>
                               </td>
                               <td className="px-4 py-2.5 text-muted-foreground truncate max-w-[200px]">{tx.description || "—"}</td>
-                              <td className={`px-4 py-2.5 text-right font-bold ${['commission_deduction', 'specialty_subscription'].includes(tx.type) ? 'text-destructive' : 'text-success'}`}>
-                                {['commission_deduction', 'specialty_subscription'].includes(tx.type) ? '-' : '+'}{fmtPKR(tx.amount || 0)}
+                              <td className={`px-4 py-2.5 text-right font-mono tabular-nums font-bold ${['commission_deduction', 'specialty_subscription'].includes(tx.type) ? 'text-destructive' : 'text-success'}`}>
+                                {['commission_deduction', 'specialty_subscription'].includes(tx.type) ? '-' : '+'}{formatPKR(tx.amount || 0)}
                               </td>
-                              <td className="px-4 py-2.5 text-right font-semibold">{fmtPKR(tx.balanceAfter || 0)}</td>
+                              <td className="px-4 py-2.5 text-right font-mono tabular-nums font-semibold">{formatPKR(tx.balanceAfter || 0)}</td>
                               <td className="px-4 py-2.5 text-xs text-muted-foreground">{formatDate(tx.createdAt)}</td>
                             </tr>
                           ))}
@@ -495,7 +757,7 @@ function WorkerDetail() {
                             {review.customer?.fullName?.[0]?.toUpperCase() || "U"}
                           </div>
                           <div>
-                            <div className="font-semibold text-sm text-white">{review.customer?.fullName || "Anonymous User"}</div>
+                            <div className="font-semibold text-sm text-foreground">{review.customer?.fullName || "Anonymous User"}</div>
                             <div className="text-xs text-muted-foreground">{formatDate(review.createdAt)}</div>
                           </div>
                         </div>
@@ -558,7 +820,7 @@ function WorkerDetail() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
               <div>
-                <div className="font-bold text-white">This worker will be locked out of app actions.</div>
+                <div className="font-bold text-foreground">This worker will be locked out of app actions.</div>
                 <p className="mt-1 text-sm text-muted-foreground">Active bookings are not cancelled automatically. Admin/support should resolve any active cases manually.</p>
               </div>
             </div>
@@ -594,7 +856,7 @@ function WorkerDetail() {
             <div className="flex items-start gap-3">
               <Layers3 className="w-5 h-5 text-primary mt-0.5" />
               <div>
-                <div className="text-sm font-extrabold text-white">Service details are category-specific</div>
+                <div className="text-sm font-extrabold text-foreground">Service details are category-specific</div>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                   Category, hourly rate, experience, bio, and skills are managed in the Active Service Categories and pending approval sections, not from this general profile form.
                 </p>
@@ -672,4 +934,100 @@ function formatDate(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "N/A";
   return format(date, "dd MMM yyyy");
+}
+
+function getSubscriptionTimeline(specialty: any) {
+  if (specialty.priority === 1) {
+    return {
+      type: "free" as const,
+      label: "Free Forever",
+      sublabel: "Active primary trade",
+      badgeVariant: "success" as const,
+      startDate: specialty.approvedAt || specialty.requestedAt,
+      endDate: null,
+      daysRemaining: null,
+    };
+  }
+
+  const startDate = specialty.currentPeriodStart || specialty.approvedAt || specialty.requestedAt;
+  const endDate = specialty.currentPeriodEnd || specialty.nextBillingAt;
+  const graceDate = specialty.graceEndsAt;
+  const now = new Date();
+
+  if (specialty.subscriptionStatus === "pending_activation") {
+    return {
+      type: "pending" as const,
+      label: "Pending Activation",
+      sublabel: "Waiting for Ustad to activate and pay fee",
+      badgeVariant: "warning" as const,
+      startDate,
+      endDate: null,
+      daysRemaining: null,
+    };
+  }
+
+  if (specialty.subscriptionStatus === "expired") {
+    return {
+      type: "expired" as const,
+      label: "Expired",
+      sublabel: endDate ? `Expired on ${formatDate(endDate)}` : "Subscription expired",
+      badgeVariant: "danger" as const,
+      startDate,
+      endDate,
+      daysRemaining: null,
+    };
+  }
+
+  if (specialty.subscriptionStatus === "payment_due") {
+    const graceDaysLeft = graceDate
+      ? Math.ceil((new Date(graceDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+    return {
+      type: "grace" as const,
+      label: "Payment Due (Grace)",
+      sublabel: graceDaysLeft > 0 ? `${graceDaysLeft} day(s) left in grace` : "Grace period ending today",
+      badgeVariant: "danger" as const,
+      startDate,
+      endDate,
+      graceDate,
+      daysRemaining: graceDaysLeft,
+    };
+  }
+
+  if (endDate) {
+    const end = new Date(endDate);
+    const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) {
+      return {
+        type: "expiring_today" as const,
+        label: specialty.autoRenew ? "Renews Today" : "Expires Today",
+        sublabel: specialty.autoRenew ? "Renewal charge scheduled" : "Auto-renew disabled",
+        badgeVariant: "warning" as const,
+        startDate,
+        endDate,
+        daysRemaining: 0,
+      };
+    }
+
+    return {
+      type: "active" as const,
+      label: specialty.autoRenew ? `Renews in ${diffDays}d` : `Expires in ${diffDays}d`,
+      sublabel: specialty.autoRenew ? `Next charge on ${formatDate(endDate)}` : `Will expire on ${formatDate(endDate)} (Auto-renew OFF)`,
+      badgeVariant: specialty.autoRenew ? ("success" as const) : ("orange" as const),
+      startDate,
+      endDate,
+      daysRemaining: diffDays,
+    };
+  }
+
+  return {
+    type: "active" as const,
+    label: "Active",
+    sublabel: "Monthly subscription active",
+    badgeVariant: "success" as const,
+    startDate,
+    endDate: null,
+    daysRemaining: null,
+  };
 }

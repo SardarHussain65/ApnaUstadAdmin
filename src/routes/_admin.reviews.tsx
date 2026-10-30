@@ -1,27 +1,44 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { Trash2, Search, Calendar, Star, Filter, Eye, Tag, Sparkles, AlertTriangle, MessageSquare } from "lucide-react";
-import { useReviewsPage, useDeleteReview, useCategories, useToggleFlagReview } from "@/lib/api-hooks";
+import {
+  Trash2,
+  Search,
+  Star,
+  Eye,
+  Sparkles,
+  AlertTriangle,
+  MessageSquare,
+  ArrowUpRight,
+} from "lucide-react";
+import {
+  useReviewsPage,
+  useDeleteReview,
+  useCategories,
+  useToggleFlagReview,
+} from "@/lib/api-hooks";
 import { RatingStars, Avatar, Badge } from "@/components/admin/ui";
 import { Drawer } from "@/components/admin/Drawer";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { PaginationBar } from "@/components/admin/DataTable";
+import { shortId } from "@/lib/format";
 
-export const Route = createFileRoute("/_admin/reviews")({ component: ReviewsPage });
+export const Route = createFileRoute("/_admin/reviews")({
+  component: ReviewsPage,
+});
 
 function ReviewsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRating, setSelectedRating] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [dateFilter, setDateFilter] = useState(""); // "today", "week", "month", ""
+  const [dateFilter, setDateFilter] = useState("");
   const [page, setPage] = useState(1);
   const deferredSearch = useDeferredValue(searchQuery);
 
-  // Drawer state
   const [selectedReview, setSelectedReview] = useState<any | null>(null);
+  const [reviewToDelete, setReviewToDelete] = useState<any | null>(null);
 
-  // Queries & Mutations
   const dateFrom = useMemo(() => {
     if (!dateFilter) return undefined;
     const from = new Date();
@@ -31,7 +48,9 @@ function ReviewsPage() {
     return from.toISOString();
   }, [dateFilter]);
 
-  useEffect(() => { setPage(1); }, [deferredSearch, selectedRating, selectedCategory, dateFrom]);
+  useEffect(() => {
+    setPage(1);
+  }, [deferredSearch, selectedRating, selectedCategory, dateFrom]);
 
   const { data: reviewsData, isLoading } = useReviewsPage({
     page,
@@ -47,24 +66,8 @@ function ReviewsPage() {
 
   const reviewsList = reviewsData?.items || [];
 
-  // Delete handler
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this review?")) {
-      try {
-        await deleteMutation.mutateAsync(id);
-        toast.success("Review deleted successfully");
-        if (selectedReview?._id === id) {
-          setSelectedReview(null);
-        }
-      } catch (err) {
-        toast.error("Failed to delete review");
-      }
-    }
-  };
-
-  // Real flag handler wired to backend API
   const handleFlagReview = async (id: string) => {
-    const review = filteredReviews.find((r: any) => r._id === id);
+    const review = reviewsList.find((r: any) => r._id === id);
     const isCurrentlyFlagged = review?.isFlagged || selectedReview?.isFlagged;
     const reason = isCurrentlyFlagged ? "Unflagged by Admin" : "Flagged by Admin";
     try {
@@ -72,20 +75,24 @@ function ReviewsPage() {
       if (selectedReview && selectedReview._id === id) {
         setSelectedReview((prev: any) => ({ ...prev, isFlagged: !prev.isFlagged }));
       }
-    } catch (err) {
-      // Toast error is handled in mutation
+    } catch {
+      // handled in mutation hook
     }
   };
 
-  // In-memory calculations for stats
   const stats = useMemo(() => {
     const total = reviewsList.length;
-    if (total === 0) return { total: 0, average: 0, distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } };
+    if (total === 0)
+      return {
+        total: 0,
+        average: 0,
+        distribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as Record<number, number>,
+      };
 
     const sum = reviewsList.reduce((acc: number, r: any) => acc + r.rating, 0);
     const average = Math.round((sum / total) * 10) / 10;
 
-    const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as any;
+    const distribution: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     reviewsList.forEach((r: any) => {
       const rounded = Math.round(r.rating);
       if (rounded >= 1 && rounded <= 5) {
@@ -96,42 +103,39 @@ function ReviewsPage() {
     return { total, average, distribution };
   }, [reviewsList]);
 
-  const filteredReviews = reviewsList;
-
   return (
     <div className="space-y-6">
-      {/* 🚀 Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-muted-foreground bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Customer Reviews
-        </h2>
-        <p className="text-sm text-dim mt-1">
-          Monitor service feedback, ratings, and moderate customer reviews.
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Monitor service feedback, star ratings, and moderate customer reviews.
         </p>
       </div>
 
-      {/* 📊 Rating Distribution & Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-        {/* Average Stats Card */}
-        <div className="md:col-span-4 bg-card border border-border rounded-2xl p-5 shadow-card flex flex-col items-center justify-center text-center">
-          <div className="text-sm text-dim font-medium mb-1">Visible Page Average</div>
-          <div className="text-5xl font-extrabold text-white tracking-tight flex items-baseline gap-1">
+      {/* Rating Distribution & Stats */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-12">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-hairline bg-card p-5 text-center md:col-span-4">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Visible Page Average
+          </div>
+          <div className="flex items-baseline gap-1 font-mono text-5xl font-extrabold tracking-tight text-foreground">
             {stats.average}
-            <span className="text-sm text-dim font-normal">/ 5.0</span>
+            <span className="text-sm font-normal text-muted-foreground">/ 5.0</span>
           </div>
           <div className="mt-2.5">
             <RatingStars rating={stats.average} size={18} />
           </div>
-          <div className="text-xs text-dim mt-3 font-semibold">
-            Based on {stats.total} visible reviews · {reviewsData?.pagination.totalItems ?? 0} matching
+          <div className="mt-3 text-xs font-medium text-muted-foreground">
+            Based on {stats.total} visible · {reviewsData?.pagination.totalItems ?? 0} total matching
           </div>
         </div>
 
-        {/* Rating Bars Card */}
-        <div className="md:col-span-8 bg-card border border-border rounded-2xl p-5 shadow-card space-y-2.5">
-          <div className="text-xs font-semibold text-dim uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span>Rating Distribution</span>
+        <div className="space-y-2.5 rounded-xl border border-hairline bg-card p-5 md:col-span-8">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <span>Rating Distribution (Click bar to filter)</span>
           </div>
 
           {[5, 4, 3, 2, 1].map((stars) => {
@@ -140,21 +144,24 @@ function ReviewsPage() {
             return (
               <button
                 key={stars}
-                onClick={() => setSelectedRating(selectedRating === String(stars) ? "" : String(stars))}
-                className={`w-full flex items-center gap-3 group text-left p-1 rounded-lg transition-colors hover:bg-surface-light/20 ${
-                  selectedRating === String(stars) ? "bg-surface-light/40" : ""
+                type="button"
+                onClick={() =>
+                  setSelectedRating(selectedRating === String(stars) ? "" : String(stars))
+                }
+                className={`group flex w-full items-center gap-3 rounded-lg p-1 text-left transition-colors hover:bg-surface ${
+                  selectedRating === String(stars) ? "bg-surface" : ""
                 }`}
               >
-                <span className="text-xs font-semibold w-10 text-white flex items-center gap-1">
-                  {stars} <Star className="w-3 h-3 fill-gold text-gold" />
+                <span className="flex w-10 items-center gap-1 text-xs font-semibold text-foreground">
+                  {stars} <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                 </span>
-                <div className="flex-1 h-2 rounded-full bg-input overflow-hidden border border-border/30">
+                <div className="h-2 flex-1 overflow-hidden rounded-full border border-hairline bg-surface">
                   <div
-                    className="h-full bg-gradient-to-r from-gold to-accent rounded-full transition-all duration-500"
+                    className="h-full rounded-full bg-amber-400 transition-all duration-500"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <span className="text-xs font-medium text-dim w-12 text-right group-hover:text-white transition-colors">
+                <span className="w-14 text-right font-mono text-xs text-muted-foreground group-hover:text-foreground">
                   {count} ({Math.round(pct)}%)
                 </span>
               </button>
@@ -163,25 +170,24 @@ function ReviewsPage() {
         </div>
       </div>
 
-      {/* 🔍 Filters & Search */}
-      <div className="bg-card border border-border rounded-2xl p-4 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-dim" />
+      {/* Filters & Search */}
+      <div className="flex flex-col justify-between gap-4 rounded-xl border border-hairline bg-card p-4 md:flex-row md:items-center">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search by worker, customer or comments..."
+            placeholder="Search by Ustad, Customer, or review comment..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-input border border-border focus:border-primary/50 text-sm outline-none transition"
+            className="h-9 w-full rounded-lg border border-hairline bg-surface pl-9 pr-4 text-sm text-foreground outline-none transition focus:border-primary"
           />
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {/* Category Filter */}
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50"
+            className="h-9 rounded-lg border border-hairline bg-surface px-3 text-xs text-foreground outline-none focus:border-primary"
           >
             <option value="">All Categories</option>
             {categories.map((c: any) => (
@@ -191,11 +197,10 @@ function ReviewsPage() {
             ))}
           </select>
 
-          {/* Rating Dropdown */}
           <select
             value={selectedRating}
             onChange={(e) => setSelectedRating(e.target.value)}
-            className="p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50"
+            className="h-9 rounded-lg border border-hairline bg-surface px-3 text-xs text-foreground outline-none focus:border-primary"
           >
             <option value="">All Ratings</option>
             {[5, 4, 3, 2, 1].map((n) => (
@@ -205,11 +210,10 @@ function ReviewsPage() {
             ))}
           </select>
 
-          {/* Date Dropdown */}
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="p-2 bg-input border border-border rounded-xl text-xs outline-none focus:border-primary/50"
+            className="h-9 rounded-lg border border-hairline bg-surface px-3 text-xs text-foreground outline-none focus:border-primary"
           >
             <option value="">All Time</option>
             <option value="today">Past 24 Hours</option>
@@ -219,97 +223,146 @@ function ReviewsPage() {
         </div>
       </div>
 
-      {/* 📋 Reviews List Table */}
-      <div className="bg-card border border-border rounded-2xl shadow-card overflow-hidden">
+      {/* Reviews Table */}
+      <div className="overflow-hidden rounded-xl border border-hairline bg-card">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-dim">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-3"></div>
-            <span>Loading reviews database...</span>
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <div className="mb-3 h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+            <span>Loading customer reviews...</span>
           </div>
-        ) : filteredReviews.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-dim text-center">
-            <MessageSquare className="w-12 h-12 mb-3 opacity-30" />
-            <span className="text-sm font-semibold">No reviews matching criteria</span>
-            <span className="text-xs opacity-75 mt-1">Try resetting some filters</span>
+        ) : reviewsList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
+            <MessageSquare className="mb-3 h-12 w-12 opacity-30" />
+            <span className="text-sm font-semibold text-foreground">
+              No reviews matching criteria
+            </span>
+            <span className="mt-1 text-xs">Try resetting your active filters</span>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-border/80 text-xs font-semibold text-dim uppercase tracking-wider bg-surface-light/10">
-                  <th className="p-4 pl-6">Customer</th>
-                  <th className="p-4">Worker</th>
-                  <th className="p-4">Rating</th>
-                  <th className="p-4">Comment</th>
-                  <th className="p-4">Booking</th>
-                  <th className="p-4">Date</th>
-                  <th className="p-4 pr-6 text-right">Actions</th>
+                <tr className="border-b border-hairline bg-surface text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <th className="p-3.5 pl-5">Customer</th>
+                  <th className="p-3.5">Ustad</th>
+                  <th className="p-3.5">Rating</th>
+                  <th className="p-3.5">Comment</th>
+                  <th className="p-3.5">Booking</th>
+                  <th className="p-3.5">Date</th>
+                  <th className="p-3.5 pr-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
-                {filteredReviews.map((rv: any) => (
-                  <tr
-                    key={rv._id}
-                    onClick={() => setSelectedReview(rv)}
-                    className="hover:bg-surface-light/10 transition cursor-pointer group text-sm"
-                  >
-                    <td className="p-4 pl-6">
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          src={rv.customer?.profileImage}
-                          name={rv.customer?.fullName || "Customer"}
-                          size={32}
-                        />
-                        <div className="font-semibold">{rv.customer?.fullName || "Anonymous"}</div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          src={rv.worker?.profileImage}
-                          name={rv.worker?.fullName || "Worker"}
-                          size={32}
-                        />
-                        <div className="font-semibold text-accent">{rv.worker?.fullName || "Unknown Worker"}</div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <RatingStars rating={rv.rating} size={12} />
-                    </td>
-                    <td className="p-4">
-                      <span className="text-xs text-muted-foreground line-clamp-1 max-w-[220px]">
-                        {rv.comment || <span className="italic text-dim/60">No comment written</span>}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className="font-mono text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
-                        {rv.booking?._id?.slice(-6) || "N/A"}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className="text-xs text-dim">
-                        {rv.createdAt ? format(new Date(rv.createdAt), "dd MMM yyyy") : "N/A"}
-                      </span>
-                    </td>
-                    <td className="p-4 pr-6 text-right">
-                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setSelectedReview(rv)}
-                          className="p-2 rounded-lg hover:bg-surface-light/40 text-dim hover:text-white transition"
+              <tbody className="divide-y divide-hairline">
+                {reviewsList.map((rv: any) => {
+                  const bookingId = rv.booking?._id || rv.booking;
+                  return (
+                    <tr
+                      key={rv._id}
+                      onClick={() => setSelectedReview(rv)}
+                      className="cursor-pointer text-sm transition hover:bg-surface/60"
+                    >
+                      <td className="p-3.5 pl-5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar
+                            src={rv.customer?.profileImage}
+                            name={rv.customer?.fullName || "Customer"}
+                            size={30}
+                          />
+                          {rv.customer?._id ? (
+                            <Link
+                              to="/users/$id"
+                              params={{ id: String(rv.customer._id) }}
+                              className="font-semibold text-foreground hover:text-primary hover:underline"
+                            >
+                              {rv.customer.fullName || "Customer"}
+                            </Link>
+                          ) : (
+                            <span className="font-semibold text-foreground">
+                              {rv.customer?.fullName || "Anonymous"}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar
+                            src={rv.worker?.profileImage}
+                            name={rv.worker?.fullName || "Ustad"}
+                            size={30}
+                          />
+                          {rv.worker?._id ? (
+                            <Link
+                              to="/workers/$id"
+                              params={{ id: String(rv.worker._id) }}
+                              className="font-semibold text-foreground hover:text-primary hover:underline"
+                            >
+                              {rv.worker.fullName || "Ustad"}
+                            </Link>
+                          ) : (
+                            <span className="font-semibold text-foreground">
+                              {rv.worker?.fullName || "Unknown Worker"}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3.5">
+                        <div className="flex items-center gap-2">
+                          <RatingStars rating={rv.rating} size={12} />
+                          {rv.isFlagged && <Badge variant="warning">Flagged</Badge>}
+                        </div>
+                      </td>
+                      <td className="p-3.5">
+                        <span className="line-clamp-1 max-w-[260px] text-xs text-muted-foreground">
+                          {rv.comment || (
+                            <span className="italic opacity-60">No written comment</span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="p-3.5" onClick={(e) => e.stopPropagation()}>
+                        {bookingId ? (
+                          <Link
+                            to="/bookings/$id"
+                            params={{ id: String(bookingId) }}
+                            className="inline-flex items-center gap-0.5 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-primary hover:underline"
+                          >
+                            #{shortId(String(bookingId))}
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">N/A</span>
+                        )}
+                      </td>
+                      <td className="p-3.5">
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {rv.createdAt
+                            ? format(new Date(rv.createdAt), "dd MMM yyyy")
+                            : "N/A"}
+                        </span>
+                      </td>
+                      <td className="p-3.5 pr-5 text-right">
+                        <div
+                          className="flex items-center justify-end gap-1.5"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(rv._id)}
-                          className="p-2 rounded-lg hover:bg-destructive/15 text-destructive transition"
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReview(rv)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-primary/40 hover:text-primary"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReviewToDelete(rv)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/20"
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -324,146 +377,179 @@ function ReviewsPage() {
         />
       </div>
 
-      {/* 🔍 Detail Drawer */}
+      {/* Review Detail Drawer */}
       <Drawer
         open={!!selectedReview}
         onClose={() => setSelectedReview(null)}
         title="Review Details"
       >
         {selectedReview && (
-          <div className="space-y-6">
-            {/* Rating Section */}
-            <div className="flex flex-col items-center justify-center p-6 bg-surface-light/20 border border-border rounded-2xl text-center">
-              <span className="text-xs text-dim font-medium uppercase tracking-wider mb-1">
-                Score Given
+          <div className="space-y-5">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-hairline bg-surface p-5 text-center">
+              <span className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Rating Given
               </span>
-              <span className="text-4xl font-extrabold text-white mb-2">{selectedReview.rating}.0</span>
+              <span className="mb-2 font-mono text-4xl font-extrabold text-foreground">
+                {selectedReview.rating}.0
+              </span>
               <RatingStars rating={selectedReview.rating} size={18} />
             </div>
 
-            {/* Comment Section */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-dim uppercase tracking-wider">Comment</h4>
-              <p className="p-4 bg-input border border-border rounded-xl text-sm text-foreground/90 leading-relaxed italic">
-                "{selectedReview.comment || "No comment was provided by the user."}"
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Customer Feedback
+              </h4>
+              <p className="rounded-xl border border-hairline bg-surface p-4 text-sm italic leading-relaxed text-foreground">
+                "{selectedReview.comment || "No written comment was provided."}"
               </p>
             </div>
 
-            {/* Date and Booking Section */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-surface-light/10 border border-border/60 rounded-xl p-3 flex flex-col justify-center">
-                <span className="text-[10px] text-dim uppercase font-semibold">Review Date</span>
-                <span className="text-xs font-bold text-white mt-1">
-                  {selectedReview.createdAt ? format(new Date(selectedReview.createdAt), "dd MMM yyyy hh:mm a") : "N/A"}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-hairline bg-surface p-3">
+                <span className="text-[10px] font-semibold uppercase text-muted-foreground">
+                  Review Date
+                </span>
+                <span className="mt-1 block font-mono text-xs font-semibold text-foreground">
+                  {selectedReview.createdAt
+                    ? format(new Date(selectedReview.createdAt), "dd MMM yyyy, hh:mm a")
+                    : "N/A"}
                 </span>
               </div>
-              <div className="bg-surface-light/10 border border-border/60 rounded-xl p-3 flex flex-col justify-center">
-                <span className="text-[10px] text-dim uppercase font-semibold">Booking ID</span>
-                <span className="text-xs font-mono font-bold text-primary mt-1">
-                  {selectedReview.booking?._id || "N/A"}
+              <div className="rounded-xl border border-hairline bg-surface p-3">
+                <span className="text-[10px] font-semibold uppercase text-muted-foreground">
+                  Linked Booking
                 </span>
+                {selectedReview.booking?._id || selectedReview.booking ? (
+                  <Link
+                    to="/bookings/$id"
+                    params={{
+                      id: String(selectedReview.booking?._id || selectedReview.booking),
+                    }}
+                    className="mt-1 inline-flex items-center gap-1 font-mono text-xs font-semibold text-primary hover:underline"
+                  >
+                    #{shortId(String(selectedReview.booking?._id || selectedReview.booking))}{" "}
+                    <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                ) : (
+                  <span className="mt-1 block text-xs text-muted-foreground">N/A</span>
+                )}
               </div>
             </div>
 
-            <hr className="border-border" />
+            <div className="space-y-3 border-t border-hairline pt-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Parties Involved
+              </h4>
 
-            {/* Parties Involved */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-dim uppercase tracking-wider">Parties Involved</h4>
-
-              {/* Customer */}
-              <div className="flex items-center justify-between p-3.5 bg-surface-light/15 border border-border rounded-xl">
+              <div className="flex items-center justify-between rounded-xl border border-hairline bg-surface p-3.5">
                 <div className="flex items-center gap-3">
                   <Avatar
                     src={selectedReview.customer?.profileImage}
                     name={selectedReview.customer?.fullName || "Customer"}
-                    size={38}
+                    size={36}
                   />
                   <div>
-                    <span className="text-[10px] text-dim uppercase font-semibold block leading-none mb-1">
+                    <span className="block text-[10px] font-semibold uppercase text-muted-foreground">
                       Customer
                     </span>
-                    <span className="text-sm font-bold text-white">
+                    <span className="text-sm font-bold text-foreground">
                       {selectedReview.customer?.fullName || "Anonymous"}
                     </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs text-dim font-medium block">
-                    {selectedReview.customer?.phone || "No phone"}
-                  </span>
-                </div>
+                {selectedReview.customer?._id && (
+                  <Link
+                    to="/users/$id"
+                    params={{ id: String(selectedReview.customer._id) }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                  >
+                    Profile <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                )}
               </div>
 
-              {/* Worker */}
-              <div className="flex items-center justify-between p-3.5 bg-surface-light/15 border border-border rounded-xl">
+              <div className="flex items-center justify-between rounded-xl border border-hairline bg-surface p-3.5">
                 <div className="flex items-center gap-3">
                   <Avatar
                     src={selectedReview.worker?.profileImage}
                     name={selectedReview.worker?.fullName || "Worker"}
-                    size={38}
+                    size={36}
                   />
                   <div>
-                    <span className="text-[10px] text-dim uppercase font-semibold block leading-none mb-1">
-                      Worker (Service Provider)
+                    <span className="block text-[10px] font-semibold uppercase text-muted-foreground">
+                      Ustad
                     </span>
-                    <span className="text-sm font-bold text-accent">
+                    <span className="text-sm font-bold text-foreground">
                       {selectedReview.worker?.fullName || "Unknown Worker"}
                     </span>
                   </div>
                 </div>
-                <div className="text-right flex flex-col items-end gap-1">
-                  <span className="text-xs text-dim font-medium block">
-                    {selectedReview.worker?.phone || "No phone"}
-                  </span>
-                  {selectedReview.worker?._id && (
-                    <Link
-                      to="/workers/$id"
-                      params={{ id: selectedReview.worker._id }}
-                      className="text-[10px] text-primary font-bold hover:underline"
-                    >
-                      View Profile
-                    </Link>
-                  )}
-                </div>
+                {selectedReview.worker?._id && (
+                  <Link
+                    to="/workers/$id"
+                    params={{ id: String(selectedReview.worker._id) }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                  >
+                    Profile <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                )}
               </div>
             </div>
 
-            <hr className="border-border" />
-
-            {/* Moderation Actions */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-semibold text-dim uppercase tracking-wider">Moderation Controls</h4>
+            <div className="space-y-3 border-t border-hairline pt-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Moderation Controls
+              </h4>
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={() => handleFlagReview(selectedReview._id)}
-                  className={`btn-press flex-1 h-11 rounded-xl font-bold flex items-center justify-center gap-2 text-xs transition border ${
+                  className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border text-xs font-bold transition ${
                     selectedReview.isFlagged
-                      ? "bg-surface-light/10 hover:bg-surface-light/20 text-muted-foreground border-border/30"
-                      : "bg-gold/10 hover:bg-gold/20 text-gold border-gold/30"
+                      ? "border-hairline bg-surface text-muted-foreground hover:text-foreground"
+                      : "border-amber-500/40 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
                   }`}
                   disabled={flagMutation.isPending}
                 >
-                  <AlertTriangle className="w-4 h-4" />
+                  <AlertTriangle className="h-4 w-4" />
                   {flagMutation.isPending
                     ? "Updating..."
                     : selectedReview.isFlagged
-                    ? "Unflag Review"
-                    : "Flag / Inspect"}
+                    ? "Remove Flag"
+                    : "Flag as Inappropriate"}
                 </button>
                 <button
-                  onClick={() => handleDelete(selectedReview._id)}
-                  className="btn-press flex-1 h-11 rounded-xl bg-destructive/15 hover:bg-destructive/25 text-destructive border border-destructive/30 font-bold flex items-center justify-center gap-2 text-xs"
+                  type="button"
+                  onClick={() => setReviewToDelete(selectedReview)}
                   disabled={deleteMutation.isPending}
+                  className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 text-xs font-bold text-destructive transition hover:bg-destructive/20"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Permanently
+                  <Trash2 className="h-4 w-4" />
+                  Delete Review
                 </button>
               </div>
             </div>
           </div>
         )}
       </Drawer>
+
+      <ConfirmDialog
+        open={!!reviewToDelete}
+        onOpenChange={(open) => !open && setReviewToDelete(null)}
+        title="Delete customer review?"
+        description="This review will be permanently removed and the Ustad's average rating will be recalculated."
+        confirmLabel="Delete Review"
+        tone="danger"
+        onConfirm={async () => {
+          if (!reviewToDelete) return;
+          await deleteMutation.mutateAsync(reviewToDelete._id);
+          toast.success("Review deleted successfully");
+          if (selectedReview?._id === reviewToDelete._id) {
+            setSelectedReview(null);
+          }
+          setReviewToDelete(null);
+        }}
+      />
     </div>
   );
 }

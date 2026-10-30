@@ -7,25 +7,34 @@ import {
   ArrowUpRight,
   Banknote,
   CheckCircle2,
+  Copy,
   Download,
+  ExternalLink,
   Eye,
   FileText,
   Info,
   Landmark,
+  Maximize2,
   Percent,
   RefreshCw,
+  RotateCw,
   Save,
   ShieldCheck,
   Smartphone,
   Wallet,
+  X,
   XCircle,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
+
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { DataTable, SearchInput, Select } from "@/components/admin/DataTable";
 import { Avatar, Badge, Button, FormField, Input } from "@/components/admin/ui";
 import { Drawer, Modal, ModalBody, ModalFooter } from "@/components/admin/Drawer";
 import { downloadCsv } from "@/lib/csv";
+import { shortId } from "@/lib/format";
 import {
   useAdminAdjustWallet,
   useAdminRechargeWallet,
@@ -190,9 +199,9 @@ function WalletsPage() {
       </div>
 
       <div className="app-glass flex flex-wrap gap-2 rounded-2xl p-2">
-        <WorkspaceTab active={workspace === "topups"} onClick={() => setWorkspace("topups")} icon={AlertTriangle} label="Top-Up Queue" helper="Verify incoming deposits" />
-        <WorkspaceTab active={workspace === "balances"} onClick={() => setWorkspace("balances")} icon={Wallet} label="Worker Balances" helper="Monitor eligibility and corrections" />
-        <WorkspaceTab active={workspace === "configuration"} onClick={() => setWorkspace("configuration")} icon={Smartphone} label="Payment Configuration" helper="Commission and recharge methods" />
+        <WorkspaceTab active={workspace === "topups"} onClick={() => setWorkspace("topups")} icon={AlertTriangle} label="Top-Up Queue" helper="Verify top-up receipts" />
+        <WorkspaceTab active={workspace === "balances"} onClick={() => setWorkspace("balances")} icon={Wallet} label="Ustad Balances" helper="Check balances and top-ups" />
+        <WorkspaceTab active={workspace === "configuration"} onClick={() => setWorkspace("configuration")} icon={Smartphone} label="Payment Settings" helper="Commission and deposit accounts" />
       </div>
 
       {workspace === "configuration" && (
@@ -272,11 +281,11 @@ function WalletsPage() {
                 <div className="text-[10px] text-muted-foreground">{format(new Date(request.createdAt), "dd MMM yyyy HH:mm")}</div>
               </div>
             ) },
-            { key: "worker", header: "Worker", render: (request: WalletTopUpRequest) => (
+            { key: "worker", header: "Ustad", render: (request: WalletTopUpRequest) => (
               <div className="flex items-center gap-3">
-                <Avatar src={request.worker?.profileImage} name={request.worker?.fullName || "Worker"} />
+                <Avatar src={request.worker?.profileImage} name={request.worker?.fullName || "Ustad"} />
                 <div>
-                  <div className="font-semibold">{request.worker?.fullName || "Unknown worker"}</div>
+                  <div className="font-semibold">{request.worker?.fullName || "Unknown ustad"}</div>
                   <div className="text-xs text-muted-foreground">{request.worker?.phone || "No phone"}</div>
                 </div>
               </div>
@@ -298,7 +307,7 @@ function WalletsPage() {
       {workspace === "balances" && (
         <>
           <div className="toolbar-panel flex flex-wrap gap-2 p-3">
-            <SearchInput value={q} onChange={setQ} placeholder="Search workers, phone, or email..." />
+            <SearchInput value={q} onChange={setQ} placeholder="Search ustads, phone, or email..." />
             <Select value={balanceStatus} onChange={setBalanceStatus} label="All Balances" options={[
               { value: "sufficient", label: "Sufficient" },
               { value: "low", label: "Low" },
@@ -308,8 +317,8 @@ function WalletsPage() {
 
           <section className="space-y-3">
             <div>
-              <h2 className="text-lg font-extrabold">Worker Balances</h2>
-              <p className="text-xs text-muted-foreground">Monitor wallet eligibility, commission deductions, and manual corrections.</p>
+              <h2 className="text-lg font-extrabold">Ustad Balances</h2>
+              <p className="text-xs text-muted-foreground">Monitor ustad wallet balances, app fees, and balance adjustments.</p>
             </div>
 
             <DataTable
@@ -324,28 +333,28 @@ function WalletsPage() {
           }}
           onRowClick={(wallet) => setSelectedWorkerId(wallet.worker._id)}
           columns={[
-            { key: "worker", header: "Worker", render: (wallet) => (
+            { key: "worker", header: "Ustad", render: (wallet) => (
               <div className="flex items-center gap-3">
                 <Avatar src={wallet.worker.profileImage} name={wallet.worker.fullName} />
                 <div>
                   <div className="font-semibold">{wallet.worker.fullName}</div>
-                  <div className="text-xs text-muted-foreground font-mono">{wallet.worker._id.slice(-6)}</div>
+                  <div className="text-xs text-muted-foreground font-mono">{shortId(wallet.worker._id)}</div>
                 </div>
               </div>
             ) },
             { key: "phone", header: "Phone", render: (wallet) => <span className="font-mono text-xs">{wallet.worker.phone}</span> },
             { key: "balance", header: "Available", render: (wallet) => <span className={`font-extrabold ${(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "text-destructive" : "text-success"}`}>{fmtPKR(wallet.availableBalance ?? wallet.balance)}</span> },
-            { key: "held", header: "Held", render: (wallet) => <span className="text-xs font-semibold text-gold">{fmtPKR(wallet.reservedBalance || 0)}</span> },
+            { key: "held", header: "Reserved Fee", render: (wallet) => <span className="text-xs font-semibold text-gold">{fmtPKR(wallet.reservedBalance || 0)}</span> },
             { key: "recharged", header: "Approved Top-Ups", render: (wallet) => <span className="text-xs font-semibold text-muted-foreground">{fmtPKR(wallet.totalRecharged)}</span> },
-            { key: "commission", header: "Commission", render: (wallet) => <span className="text-xs font-semibold text-muted-foreground">{fmtPKR(wallet.totalCommissionDeducted)}</span> },
-            { key: "status", header: "Eligibility", render: (wallet) => (
+            { key: "commission", header: "App Fee", render: (wallet) => <span className="text-xs font-semibold text-muted-foreground">{fmtPKR(wallet.totalCommissionDeducted)}</span> },
+            { key: "status", header: "Status", render: (wallet) => (
               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"}`}>
-                {(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "Blocked" : "Eligible"}
+                {(wallet.availableBalance ?? wallet.balance) < (walletSummary?.minimumWalletBalance || 500) ? "Low Balance" : "Active"}
               </span>
             ) },
             { key: "actions", header: "", render: (wallet) => (
               <div className="flex justify-end gap-1">
-                <button onClick={(e) => handleOpenRecharge(wallet, e)} className="p-2 rounded-lg hover:bg-success/15 text-success transition" title="Manual recharge">
+                <button onClick={(e) => handleOpenRecharge(wallet, e)} className="p-2 rounded-lg hover:bg-success/15 text-success transition" title="Manual top-up">
                   <Banknote className="w-4 h-4" />
                 </button>
                 <button onClick={(e) => handleOpenAdjust(wallet, e)} className="p-2 rounded-lg hover:bg-primary/15 text-primary transition" title="Manual correction">
@@ -359,7 +368,7 @@ function WalletsPage() {
         </>
       )}
 
-      <Drawer open={!!selectedTopUp} onClose={() => setSelectedTopUp(null)} title="Top-Up Verification" width="max-w-2xl">
+      <Drawer open={!!selectedTopUp} onClose={() => setSelectedTopUp(null)} title="Top-Up Receipt Verification" width="max-w-2xl">
         {selectedTopUp && (
           <TopUpDetail
             request={selectedTopUp}
@@ -809,6 +818,14 @@ function PaymentMethodSettingsPanel() {
   );
 }
 
+const REJECTION_PRESETS = [
+  "Transaction ID not found in JazzCash/EasyPaisa/Bank portal",
+  "Amount mismatch (receipt shows different PKR amount than requested)",
+  "Duplicate transaction ID / receipt screenshot already claimed",
+  "Receipt image is blurry, cropped, or lacks bank timestamp",
+  "Payment was transferred to an outdated or incorrect company account",
+];
+
 function TopUpDetail({
   request,
   onApprove,
@@ -824,64 +841,308 @@ function TopUpDetail({
 }) {
   const [adminNotes, setAdminNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedPreset, setSelectedPreset] = useState("");
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [rotation, setRotation] = useState<number>(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  // Transaction ID pattern detection
+  const isLikelyTid = useMemo(() => {
+    const raw = request.requestId.replace(/[^0-9a-zA-Z]/g, "");
+    return raw.length >= 8;
+  }, [request.requestId]);
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  const handleConfirmReject = () => {
+    const finalReason = selectedPreset || rejectionReason;
+    if (!finalReason.trim()) {
+      toast.error("Rejection reason is required");
+      return;
+    }
+    onReject(finalReason, adminNotes);
+  };
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-5 animate-fade-in">
+      {/* Top Header Card */}
+      <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-surface-light border border-border/80">
         <div>
-          <div className="font-mono text-primary text-sm font-extrabold">{request.requestId}</div>
-          <div className="text-xs text-muted-foreground">{format(new Date(request.createdAt), "dd MMM yyyy HH:mm")}</div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-primary text-sm font-black">{request.requestId}</span>
+            <button
+              type="button"
+              onClick={() => handleCopy(request.requestId, "Transaction Reference")}
+              className="p-1 rounded-md hover:bg-surface text-muted-foreground hover:text-white transition"
+              title="Copy Reference"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Submitted {format(new Date(request.createdAt), "dd MMM yyyy HH:mm")}
+          </div>
         </div>
         <StatusPill status={request.status} />
       </div>
 
-      <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-light">
-        <Avatar src={request.worker?.profileImage} name={request.worker?.fullName || "Worker"} size={52} />
+      {/* Worker info card */}
+      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-surface-light border border-border/80">
+        <Avatar src={request.worker?.profileImage} name={request.worker?.fullName || "Worker"} size={48} />
         <div>
-          <div className="font-bold">{request.worker?.fullName || "Unknown worker"}</div>
-          <div className="text-xs text-muted-foreground">{request.worker?.phone || "No phone"} · {request.worker?.category || "No category"}</div>
+          <div className="font-bold text-white text-sm">{request.worker?.fullName || "Unknown worker"}</div>
+          <div className="text-xs text-muted-foreground font-mono flex items-center gap-2 mt-0.5">
+            <span>{request.worker?.phone || "No phone"}</span>
+            <span>·</span>
+            <span>{request.worker?.category || "General"}</span>
+          </div>
         </div>
       </div>
 
+      {/* Transaction & Snapshot Grid */}
       <div className="grid grid-cols-2 gap-3">
-        <InfoBox label="Amount" value={fmtPKR(request.amount)} accent="text-success" />
-        <InfoBox label="Method" value={METHOD_LABEL[request.method] || request.method} />
-        <InfoBox label="Account Title" value={request.paymentDetailsSnapshot?.accountTitle || "Not set"} />
-        <InfoBox label="Account Number" value={request.paymentDetailsSnapshot?.accountNumber || request.paymentDetailsSnapshot?.iban || "Not set"} />
+        <InfoBox label="Requested Top-Up" value={fmtPKR(request.amount)} accent="text-success font-black text-base" />
+        <InfoBox label="Payment Channel" value={METHOD_LABEL[request.method] || request.method} />
+        <InfoBox
+          label="Deposit Account Title"
+          value={request.paymentDetailsSnapshot?.accountTitle || "Not set"}
+        />
+        <div className="p-3 rounded-xl bg-surface-light border border-border/60">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold flex items-center justify-between">
+            <span>Deposit Account / IBAN</span>
+            {(request.paymentDetailsSnapshot?.accountNumber || request.paymentDetailsSnapshot?.iban) && (
+              <button
+                type="button"
+                onClick={() =>
+                  handleCopy(
+                    request.paymentDetailsSnapshot?.accountNumber || request.paymentDetailsSnapshot?.iban || "",
+                    "Account number"
+                  )
+                }
+                className="text-primary hover:underline text-[10px] flex items-center gap-0.5"
+              >
+                <Copy className="w-2.5 h-2.5" /> Copy
+              </button>
+            )}
+          </div>
+          <div className="mt-1 text-xs font-mono font-bold text-foreground break-all">
+            {request.paymentDetailsSnapshot?.accountNumber || request.paymentDetailsSnapshot?.iban || "Not recorded"}
+          </div>
+        </div>
       </div>
 
-      <div>
-        <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2">Uploaded Proof</div>
-        <a href={request.proofImageUrl} target="_blank" rel="noreferrer" className="block rounded-2xl overflow-hidden border border-sidebar-border bg-surface-light">
-          <img src={request.proofImageUrl} alt="Payment proof" className="w-full max-h-[420px] object-contain bg-black/30" />
-        </a>
+      {/* Pattern check chip */}
+      <div className="flex items-center gap-2 p-2.5 rounded-xl bg-surface border border-border/60 text-xs">
+        <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+        <span className="text-muted-foreground">Reference Verification:</span>
+        <span className="font-mono text-white font-semibold">
+          {isLikelyTid ? "Standard TID structure detected" : "Custom/Manual Reference"}
+        </span>
       </div>
 
-      {request.status === "pending" ? (
-        <div className="space-y-3">
-          <textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} placeholder="Admin notes (optional)" className="w-full min-h-24 bg-surface-light rounded-xl border border-sidebar-border px-3 py-2 text-sm focus:outline-none focus:border-primary" />
-          <div className="flex gap-3">
-            <button onClick={() => onApprove(adminNotes)} disabled={isApproving || isRejecting} className="flex-1 h-11 rounded-xl gradient-success text-background font-extrabold flex items-center justify-center gap-2">
-              <CheckCircle2 className="w-4 h-4" /> {isApproving ? "Approving..." : "Approve & Credit"}
+      {/* Uploaded Proof with Pan, Zoom & Rotate Controls */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
+          <span>DEPOSIT PROOF RECEIPT</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              className="text-primary flex items-center gap-1 hover:underline text-xs"
+            >
+              <RotateCw className="w-3.5 h-3.5" /> Rotate ({rotation}°)
+            </button>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              className="text-primary flex items-center gap-1 hover:underline text-xs"
+            >
+              <Maximize2 className="w-3.5 h-3.5" /> Expand
             </button>
           </div>
-          <div className="space-y-2">
-            <input value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} placeholder="Rejection reason required before rejecting" className="w-full h-11 bg-surface-light rounded-xl border border-sidebar-border px-3 text-sm focus:outline-none focus:border-destructive" />
-            <button onClick={() => onReject(rejectionReason, adminNotes)} disabled={isApproving || isRejecting || !rejectionReason.trim()} className="w-full h-11 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive font-extrabold flex items-center justify-center gap-2 disabled:opacity-50">
-              <XCircle className="w-4 h-4" /> {isRejecting ? "Rejecting..." : "Reject Request"}
+        </div>
+
+        <div
+          className="w-full aspect-[4/3] max-h-[380px] rounded-2xl overflow-hidden border border-border/80 bg-surface-light relative group cursor-zoom-in flex items-center justify-center shadow-inner"
+          onClick={() => setLightboxOpen(true)}
+        >
+          <img
+            src={request.proofImageUrl}
+            alt="Payment proof"
+            style={{
+              transform: `scale(${zoomLevel}) rotate(${rotation}deg)`,
+              transformOrigin: "center center",
+            }}
+            className="w-full h-full object-contain transition duration-200"
+          />
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-white transition gap-1.5">
+            <Maximize2 className="w-4 h-4" /> Click to Zoom Fullscreen
+          </div>
+        </div>
+
+        {/* Zoom controls */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setZoomLevel((z) => Math.max(1, z - 0.25))}
+              className="p-1.5 rounded-lg border border-border bg-surface text-xs text-muted-foreground hover:text-white"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[11px] font-mono text-muted-foreground px-1">{zoomLevel}x</span>
+            <button
+              type="button"
+              onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
+              className="p-1.5 rounded-lg border border-border bg-surface text-xs text-muted-foreground hover:text-white"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <a
+            href={request.proofImageUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+          >
+            Open in new tab <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      </div>
+
+      {/* Pending Action Controls */}
+      {request.status === "pending" ? (
+        <div className="space-y-4 pt-3 border-t border-border/80">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+              Admin Notes (Audit Trail)
+            </label>
+            <textarea
+              value={adminNotes}
+              onChange={(e) => setAdminNotes(e.target.value)}
+              placeholder="Private notes (e.g. cross-checked with JazzCash portal statement)..."
+              rows={2}
+              className="w-full bg-input border border-border rounded-xl p-3 text-xs text-white focus:outline-none focus:border-primary resize-none"
+            />
+          </div>
+
+          {/* Approve button */}
+          <button
+            type="button"
+            onClick={() => onApprove(adminNotes)}
+            disabled={isApproving || isRejecting}
+            className="w-full h-12 rounded-xl gradient-success text-background font-black text-sm flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+          >
+            <CheckCircle2 className="w-5 h-5" />
+            {isApproving ? "Approving & Crediting..." : `Approve & Credit ${fmtPKR(request.amount)}`}
+          </button>
+
+          {/* Rejection Presets section */}
+          <div className="p-3.5 rounded-xl bg-surface border border-border/80 space-y-2.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-destructive block">
+              Reject Top-Up with Reason
+            </label>
+            <div className="space-y-1">
+              {REJECTION_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPreset(preset);
+                    setRejectionReason("");
+                  }}
+                  className={`w-full text-left p-2 rounded-lg border text-xs transition ${
+                    selectedPreset === preset
+                      ? "border-destructive bg-destructive/15 text-destructive font-bold"
+                      : "border-border bg-surface-light text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => {
+                setRejectionReason(e.target.value);
+                setSelectedPreset("");
+              }}
+              rows={2}
+              placeholder="Or enter custom rejection reason sent to worker..."
+              className="w-full bg-input border border-border rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-destructive resize-none"
+            />
+
+            <button
+              type="button"
+              onClick={handleConfirmReject}
+              disabled={isApproving || isRejecting || (!selectedPreset && !rejectionReason.trim())}
+              className="w-full h-10 rounded-xl bg-destructive/15 border border-destructive/30 text-destructive font-bold text-xs flex items-center justify-center gap-1.5 hover:bg-destructive/25 transition disabled:opacity-40"
+            >
+              <XCircle className="w-4 h-4" /> {isRejecting ? "Rejecting..." : "Confirm Rejection"}
             </button>
           </div>
         </div>
       ) : (
-        <div className="p-4 rounded-xl bg-surface-light border border-sidebar-border">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Admin Decision</div>
-          <div className="mt-2 text-sm text-foreground">{request.adminNotes || "No admin notes"}</div>
-          {request.rejectionReason && <div className="mt-2 text-sm text-destructive">{request.rejectionReason}</div>}
+        <div className="p-4 rounded-2xl bg-surface-light border border-border/80 space-y-2">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Admin Decision Log</div>
+          <div className="text-sm text-foreground">{request.adminNotes || "No admin notes recorded"}</div>
+          {request.rejectionReason && (
+            <div className="p-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-xs font-semibold text-destructive">
+              Rejection Reason: {request.rejectionReason}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lightbox Fullscreen Preview */}
+      {lightboxOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Payment Proof Fullscreen"
+          className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <div
+            className="flex items-center gap-3 mb-3 bg-surface/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-border"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              className="text-xs text-primary font-bold flex items-center gap-1 hover:underline"
+            >
+              <RotateCw className="w-4 h-4" /> Rotate ({rotation}°)
+            </button>
+            <span className="text-muted-foreground">·</span>
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="text-xs text-muted-foreground hover:text-white font-bold flex items-center gap-1"
+            >
+              <X className="w-4 h-4" /> Close Zoom
+            </button>
+          </div>
+
+          <img
+            src={request.proofImageUrl}
+            alt="Full Receipt"
+            style={{ transform: `rotate(${rotation}deg)` }}
+            className="max-w-[90vw] max-h-[85vh] rounded-2xl border border-border shadow-2xl object-contain transition duration-200"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
   );
 }
+
 
 function InfoBox({ label, value, accent = "text-foreground" }: { label: string; value: string; accent?: string }) {
   return (

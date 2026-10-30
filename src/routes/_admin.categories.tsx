@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useDeferredValue, useEffect } from "react";
 import {
   Plus, Pencil, Trash2, Zap, Droplets, Wind, Hammer, Paintbrush,
   GraduationCap, Wrench, Car, Sun, Laptop, Smartphone, Scissors,
   Home, Camera, Bug, Leaf, Truck, Lightbulb, Sparkles, Layers,
+  Search, CheckCircle2, XCircle, Clock, Check, AlertCircle, FileText
 } from "lucide-react";
 import { FormHint, Modal, ModalBody, ModalFooter } from "@/components/admin/Drawer";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -14,8 +15,12 @@ import {
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
+  useProfessionRequestsPage,
+  useReviewProfessionRequest,
+  useNavBadges,
   type Category,
   type CategoryInput,
+  type ProfessionRequest,
 } from "@/lib/api-hooks";
 
 export const Route = createFileRoute("/_admin/categories")({ component: CategoriesPage });
@@ -87,6 +92,46 @@ function SemanticIcon({ name, className }: { name: string; className?: string })
 }
 
 function CategoriesPage() {
+  const [activeTab, setActiveTab] = useState<"catalog" | "requests">(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "requests") return "requests";
+    }
+    return "catalog";
+  });
+
+  const badges = useNavBadges();
+
+  useEffect(() => {
+    const checkTab = () => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("tab") === "requests") {
+          setActiveTab("requests");
+        } else if (params.get("tab") === "catalog") {
+          setActiveTab("catalog");
+        }
+      }
+    };
+    checkTab();
+    window.addEventListener("popstate", checkTab);
+    return () => window.removeEventListener("popstate", checkTab);
+  }, []);
+
+  const switchTab = (tab: "catalog" | "requests") => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (tab === "requests") {
+        url.searchParams.set("tab", "requests");
+      } else {
+        url.searchParams.delete("tab");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  // Catalog hooks & state
   const { data: cats = [], isLoading, isError, error, refetch, isFetching } = useCategories();
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
@@ -94,6 +139,28 @@ function CategoriesPage() {
 
   const [editing, setEditing] = useState<CategoryFormState | null>(null);
   const [confirm, setConfirm] = useState<Category | null>(null);
+  const [linkedRequestId, setLinkedRequestId] = useState<string | null>(null);
+
+  // Requests hooks & state
+  const [reqPage, setReqPage] = useState(1);
+  const [reqSearch, setReqSearch] = useState("");
+  const deferredSearch = useDeferredValue(reqSearch);
+  const [reqStatus, setReqStatus] = useState<string>("all");
+  const [rejectingRequest, setRejectingRequest] = useState<ProfessionRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const { data: requestsData, isLoading: requestsLoading, error: requestsError } = useProfessionRequestsPage({
+    page: reqPage,
+    limit: 10,
+    search: deferredSearch || undefined,
+    status: reqStatus === "all" ? undefined : reqStatus,
+  });
+
+  const reviewRequestMutation = useReviewProfessionRequest();
+
+  const requests = requestsData?.items || [];
+  const pendingRequestsCount = requests.filter((r) => r.status === "pending").length;
+  const pendingTotal = badges.pendingSpecialties || pendingRequestsCount || 0;
 
   const save = (c: CategoryFormState) => {
     const payload = toCategoryPayload(c);
@@ -102,7 +169,21 @@ function CategoriesPage() {
     if (c._id && !c.isNew) {
       updateMutation.mutate({ id: c._id, ...payload }, { onSuccess: () => setEditing(null) });
     } else {
-      createMutation.mutate(payload, { onSuccess: () => setEditing(null) });
+      createMutation.mutate(payload, {
+        onSuccess: () => {
+          if (linkedRequestId) {
+            reviewRequestMutation.mutate({
+              id: linkedRequestId,
+              status: "approved",
+              categoryName: c.name,
+              categoryIcon: c.icon,
+              categoryColor: c.color,
+            });
+            setLinkedRequestId(null);
+          }
+          setEditing(null);
+        },
+      });
     }
   };
 
@@ -111,6 +192,7 @@ function CategoriesPage() {
   };
 
   const openCreate = () => {
+    setLinkedRequestId(null);
     setEditing({
       isNew: true,
       name: "",
@@ -125,6 +207,7 @@ function CategoriesPage() {
   };
 
   const openEdit = (category: Category) => {
+    setLinkedRequestId(null);
     setEditing({
       _id: category._id,
       name: category.name,
@@ -138,95 +221,403 @@ function CategoriesPage() {
     });
   };
 
+  const handleApproveWithNewCategory = (req: ProfessionRequest) => {
+    setLinkedRequestId(req._id);
+    setEditing({
+      isNew: true,
+      name: req.professionName,
+      icon: "hammer",
+      color: PALETTE[0],
+      description: req.description || req.requirements || "",
+      sortOrder: cats.length + 1,
+      isActive: true,
+      additionalCategoryMonthlyFee: 0,
+      additionalCategoryGraceDays: 3,
+    });
+  };
+
+  const handleApproveDirect = (req: ProfessionRequest) => {
+    reviewRequestMutation.mutate({
+      id: req._id,
+      status: "approved",
+      categoryName: req.professionName,
+    });
+  };
+
+  const handleRejectSubmit = () => {
+    if (!rejectingRequest) return;
+    reviewRequestMutation.mutate(
+      {
+        id: rejectingRequest._id,
+        status: "rejected",
+        rejectionReason: rejectReason || "Request rejected by administrator",
+      },
+      {
+        onSuccess: () => {
+          setRejectingRequest(null);
+          setRejectReason("");
+        },
+      }
+    );
+  };
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
-        title="Services catalog"
-        description="Manage the service types customers see in the app — e.g. Plumber, Electrician, AC repair."
+        title="Services & Professions"
+        description="Manage the categories customers browse, and approve custom trade requests submitted by workers."
         icon={<Layers className="h-3.5 w-3.5" />}
         eyebrow="Marketplace"
         actions={
-          <Button variant="primary" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Add service
-          </Button>
+          activeTab === "catalog" ? (
+            <Button variant="primary" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Add service
+            </Button>
+          ) : null
         }
         stats={
           <p className="text-sm text-muted-foreground">
-            {isFetching && !isLoading ? "Refreshing…" : `${cats.length} services configured`}
+            {activeTab === "catalog"
+              ? isFetching && !isLoading
+                ? "Refreshing…"
+                : `${cats.length} active services`
+              : `${requestsData?.pagination?.totalItems || 0} trade requests`}
           </p>
         }
       />
 
-      {isError ? (
-        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6">
-          <div className="font-bold text-destructive">Could not load services</div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {(error as Error)?.message || "Please confirm the backend is running and your admin session is valid."}
-          </p>
-          <Button variant="outline" className="mt-4" onClick={() => refetch()}>Try again</Button>
-        </div>
-      ) : isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-2xl bg-card/50" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {cats.map((c: Category, i: number) => (
-            <div
-              key={c._id}
-              className="card-hover animate-fade-in rounded-2xl border border-border bg-card p-5 shadow-card"
-              style={{ animationDelay: `${i * 40}ms` }}
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-border pb-3">
+        <button
+          onClick={() => switchTab("catalog")}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
+            activeTab === "catalog"
+              ? "bg-primary text-black"
+              : "bg-card text-muted-foreground hover:text-white"
+          }`}
+        >
+          Active Services ({cats.length})
+        </button>
+        <button
+          onClick={() => switchTab("requests")}
+          className={`px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
+            activeTab === "requests"
+              ? "bg-primary text-black"
+              : "bg-card text-muted-foreground hover:text-white"
+          }`}
+        >
+          <span>Requested Professions</span>
+          {pendingTotal > 0 && (
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-black transition ${
+                activeTab === "requests"
+                  ? "bg-black text-primary"
+                  : "bg-amber-400 text-black shadow-sm"
+              }`}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl text-2xl"
-                    style={{ background: `${c.color}22`, border: `1px solid ${c.color}55`, boxShadow: `0 0 15px ${c.color}33` }}
-                  >
-                    <SemanticIcon name={c.icon} className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <div className="text-lg font-bold">{c.name}</div>
-                    <div className="text-[10px] text-muted-foreground">List position: {c.sortOrder}</div>
-                  </div>
-                </div>
-                <div className="h-3 w-3 rounded-full" style={{ background: c.color }} />
-              </div>
-              <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{c.description}</p>
-              <div className="mt-3 rounded-xl border border-border/60 bg-surface-light/30 px-3 py-2">
-                <div className="text-[10px] uppercase text-muted-foreground">Paid add-on for workers</div>
-                <div className="mt-0.5 text-sm font-semibold">{c.additionalCategoryGraceDays || 0}-day renewal grace</div>
-                <div className="text-[10px] text-muted-foreground">Monthly fee set in Wallets → Settings</div>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                {c.isActive ? <Badge variant="success" pulse>Live in app</Badge> : <Badge variant="muted">Hidden</Badge>}
-                <div className="flex gap-1">
-                  <button onClick={() => openEdit(c)} className="rounded-lg p-2 hover:bg-primary/15 hover:text-primary" title="Edit service">
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => setConfirm(c)} className="rounded-lg p-2 hover:bg-destructive/15 hover:text-destructive" title="Delete service">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+              {pendingTotal}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Alert banner on Active Services tab if there are pending trade requests */}
+      {activeTab === "catalog" && pendingTotal > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/20 text-amber-400 font-black text-sm">
+              {pendingTotal}
+            </span>
+            <div>
+              <p className="text-sm font-bold text-white">
+                {pendingTotal === 1
+                  ? "1 Ustad Trade Request Needs Review"
+                  : `${pendingTotal} Ustad Trade Requests Need Review`}
+              </p>
+              <p className="text-xs text-amber-300/80">
+                Ustads have requested new skills (e.g. Software engineer). Click to review and add them to the platform.
+              </p>
             </div>
-          ))}
-          {cats.length === 0 && (
-            <div className="col-span-full py-20 text-center text-muted-foreground">
-              No services yet. Click <strong className="text-white">Add service</strong> to create your first one.
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => switchTab("requests")}
+            className="border-amber-400/40 text-amber-300 hover:bg-amber-400/20 font-bold"
+          >
+            Review Requests ({pendingTotal}) &rarr;
+          </Button>
+        </div>
+      )}
+
+      {/* TAB 1: Catalog */}
+      {activeTab === "catalog" && (
+        <>
+          {isError ? (
+            <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-6">
+              <div className="font-bold text-destructive">Could not load services</div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {(error as Error)?.message || "Please confirm the backend is running and your admin session is valid."}
+              </p>
+              <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+                Try again
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-40 animate-pulse rounded-2xl bg-card/50" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {cats.map((c: Category, i: number) => (
+                <div
+                  key={c._id}
+                  className="card-hover animate-fade-in rounded-2xl border border-border bg-card p-5 shadow-card"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-2xl text-2xl"
+                        style={{
+                          background: `${c.color}22`,
+                          border: `1px solid ${c.color}55`,
+                          boxShadow: `0 0 15px ${c.color}33`,
+                        }}
+                      >
+                        <SemanticIcon name={c.icon} className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold">{c.name}</div>
+                        <div className="text-[10px] text-muted-foreground">List position: {c.sortOrder}</div>
+                      </div>
+                    </div>
+                    <div className="h-3 w-3 rounded-full" style={{ background: c.color }} />
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{c.description}</p>
+                  <div className="mt-3 rounded-xl border border-border/60 bg-surface-light/30 px-3 py-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">Paid add-on for workers</div>
+                    <div className="mt-0.5 text-sm font-semibold">{c.additionalCategoryGraceDays || 0}-day renewal grace</div>
+                    <div className="text-[10px] text-muted-foreground">Monthly fee set in Wallets → Settings</div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    {c.isActive ? <Badge variant="success" pulse>Live in app</Badge> : <Badge variant="muted">Hidden</Badge>}
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => openEdit(c)}
+                        className="rounded-lg p-2 hover:bg-primary/15 hover:text-primary"
+                        title="Edit service"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setConfirm(c)}
+                        className="rounded-lg p-2 hover:bg-destructive/15 hover:text-destructive"
+                        title="Delete service"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {cats.length === 0 && (
+                <div className="col-span-full py-20 text-center text-muted-foreground">
+                  No services yet. Click <strong className="text-white">Add service</strong> to create your first one.
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* TAB 2: Requested Professions */}
+      {activeTab === "requests" && (
+        <div className="space-y-4">
+          {/* Filter Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-4 rounded-2xl">
+            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search profession, worker name, or phone..."
+                value={reqSearch}
+                onChange={(e) => {
+                  setReqSearch(e.target.value);
+                  setReqPage(1);
+                }}
+                className="bg-transparent text-sm text-white placeholder:text-muted-foreground focus:outline-none flex-1"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              {["all", "pending", "approved", "rejected"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setReqStatus(s);
+                    setReqPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition ${
+                    reqStatus === s
+                      ? "bg-primary text-black"
+                      : "bg-surface-light text-muted-foreground hover:text-white"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Requests List */}
+          {requestsLoading ? (
+            <div className="py-20 text-center text-muted-foreground">Loading profession requests...</div>
+          ) : requestsError ? (
+            <div className="py-20 text-center text-destructive border border-dashed border-destructive/40 rounded-2xl bg-card">
+              Failed to load profession requests. Please check connection.
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="py-20 text-center text-muted-foreground border border-dashed border-border rounded-2xl bg-card">
+              No profession requests found matching the current filter.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {requests.map((r) => {
+                const isPending = r.status === "pending";
+                const isApproved = r.status === "approved";
+                const isRejected = r.status === "rejected";
+                const categoryExists = cats.some(
+                  (c) => c.name.toLowerCase() === r.professionName.toLowerCase()
+                );
+
+                return (
+                  <div
+                    key={r._id}
+                    className="bg-card border border-border rounded-2xl p-5 shadow-card hover:border-primary/40 transition"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2.5">
+                          <h3 className="text-base font-bold text-white">{r.professionName}</h3>
+                          {r.categoryDomain && (
+                            <span className="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                              {r.categoryDomain}
+                            </span>
+                          )}
+                          <Badge variant={isApproved ? "success" : isRejected ? "danger" : "warning"}>
+                            {r.status}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>Requester: <strong className="text-white">{r.requesterName}</strong></span>
+                          <span>•</span>
+                          <span>Phone: <strong className="text-white">{r.requesterPhone}</strong></span>
+                          {r.createdAt && (
+                            <>
+                              <span>•</span>
+                              <span>Submitted: {new Date(r.createdAt).toLocaleDateString()}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      {isPending && (
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleApproveWithNewCategory(r)}
+                            loading={reviewRequestMutation.isPending}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Approve & Add Category
+                          </Button>
+                          {categoryExists && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleApproveDirect(r)}
+                              loading={reviewRequestMutation.isPending}
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                              Link Existing
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => setRejectingRequest(r)}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Details Box */}
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 bg-surface-light/30 border border-border/50 rounded-xl p-3 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block font-semibold mb-0.5">Required Tools & Equipment:</span>
+                        <p className="text-white">{r.requirements || "None specified"}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block font-semibold mb-0.5">Trade Description:</span>
+                        <p className="text-white">{r.description || "No description provided"}</p>
+                      </div>
+                    </div>
+
+                    {/* Rates & Skills */}
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+                      {r.hourlyRate ? (
+                        <span className="px-2.5 py-1 rounded-lg bg-surface-light border border-border font-bold text-accent">
+                          Rate: Rs. {r.hourlyRate}/hr
+                        </span>
+                      ) : null}
+                      {r.experience !== undefined ? (
+                        <span className="px-2.5 py-1 rounded-lg bg-surface-light border border-border font-bold text-white">
+                          Exp: {r.experience} years
+                        </span>
+                      ) : null}
+                      {r.skills && r.skills.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className="text-muted-foreground font-semibold">Skills:</span>
+                          {r.skills.map((s, idx) => (
+                            <span key={idx} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-white/90">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {r.rejectionReason && (
+                      <div className="mt-3 text-xs text-destructive bg-destructive/10 border border-destructive/20 p-2 rounded-lg">
+                        <strong>Rejection Reason:</strong> {r.rejectionReason}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
+      {/* Category Edit / Create Modal */}
       <Modal
         open={!!editing}
         onClose={() => setEditing(null)}
         title={editing?._id && !editing.isNew ? "Edit service" : "Add new service"}
-        description="This is what customers browse when booking. Workers link their profile to these service types."
+        description={
+          linkedRequestId
+            ? "Approving trade request and creating category. This category will be linked to the requesting worker."
+            : "This is what customers browse when booking. Workers link their profile to these service types."
+        }
         width="max-w-2xl"
         eyebrow="Service setup"
       >
@@ -235,11 +626,46 @@ function CategoriesPage() {
             value={editing}
             onChange={setEditing}
             onSave={() => save(editing)}
-            loading={createMutation.isPending || updateMutation.isPending}
+            loading={createMutation.isPending || updateMutation.isPending || reviewRequestMutation.isPending}
           />
         )}
       </Modal>
 
+      {/* Reject Profession Request Modal */}
+      <Modal
+        open={!!rejectingRequest}
+        onClose={() => setRejectingRequest(null)}
+        title="Reject Profession Request"
+        description={`Reject trade request for "${rejectingRequest?.professionName}".`}
+        variant="danger"
+        footer={
+          <ModalFooter>
+            <Button variant="ghost" onClick={() => setRejectingRequest(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={reviewRequestMutation.isPending}
+              onClick={handleRejectSubmit}
+            >
+              Confirm Rejection
+            </Button>
+          </ModalFooter>
+        }
+      >
+        <ModalBody>
+          <FormField label="Reason for rejection" hint="Worker will see why this trade could not be accepted.">
+            <Textarea
+              placeholder="e.g. Duplicate trade category, unsupported trade type, requires specialized licensing..."
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="min-h-24"
+            />
+          </FormField>
+        </ModalBody>
+      </Modal>
+
+      {/* Delete Category Modal */}
       <Modal
         open={!!confirm}
         onClose={() => setConfirm(null)}
@@ -248,7 +674,9 @@ function CategoriesPage() {
         variant="danger"
         footer={
           <ModalFooter>
-            <Button variant="ghost" onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setConfirm(null)}>
+              Cancel
+            </Button>
             <Button
               variant="danger"
               loading={deleteMutation.isPending}
@@ -351,7 +779,9 @@ function CategoryForm({
               key={c}
               type="button"
               onClick={() => onChange({ ...value, color: c })}
-              className={`h-9 w-9 rounded-xl border-2 transition-transform ${value.color === c ? "scale-110 border-white shadow-lg" : "border-transparent opacity-70 hover:opacity-100"}`}
+              className={`h-9 w-9 rounded-xl border-2 transition-transform ${
+                value.color === c ? "scale-110 border-white shadow-lg" : "border-transparent opacity-70 hover:opacity-100"
+              }`}
               style={{ background: c }}
               title={c}
             />
