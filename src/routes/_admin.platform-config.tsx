@@ -8,7 +8,6 @@ import {
   DollarSign,
   Eye,
   Globe,
-  Layers,
   MapPin,
   Percent,
   RefreshCw,
@@ -70,8 +69,6 @@ function PlatformConfigPage() {
     cnicVerificationBonus: 500,
   });
 
-  const [urgentRates, setUrgentRates] = useState<Record<string, { baseRatePerHour: number; minimumPrice: number }>>({});
-
   // Diff Modal state
   const [diffModalOpen, setDiffModalOpen] = useState(false);
 
@@ -83,7 +80,6 @@ function PlatformConfigPage() {
       instantJobExpansionMinutes: platformSettings.instantJobExpansionMinutes ?? 5,
       instantJobTimeoutMinutes: platformSettings.instantJobTimeoutMinutes ?? 10,
     });
-    setUrgentRates(platformSettings.urgentPricingRates || {});
   }, [platformSettings]);
 
   useEffect(() => {
@@ -179,32 +175,10 @@ function PlatformConfigPage() {
           stagedValue: `${geo.instantJobTimeoutMinutes} min`,
         });
       }
-
-      // Check category rate diffs
-      const liveRates = platformSettings.urgentPricingRates || {};
-      for (const [catName, stagedRate] of Object.entries(urgentRates)) {
-        const liveRate = liveRates[catName] || { baseRatePerHour: 450, minimumPrice: 600 };
-        if (stagedRate.baseRatePerHour !== liveRate.baseRatePerHour) {
-          diffs.push({
-            field: `${catName} Rate/hr`,
-            category: "Urgent Category Rates",
-            liveValue: fmtPKR(liveRate.baseRatePerHour),
-            stagedValue: fmtPKR(stagedRate.baseRatePerHour),
-          });
-        }
-        if (stagedRate.minimumPrice !== liveRate.minimumPrice) {
-          diffs.push({
-            field: `${catName} Min Price`,
-            category: "Urgent Category Rates",
-            liveValue: fmtPKR(liveRate.minimumPrice),
-            stagedValue: fmtPKR(stagedRate.minimumPrice),
-          });
-        }
-      }
     }
 
     return diffs;
-  }, [walletSettings, platformSettings, walletForm, geo, urgentRates]);
+  }, [walletSettings, platformSettings, walletForm, geo]);
 
   const handleRollback = () => {
     if (walletSettings) {
@@ -223,7 +197,6 @@ function PlatformConfigPage() {
         instantJobExpansionMinutes: platformSettings.instantJobExpansionMinutes,
         instantJobTimeoutMinutes: platformSettings.instantJobTimeoutMinutes,
       });
-      setUrgentRates(platformSettings.urgentPricingRates || {});
     }
     setDiffModalOpen(false);
     toast.info("Staged configuration changes rolled back to live settings.");
@@ -232,8 +205,6 @@ function PlatformConfigPage() {
   const saveAll = async () => {
     try {
       await updatePlatform.mutateAsync({
-        urgentPricingRates: urgentRates,
-        defaultUrgentRate: platformSettings?.defaultUrgentRate,
         ...geo,
       });
       await updateWallet.mutateAsync(walletForm);
@@ -376,65 +347,6 @@ function PlatformConfigPage() {
             helper="Max wait before alerting client of no Ustads"
             onChange={(val) => setGeo((prev) => ({ ...prev, instantJobTimeoutMinutes: val }))}
           />
-        </div>
-      </section>
-
-      {/* 3. Category Overrides & Urgent Pricing */}
-      <section className="rounded-2xl border border-border/80 bg-surface p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-white font-bold text-sm">
-            <Layers className="h-4 w-4 text-gold" /> Category Urgent Pricing Overrides
-          </div>
-          <span className="text-xs text-muted-foreground font-mono">
-            {categories.length} trade categories registered
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {categories.map((category) => {
-            const rate = urgentRates[category.name] || { baseRatePerHour: 450, minimumPrice: 600 };
-            return (
-              <div
-                key={category._id}
-                className="rounded-xl border border-border/70 bg-surface-light p-3.5 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: category.color || "#00F5FF" }} />
-                    {category.name}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    Min 2-hr: {fmtPKR(rate.minimumPrice)}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <NumberField
-                    label="Rate / Hour"
-                    value={rate.baseRatePerHour}
-                    prefix="Rs."
-                    onChange={(val) =>
-                      setUrgentRates((prev) => ({
-                        ...prev,
-                        [category.name]: { ...rate, baseRatePerHour: val },
-                      }))
-                    }
-                  />
-                  <NumberField
-                    label="Minimum Floor"
-                    value={rate.minimumPrice}
-                    prefix="Rs."
-                    onChange={(val) =>
-                      setUrgentRates((prev) => ({
-                        ...prev,
-                        [category.name]: { ...rate, minimumPrice: val },
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
 
