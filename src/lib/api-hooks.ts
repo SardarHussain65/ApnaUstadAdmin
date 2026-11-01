@@ -607,8 +607,6 @@ export const useWorkerOnboardingPage = (params: { page?: number; limit?: number;
   usePaginatedQuery<any>('worker-onboarding', '/admin/workers/onboarding', params);
 
 export interface PlatformSettings {
-  urgentPricingRates: Record<string, { baseRatePerHour: number; minimumPrice: number }>;
-  defaultUrgentRate: { baseRatePerHour: number; minimumPrice: number };
   instantJobInitialRadiusKm: number;
   instantJobExpandedRadiusKm: number;
   instantJobExpansionMinutes: number;

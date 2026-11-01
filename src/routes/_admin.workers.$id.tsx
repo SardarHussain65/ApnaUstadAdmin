@@ -220,13 +220,13 @@ function WorkerDetail() {
                         {specialty.priority === 1 ? (
                           <span className="text-success font-medium">Free forever · Active</span>
                         ) : specialty.subscriptionStatus === "active" ? (
-                          <span>Renews: <strong className="text-foreground">{formatDate(specialty.currentPeriodEnd || specialty.nextBillingAt)}</strong></span>
+                          <span>Renews: <strong className="text-foreground">{formatDate((specialty.currentPeriodEnd || specialty.nextBillingAt) ?? undefined)}</strong></span>
                         ) : specialty.subscriptionStatus === "pending_activation" ? (
                           <span className="text-warning font-medium">Pending activation ({formatPKR(specialty.monthlyFeeSnapshot || 500)})</span>
                         ) : specialty.subscriptionStatus === "payment_due" ? (
-                          <span className="text-destructive font-medium">Grace ends: {formatDate(specialty.graceEndsAt)}</span>
+                          <span className="text-destructive font-medium">Grace ends: {formatDate(specialty.graceEndsAt ?? undefined)}</span>
                         ) : (
-                          <span className="text-destructive font-medium">Expired: {formatDate(specialty.currentPeriodEnd || specialty.nextBillingAt)}</span>
+                          <span className="text-destructive font-medium">Expired: {formatDate((specialty.currentPeriodEnd || specialty.nextBillingAt) ?? undefined)}</span>
                         )}
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
