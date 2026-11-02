@@ -110,6 +110,9 @@ const PAKISTAN_AREA_GAZETTEER: AreaCoordDef[] = [
   { pattern: /lahore/i, lat: 31.5204, lng: 74.3587, label: "Lahore" },
 
   // Islamabad & Rawalpindi neighborhoods
+  { pattern: /satellite\s*town.*rawalpindi|rawalpindi.*satellite\s*town/i, lat: 33.6385, lng: 73.0733, label: "Satellite Town, Rawalpindi" },
+  { pattern: /chah\s*sultan/i, lat: 33.6120, lng: 73.0740, label: "Chah Sultan, Rawalpindi" },
+  { pattern: /dhoke\s*babu\s*irfan|pandora/i, lat: 33.6480, lng: 73.0760, label: "Pandora / Dhoke Babu Irfan" },
   { pattern: /bahria.*rawalpindi|bahria.*islamabad/i, lat: 33.5221, lng: 73.0955, label: "Bahria Town, Twin Cities" },
   { pattern: /dha.*islamabad|dha.*rawalpindi/i, lat: 33.5382, lng: 73.1391, label: "DHA, Islamabad/Rawalpindi" },
   { pattern: /f-6|f-7|f-8|blue\s*area.*islamabad/i, lat: 33.7215, lng: 73.0572, label: "Central Sector, Islamabad" },
@@ -135,21 +138,38 @@ const PAKISTAN_AREA_GAZETTEER: AreaCoordDef[] = [
   { pattern: /hyderabad/i, lat: 25.396, lng: 68.3578, label: "Hyderabad" },
 ];
 
+export function isWithinPakistan(lat: number, lng: number): boolean {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  // Guard against Android emulator (Mountain View 37.422, -122.084) & iOS simulator (Cupertino 37.33, -122.03)
+  const isAndroidEmulator = Math.abs(lat - 37.422) < 0.05 && Math.abs(lng - (-122.084)) < 0.05;
+  const isAppleSimulator = Math.abs(lat - 37.33) < 0.05 && Math.abs(lng - (-122.03)) < 0.05;
+  if (isAndroidEmulator || isAppleSimulator) return false;
+
+  // Real Pakistan geographical bounds: Lat ~23.0°N to 37.5°N, Lng ~60.0°E to 78.5°E
+  return lat >= 23.0 && lat <= 37.5 && lng >= 60.0 && lng <= 78.5;
+}
+
 export function extractExactGps(loc?: { coordinates?: number[] } | null): { lat: number; lng: number } | null {
   if (!loc || !Array.isArray(loc.coordinates) || loc.coordinates.length < 2) return null;
   const [lng, lat] = loc.coordinates;
   if (
     typeof lat === "number" &&
     typeof lng === "number" &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    (Math.abs(lat) > 0.01 || Math.abs(lng) > 0.01) &&
-    lat >= -90 &&
-    lat <= 90 &&
-    lng >= -180 &&
-    lng <= 180
+    isWithinPakistan(lat, lng)
   ) {
     return { lat, lng };
+  }
+  return null;
+}
+
+export function extractCoordinatesFromText(text?: string | null): { lat: number; lng: number } | null {
+  if (!text) return null;
+  // Match coordinates in text (e.g. "33.6462, 73.0637" or "33.6462° N, 73.0637° E")
+  const match = text.match(/([23]\d\.\d+)[,\s°Nn\s]+([67]\d\.\d+)/);
+  if (match) {
+    const lat = parseFloat(match[1]);
+    const lng = parseFloat(match[2]);
+    if (isWithinPakistan(lat, lng)) return { lat, lng };
   }
   return null;
 }
@@ -182,6 +202,11 @@ export function resolveLocationFromRecord(opts: {
   const exact2 = extractExactGps(opts.secondaryLocation);
   if (exact2) {
     return { ...exact2, isExactGps: true, sourceLabel: "Profile GPS Coordinates" };
+  }
+
+  const textCoords = extractCoordinatesFromText(opts.address);
+  if (textCoords) {
+    return { ...textCoords, isExactGps: true, sourceLabel: "Address GPS Coordinates" };
   }
 
   const text = `${opts.address || ""} ${opts.city || ""}`.trim();
@@ -334,17 +359,30 @@ export function BookingTrackingMap({ booking, compact = false }: BookingTracking
     };
   }, [worker, baseWorkerPoint]);
 
-  const workerPoint = geocodedWorker || baseWorkerPoint;
+  const isWorkerArrived = booking?.status === 'ongoing' || booking?.status === 'completed';
+
+  const workerPoint = useMemo(() => {
+    if (isWorkerArrived && jobPoint) {
+      // When worker has reached the job site, worker is co-located with customer site
+      return {
+        ...jobPoint,
+        sourceLabel: booking?.status === 'completed' ? 'Completed at Customer Site' : 'Arrived at Customer Site',
+      };
+    }
+    return geocodedWorker || baseWorkerPoint;
+  }, [isWorkerArrived, jobPoint, geocodedWorker, baseWorkerPoint, booking?.status]);
 
   const distanceKm = useMemo(() => {
     if (!workerPoint) return null;
+    if (isWorkerArrived) return 0;
     return haversineDistanceKm(jobPoint, workerPoint);
-  }, [jobPoint, workerPoint]);
+  }, [jobPoint, workerPoint, isWorkerArrived]);
 
   const estimatedDriveMin = useMemo(() => {
+    if (isWorkerArrived) return 0;
     if (distanceKm === null) return null;
     return Math.max(3, Math.round((distanceKm / 26) * 60 + 3));
-  }, [distanceKm]);
+  }, [distanceKm, isWorkerArrived]);
 
   // Compute ideal initial center & zoom to frame both points
   const initialViewport = useMemo(() => {
@@ -493,19 +531,28 @@ export function BookingTrackingMap({ booking, compact = false }: BookingTracking
                 Live Booking Location & Dispatch Tracking
               </h3>
               <StatusBadge status={booking?.status || "pending"} />
-              {distanceKm !== null && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 font-mono text-[11px] font-bold text-primary">
-                  <RouteIcon className="h-3 w-3" />
-                  {distanceKm < 1
-                    ? `${Math.round(distanceKm * 1000)} m apart`
-                    : `${distanceKm.toFixed(1)} km apart`}
-                </span>
-              )}
-              {estimatedDriveMin !== null && (
+              {isWorkerArrived ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                  <Clock className="h-3 w-3" />
-                  ~{estimatedDriveMin} min drive
+                  <CheckCircle2 className="h-3 w-3" />
+                  {booking?.status === 'completed' ? 'Work Completed' : 'Ustad Arrived at Work Site'}
                 </span>
+              ) : (
+                <>
+                  {distanceKm !== null && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 font-mono text-[11px] font-bold text-primary">
+                      <RouteIcon className="h-3 w-3" />
+                      {distanceKm < 1
+                        ? `${Math.round(distanceKm * 1000)} m apart`
+                        : `${distanceKm.toFixed(1)} km apart`}
+                    </span>
+                  )}
+                  {estimatedDriveMin !== null && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <Clock className="h-3 w-3" />
+                      ~{estimatedDriveMin} min drive
+                    </span>
+                  )}
+                </>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
