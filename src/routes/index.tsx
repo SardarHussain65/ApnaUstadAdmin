@@ -766,7 +766,7 @@ function LandingPage() {
               </div>
             </a>
             <a
-              href="https://expo.dev/accounts/sardar_hussain/projects/ApnaUstad/builds/1cbd6f20-c68a-4f3f-afc0-a3e18e7854d4"
+              href="https://expo.dev/accounts/sardar_hussain/projects/ApnaUstad/builds/7a0e7c55-13d6-47ce-b7bf-af4d53f006c3"
               target="_blank"
               rel="noopener noreferrer"
               className="btn-press inline-flex items-center gap-3 h-14 px-6 rounded-xl bg-foreground text-background hover:opacity-90 transition shadow-lg shadow-primary/20"
