@@ -33,7 +33,7 @@ interface ApiEnvelope<T> {
 }
 
 function notifyUnauthorized(response: Response) {
-  if (response.status !== 401 || typeof window === 'undefined') return;
+  if ((response.status !== 401 && response.status !== 403) || typeof window === 'undefined') return;
 
   localStorage.removeItem('adminToken');
   localStorage.removeItem('adminUser');

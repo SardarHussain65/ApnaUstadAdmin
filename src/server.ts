@@ -70,6 +70,13 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const url = new URL(request.url);
+
+      // Canonical 301 redirect: enforce apex domain (www.apnaustad.app -> apnaustad.app)
+      if (url.hostname === "www.apnaustad.app") {
+        url.hostname = "apnaustad.app";
+        return Response.redirect(url.toString(), 301);
+      }
+
       const cleanPath = url.pathname.replace(/\/+$/, "") || "/";
       if (cleanPath === "/admin") {
         url.pathname = "/login";

@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AdminPageLoader } from "@/components/admin/AdminPageLoader";
 import { IdleTimeoutGuard } from "@/components/admin/IdleTimeoutGuard";
-import { fetchAdminProfile, getToken } from "@/lib/auth";
+import { fetchAdminProfile, getToken, logout } from "@/lib/auth";
 import { canAccessRoute } from "@/lib/admin-permissions";
 import { getSocket } from "@/lib/socket";
 
@@ -33,7 +33,10 @@ function AdminLayout() {
         }
         setReady(true);
       } catch {
-        navigate({ to: "/login" });
+        logout();
+        if (active) {
+          navigate({ to: "/login" });
+        }
       }
     };
     guard();

@@ -117,10 +117,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+const CANONICAL_REDIRECT_SCRIPT = `
+(function() {
+  if (typeof window !== "undefined" && window.location.hostname === "www.apnaustad.app") {
+    window.location.replace("https://apnaustad.app" + window.location.pathname + window.location.search + window.location.hash);
+  }
+})();
+`;
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        {/* Canonical redirect from www.apnaustad.app to apnaustad.app */}
+        <script dangerouslySetInnerHTML={{ __html: CANONICAL_REDIRECT_SCRIPT }} />
         {/* Applies the persisted theme before first paint to avoid a flash */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <HeadContent />
