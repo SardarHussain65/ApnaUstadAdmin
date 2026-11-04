@@ -22,10 +22,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install Dependencies
-        run: npm install
+        run: |
+          npm install
+          npm install --no-save lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu || true
 
       - name: TypeScript Typecheck
         run: npm run typecheck
