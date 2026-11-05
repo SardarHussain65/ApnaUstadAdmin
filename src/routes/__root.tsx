@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "sonner";
+import { AlertTriangle } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { THEME_BOOT_SCRIPT, ThemeProvider } from "@/components/admin/ThemeProvider";
@@ -53,8 +54,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       <div className="relative max-w-lg overflow-hidden rounded-[28px] border border-border/80 bg-gradient-to-br from-card via-card to-destructive/[0.08] p-8 text-center shadow-card">
         <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-destructive/10 blur-3xl" />
         <div className="relative">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/10 text-2xl">
-            ⚠️
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-destructive/20 bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white">This page didn&apos;t load</h1>
           <p className="mt-2 text-sm text-muted-foreground">

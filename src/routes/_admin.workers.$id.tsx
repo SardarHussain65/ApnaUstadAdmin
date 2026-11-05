@@ -321,7 +321,7 @@ function WorkerDetail() {
               <h3 className="font-bold text-foreground">CNIC Verification</h3>
               <div className="flex flex-wrap gap-2">
                 {worker.isVerified ? (
-                  <Badge variant="success">Verified ✅</Badge>
+                  <Badge variant="success">Verified</Badge>
                 ) : (worker.cnicFrontImage || worker.cnicBackImage || worker.cnicNumber) ? (
                   <Badge variant="warning" pulse>Pending Review</Badge>
                 ) : (

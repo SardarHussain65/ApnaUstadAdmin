@@ -30,13 +30,13 @@ const TEMPLATES = [
   },
   {
     name: "Profile Update Reminder",
-    title: "Complete Your Profile and Get Hired! 💼",
+    title: "Complete Your Profile and Get Hired!",
     body: "Service providers with a completed bio, profile picture, and updated hourly rates receive 3x more bookings. Update your profile today!",
     type: "general"
   },
   {
     name: "Wallet Balance Alert",
-    title: "Low Wallet Balance Warning ⚠️",
+    title: "Low Wallet Balance Warning",
     body: "Your wallet balance is below the minimum threshold. Please top up your wallet to continue accepting client bookings.",
     type: "wallet_topup"
   }

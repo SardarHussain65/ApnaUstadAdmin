@@ -401,7 +401,7 @@ function PromosPage() {
                       </span>
                       {isExpired && (
                         <span className="text-[9px] uppercase tracking-wider text-destructive font-bold mt-0.5">
-                          ⚠️ Expired
+                          Expired
                         </span>
                       )}
                     </div>

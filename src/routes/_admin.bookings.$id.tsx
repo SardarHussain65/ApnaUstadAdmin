@@ -327,7 +327,7 @@ function BookingDetailPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-destructive">
-                  🚨 Potential Off-Platform Disintermediation / Fraud Flag
+                  Potential Off-Platform Disintermediation / Fraud Flag
                 </span>
                 {booking.fraudSignals.flaggedAt && (
                   <span className="text-[11px] text-muted-foreground font-mono">
@@ -376,7 +376,7 @@ function BookingDetailPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-warning">
-                  📉 Customer Requested Price Reduction
+                  Customer Requested Price Reduction
                 </span>
                 <span className="text-xs font-bold font-mono text-foreground">
                   New: {formatPKR(booking.customerReductionRequest.requestedAmount)} (Current: {formatPKR(booking.totalAmount)})
@@ -653,9 +653,17 @@ function BookingDetailPage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-sm text-foreground flex items-center gap-2">
-                        {booking.finalSettlement.reportedStatus === "paid_more"
-                          ? "⚠️ Customer Paid Additional Cash on Site"
-                          : "✅ Paid Exactly as Agreed"}
+                        {booking.finalSettlement.reportedStatus === "paid_more" ? (
+                          <>
+                            <AlertTriangle className="h-4 w-4 text-warning" />
+                            <span>Customer Paid Additional Cash on Site</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-4 w-4 text-success" />
+                            <span>Paid Exactly as Agreed</span>
+                          </>
+                        )}
                       </span>
                       <span className="font-mono text-[11px] text-muted-foreground">
                         Verified {formatRelative(booking.finalSettlement.verifiedAt)}
@@ -694,8 +702,9 @@ function BookingDetailPage() {
                     </div>
 
                     {booking.finalSettlement.unauthorizedExtraDemanded && (
-                      <div className="mt-3 rounded-lg bg-destructive/20 p-2.5 text-destructive font-semibold">
-                        🚨 Customer reported that the worker improperly demanded extra money above the agreed scope!
+                      <div className="mt-3 flex items-start gap-2 rounded-lg bg-destructive/20 p-2.5 text-destructive font-semibold">
+                        <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
+                        <span>Customer reported that the worker improperly demanded extra money above the agreed scope!</span>
                       </div>
                     )}
 

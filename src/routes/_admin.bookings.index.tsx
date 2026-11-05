@@ -10,6 +10,8 @@ import {
   Navigation,
   X,
   ArrowUpRight,
+  ShieldAlert,
+  TrendingDown,
 } from "lucide-react";
 import { DataTable, type Column } from "@/components/admin/DataTable";
 import {
@@ -252,13 +254,15 @@ function BookingsPage() {
         <div className="flex flex-col gap-1 items-start">
           <StatusBadge status={b.status} />
           {b.fraudSignals?.isFlaggedForAudit && (
-            <span className="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold text-destructive whitespace-nowrap">
-              🚨 Fraud Alert
+            <span className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold text-destructive whitespace-nowrap">
+              <ShieldAlert className="h-3 w-3" />
+              Fraud Alert
             </span>
           )}
           {b.customerReductionRequest?.status === "pending" && (
-            <span className="inline-flex items-center rounded-md border border-warning/30 bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold text-warning whitespace-nowrap">
-              📉 Reduction Req.
+            <span className="inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold text-warning whitespace-nowrap">
+              <TrendingDown className="h-3 w-3" />
+              Reduction Req.
             </span>
           )}
         </div>
@@ -392,7 +396,7 @@ function BookingsPage() {
                 : "border-border bg-surface text-muted-foreground hover:text-foreground"
             }`}
           >
-            <span>🚨</span>
+            <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
             <span>Fraud Alerts</span>
           </button>
 
@@ -405,7 +409,7 @@ function BookingsPage() {
                 : "border-border bg-surface text-muted-foreground hover:text-foreground"
             }`}
           >
-            <span>📉</span>
+            <TrendingDown className="h-3.5 w-3.5 text-warning" />
             <span>Reduction Reqs</span>
           </button>
 
