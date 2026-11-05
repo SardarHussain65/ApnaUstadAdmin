@@ -167,11 +167,16 @@ function JobsPage() {
       key: "clientOffer",
       header: "Customer Budget",
       sortable: true,
-      render: (j) => (
-        <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
-          {formatPKR(j.pricing?.clientOffer || j.amount || 0)}
-        </span>
-      ),
+      render: (j) =>
+        j.pricingType === "open" || (!j.amount && !j.pricing?.clientOffer) ? (
+          <span className="inline-flex items-center rounded-md bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 px-2 py-0.5 text-[11px] font-bold">
+            Open / Offers
+          </span>
+        ) : (
+          <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+            {formatPKR(j.pricing?.clientOffer || j.amount || 0)}
+          </span>
+        ),
     },
     {
       key: "acceptedBid",

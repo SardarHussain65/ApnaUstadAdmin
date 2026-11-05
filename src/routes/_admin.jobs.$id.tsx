@@ -167,6 +167,11 @@ function JobDetailPage() {
           <>
             <StatusBadge status={job.status} />
             <StatusBadge status={job.urgency || "scheduled"} />
+            {job.pricingType === "open" && (
+              <span className="rounded-md bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider">
+                Open Price / Needs Estimate
+              </span>
+            )}
             {job.isFixedPrice && (
               <span className="rounded-md bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                 Fixed Price
@@ -232,8 +237,8 @@ function JobDetailPage() {
       <KpiGrid cols={4}>
         <KpiTile
           label="Customer Offer"
-          value={formatPKR(clientOffer)}
-          hint={job.isFixedPrice ? "Fixed budget" : "Open to counter-offers"}
+          value={job.pricingType === "open" && !clientOffer ? "Open for Bids" : formatPKR(clientOffer)}
+          hint={job.pricingType === "open" ? "Needs worker estimate / inspection" : job.isFixedPrice ? "Fixed budget" : "Open to counter-offers"}
           icon={<Banknote />}
           tone="primary"
         />
@@ -377,7 +382,17 @@ function JobDetailPage() {
                             </span>
                           </td>
                           <td className="px-5 py-3 text-xs capitalize text-muted-foreground">
-                            {(b.priceMode || "counter_offer").replace(/_/g, " ")}
+                            <div>{(b.priceMode || "counter_offer").replace(/_/g, " ")}</div>
+                            {b.rateBasis && b.rateBasis !== "total" && (
+                              <span className="inline-block mt-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                                {b.rateBasis === "per_day" ? "Per Day (Dihari)" : "Per Hour"}
+                              </span>
+                            )}
+                            {b.helperCount > 0 && (
+                              <span className="inline-block mt-0.5 ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                                +{b.helperCount} {b.helperCount === 1 ? "helper" : "helpers"}
+                              </span>
+                            )}
                           </td>
                           <td className="px-5 py-3 text-right font-mono font-bold tabular-nums text-foreground">
                             {formatPKR(b.proposedPrice || 0)}

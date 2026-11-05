@@ -49,6 +49,8 @@ function BookingsPage() {
   const [status, setStatus] = useState("");
   const [pay, setPay] = useState("");
   const [type, setType] = useState("");
+  const [fraudFlagged, setFraudFlagged] = useState(false);
+  const [hasReductionRequest, setHasReductionRequest] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
@@ -59,7 +61,7 @@ function BookingsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [deferredQ, status, pay, type, dateFrom, dateTo]);
+  }, [deferredQ, status, pay, type, dateFrom, dateTo, fraudFlagged, hasReductionRequest]);
 
   const { data, isLoading } = useBookingsPage({
     page,
@@ -70,7 +72,9 @@ function BookingsPage() {
     bookingType: type || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
-  });
+    fraudFlagged: fraudFlagged ? "true" : undefined,
+    hasReductionRequest: hasReductionRequest ? "true" : undefined,
+  } as any);
 
   const cancelMutation = useCancelBooking();
   const rows = data?.items || [];
@@ -244,7 +248,21 @@ function BookingsPage() {
     {
       key: "status",
       header: "Status",
-      render: (b) => <StatusBadge status={b.status} />,
+      render: (b) => (
+        <div className="flex flex-col gap-1 items-start">
+          <StatusBadge status={b.status} />
+          {b.fraudSignals?.isFlaggedForAudit && (
+            <span className="inline-flex items-center rounded-md border border-destructive/30 bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold text-destructive whitespace-nowrap">
+              🚨 Fraud Alert
+            </span>
+          )}
+          {b.customerReductionRequest?.status === "pending" && (
+            <span className="inline-flex items-center rounded-md border border-warning/30 bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold text-warning whitespace-nowrap">
+              📉 Reduction Req.
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: "actions",
@@ -364,6 +382,32 @@ function BookingsPage() {
             <option value="instant">Instant</option>
             <option value="scheduled">Scheduled</option>
           </select>
+
+          <button
+            type="button"
+            onClick={() => setFraudFlagged(!fraudFlagged)}
+            className={`h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
+              fraudFlagged
+                ? "border-destructive bg-destructive/15 text-destructive font-bold"
+                : "border-border bg-surface text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span>🚨</span>
+            <span>Fraud Alerts</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setHasReductionRequest(!hasReductionRequest)}
+            className={`h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${
+              hasReductionRequest
+                ? "border-warning bg-warning/15 text-warning font-bold"
+                : "border-border bg-surface text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span>📉</span>
+            <span>Reduction Reqs</span>
+          </button>
 
           <input
             type="date"

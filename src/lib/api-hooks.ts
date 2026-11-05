@@ -384,6 +384,38 @@ export const useCancelBooking = () => {
   });
 };
 
+export const useResolvePriceReduction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, adminNotes }: { id: string; action: 'approve' | 'reject'; adminNotes?: string }) =>
+      api.patch(`/admin/bookings/${id}/resolve-reduction`, { action, adminNotes }),
+    onSuccess: (_, variables) => {
+      toast.success(`Price reduction request ${variables.action}d successfully`);
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['booking', variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to resolve price reduction request');
+    },
+  });
+};
+
+export const useResolveFraudFlag = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, penaltyAmount, reason }: { id: string; action: 'dismiss' | 'penalize'; penaltyAmount?: number; reason: string }) =>
+      api.patch(`/admin/bookings/${id}/resolve-fraud`, { action, penaltyAmount, reason }),
+    onSuccess: (_, variables) => {
+      toast.success(`Fraud alert ${variables.action}d successfully`);
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['booking', variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to resolve fraud alert');
+    },
+  });
+};
+
 export const usePayments = (params: { page?: number; limit?: number; status?: string; workerId?: string; customerId?: string } = {}) => {
   const query = toQueryString(params);
   return useQuery({

@@ -25,6 +25,17 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { CopyableId } from "@/components/ui/copyable-id";
 import { ConfirmDialog, type ConfirmPayload } from "@/components/ui/confirm-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
   ActionButton,
   DetailError,
   DetailGrid,
@@ -48,6 +59,8 @@ import {
   useBookingMessages,
   useCancelBooking,
   useUpdateBookingStatus,
+  useResolvePriceReduction,
+  useResolveFraudFlag,
 } from "@/lib/api-hooks";
 import { toast } from "sonner";
 
@@ -69,9 +82,55 @@ function BookingDetailPage() {
   const { data: messages = [] } = useBookingMessages(id, !!booking);
   const cancelMutation = useCancelBooking();
   const updateStatusMutation = useUpdateBookingStatus();
+  const resolveReductionMutation = useResolvePriceReduction();
+  const resolveFraudMutation = useResolveFraudFlag();
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [statusOverride, setStatusOverride] = useState("");
+
+  const [reductionConfirmOpen, setReductionConfirmOpen] = useState(false);
+  const [reductionAction, setReductionAction] = useState<"approve" | "reject">("approve");
+  const [reductionNote, setReductionNote] = useState("");
+
+  const [fraudConfirmOpen, setFraudConfirmOpen] = useState(false);
+  const [fraudAction, setFraudAction] = useState<"dismiss" | "penalize">("dismiss");
+  const [fraudPenaltyAmount, setFraudPenaltyAmount] = useState("500");
+  const [fraudReason, setFraudReason] = useState("");
+
+  const handleResolveReduction = async () => {
+    try {
+      await resolveReductionMutation.mutateAsync({
+        id,
+        action: reductionAction,
+        adminNotes: reductionNote || undefined,
+      });
+      setReductionConfirmOpen(false);
+      setReductionNote("");
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to resolve price reduction request");
+    }
+  };
+
+  const handleResolveFraud = async () => {
+    try {
+      if (!fraudReason || fraudReason.trim().length < 5) {
+        toast.error("Please enter a detailed reason (at least 5 characters)");
+        return;
+      }
+      await resolveFraudMutation.mutateAsync({
+        id,
+        action: fraudAction,
+        penaltyAmount: fraudAction === "penalize" ? Number(fraudPenaltyAmount || 0) : undefined,
+        reason: fraudReason.trim(),
+      });
+      setFraudConfirmOpen(false);
+      setFraudReason("");
+      refetch();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to resolve fraud alert");
+    }
+  };
 
   if (isLoading) return <DetailLoading />;
   if (isError || !booking) {
@@ -180,6 +239,21 @@ function BookingDetailPage() {
             <span className="rounded-md bg-surface px-2 py-0.5 text-[11px] font-semibold capitalize text-muted-foreground">
               {booking.bookingType || "scheduled"}
             </span>
+            {booking.pricingType === "open" && (
+              <span className="rounded-md bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider">
+                Open Price / Bid
+              </span>
+            )}
+            {booking.rateBasis && booking.rateBasis !== "total" && (
+              <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                {booking.rateBasis === "per_day" ? "Dihari (Per Day)" : "Hourly Rate"}
+              </span>
+            )}
+            {booking.helperCount > 0 && (
+              <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                +{booking.helperCount} {booking.helperCount === 1 ? "Helper" : "Helpers"}
+              </span>
+            )}
           </>
         }
         meta={
@@ -242,6 +316,101 @@ function BookingDetailPage() {
           <Link to="/disputes/$id" params={{ id: String(dispute._id) }}>
             <ActionButton tone="default">View Complaint</ActionButton>
           </Link>
+        </div>
+      )}
+
+      {/* ── Fraud Alert Banner ── */}
+      {booking.fraudSignals?.isFlaggedForAudit && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border-2 border-destructive bg-destructive/10 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="mt-0.5 h-6 w-6 shrink-0 text-destructive animate-pulse" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-destructive">
+                  🚨 Potential Off-Platform Disintermediation / Fraud Flag
+                </span>
+                {booking.fraudSignals.flaggedAt && (
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    Flagged {formatRelative(booking.fraudSignals.flaggedAt)}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-foreground font-medium">
+                {booking.fraudSignals.flagReason || "Suspicious on-site activity or unauthorized cash payment reported."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <button
+              type="button"
+              onClick={() => {
+                setFraudAction("dismiss");
+                setFraudReason("Reviewed GPS timeline and chat; cancellation verified as legitimate.");
+                setFraudConfirmOpen(true);
+              }}
+              className="rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition"
+            >
+              Dismiss Alarm
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFraudAction("penalize");
+                setFraudReason("Confirmed offline deal during on-site visit. Penalizing worker.");
+                setFraudPenaltyAmount("500");
+                setFraudConfirmOpen(true);
+              }}
+              className="rounded-xl bg-destructive px-3.5 py-1.5 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 transition shadow-sm"
+            >
+              Penalize Worker
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Customer Price Reduction Request Banner ── */}
+      {booking.customerReductionRequest?.status === "pending" && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border-2 border-warning bg-warning/10 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-warning" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-warning">
+                  📉 Customer Requested Price Reduction
+                </span>
+                <span className="text-xs font-bold font-mono text-foreground">
+                  New: {formatPKR(booking.customerReductionRequest.requestedAmount)} (Current: {formatPKR(booking.totalAmount)})
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-foreground font-medium">
+                Customer Reason: "{booking.customerReductionRequest.reason}"
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            <button
+              type="button"
+              onClick={() => {
+                setReductionAction("approve");
+                setReductionNote("Approved scope reduction after review.");
+                setReductionConfirmOpen(true);
+              }}
+              className="rounded-xl bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition shadow-sm"
+            >
+              Approve Reduction
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setReductionAction("reject");
+                setReductionNote("Rejected: Work scope matches originally agreed contract.");
+                setReductionConfirmOpen(true);
+              }}
+              className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/20 transition"
+            >
+              Reject Request
+            </button>
+          </div>
         </div>
       )}
 
@@ -339,6 +508,206 @@ function BookingDetailPage() {
                 </div>
               </div>
             </Section>
+
+            {/* ── On-Site Price Revisions & Quotations ── */}
+            {(booking.pendingPriceIncrease || (booking.priceRevisionHistory && booking.priceRevisionHistory.length > 0)) && (
+              <Section
+                title="On-Site Price Revisions & Quotations"
+                description="Worker on-site price changes and customer real-time responses"
+                icon={<ReceiptText />}
+              >
+                <div className="space-y-3">
+                  {booking.pendingPriceIncrease && (
+                    <div className="flex flex-col gap-2 rounded-xl border border-warning/50 bg-warning/10 p-3.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-warning flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4" /> Pending Customer Decision
+                        </span>
+                        <span className="font-mono text-muted-foreground">
+                          {formatDateTime(booking.pendingPriceIncrease.requestedAt)}
+                        </span>
+                      </div>
+                      <div className="text-foreground">
+                        Worker requested new price: <strong className="font-mono text-sm font-bold text-foreground">{formatPKR(booking.pendingPriceIncrease.newAmount)}</strong> (Current: {formatPKR(booking.totalAmount)})
+                      </div>
+                      <div className="text-muted-foreground italic">
+                        Reason: &quot;{booking.pendingPriceIncrease.reason}&quot;
+                      </div>
+                    </div>
+                  )}
+
+                  {booking.priceRevisionHistory && booking.priceRevisionHistory.length > 0 && (
+                    <div className="overflow-x-auto rounded-xl border border-hairline">
+                      <table className="w-full text-left text-xs">
+                        <thead className="border-b border-hairline bg-surface/80 font-semibold text-muted-foreground">
+                          <tr>
+                            <th className="p-2.5">Date</th>
+                            <th className="p-2.5">Previous</th>
+                            <th className="p-2.5">New Price</th>
+                            <th className="p-2.5">Diff</th>
+                            <th className="p-2.5">Worker Reason</th>
+                            <th className="p-2.5">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-hairline">
+                          {booking.priceRevisionHistory.map((rev: any, idx: number) => {
+                            const diff = rev.newAmount - rev.previousAmount;
+                            return (
+                              <tr key={idx} className="hover:bg-surface/50">
+                                <td className="p-2.5 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                                  {formatDateTime(rev.requestedAt)}
+                                </td>
+                                <td className="p-2.5 font-mono font-medium">
+                                  {formatPKR(rev.previousAmount)}
+                                </td>
+                                <td className="p-2.5 font-mono font-bold text-foreground">
+                                  {formatPKR(rev.newAmount)}
+                                </td>
+                                <td className="p-2.5 font-mono font-semibold text-success">
+                                  +{formatPKR(diff)}
+                                </td>
+                                <td className="p-2.5 text-foreground max-w-xs truncate" title={rev.reason}>
+                                  {rev.reason}
+                                </td>
+                                <td className="p-2.5">
+                                  <span
+                                    className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                                      rev.status === "approved"
+                                        ? "bg-success/15 text-success"
+                                        : rev.status === "rejected"
+                                        ? "bg-destructive/15 text-destructive"
+                                        : "bg-warning/15 text-warning"
+                                    }`}
+                                  >
+                                    {rev.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
+
+            {/* ── Customer Price Reduction Audit ── */}
+            {booking.customerReductionRequest && (
+              <Section
+                title="Customer Price Reduction Audit"
+                description="Customer request to lower price due to smaller scope"
+                icon={<AlertTriangle />}
+              >
+                <div className="rounded-xl border border-hairline bg-surface/50 p-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground">
+                      Requested Amount: <strong className="font-mono text-sm text-foreground">{formatPKR(booking.customerReductionRequest.requestedAmount)}</strong> (Original: {formatPKR(booking.totalAmount)})
+                    </span>
+                    <span
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                        booking.customerReductionRequest.status === "approved"
+                          ? "bg-success/15 text-success"
+                          : booking.customerReductionRequest.status === "rejected"
+                          ? "bg-destructive/15 text-destructive"
+                          : "bg-warning/15 text-warning"
+                      }`}
+                    >
+                      {booking.customerReductionRequest.status}
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    <strong className="text-foreground">Reason:</strong> {booking.customerReductionRequest.reason}
+                  </p>
+                  {booking.customerReductionRequest.adminNotes && (
+                    <p className="text-muted-foreground">
+                      <strong className="text-foreground">Admin Notes:</strong> {booking.customerReductionRequest.adminNotes}
+                    </p>
+                  )}
+                  {booking.customerReductionRequest.resolvedAt && (
+                    <p className="font-mono text-[11px] text-muted-foreground">
+                      Resolved {formatRelative(booking.customerReductionRequest.resolvedAt)}
+                    </p>
+                  )}
+                </div>
+              </Section>
+            )}
+
+            {/* ── Customer Truth Settlement & Audit ── */}
+            {booking.finalSettlement && (
+              <Section
+                title="Customer Truth Settlement & Audit"
+                description="Verified final cash payment reported by customer upon job completion"
+                icon={<ShieldAlert />}
+              >
+                <div className="space-y-3 text-xs">
+                  <div
+                    className={`rounded-xl border p-4 ${
+                      booking.finalSettlement.unauthorizedExtraDemanded
+                        ? "border-destructive/40 bg-destructive/10"
+                        : booking.finalSettlement.reportedStatus === "paid_more"
+                        ? "border-warning/40 bg-warning/10"
+                        : "border-success/30 bg-success/5"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-sm text-foreground flex items-center gap-2">
+                        {booking.finalSettlement.reportedStatus === "paid_more"
+                          ? "⚠️ Customer Paid Additional Cash on Site"
+                          : "✅ Paid Exactly as Agreed"}
+                      </span>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        Verified {formatRelative(booking.finalSettlement.verifiedAt)}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                      <div>
+                        <div className="text-muted-foreground text-[11px]">Agreed Price</div>
+                        <div className="font-mono font-bold text-foreground text-sm">
+                          {formatPKR(booking.totalAmount)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground text-[11px]">Actual Cash Paid</div>
+                        <div className="font-mono font-bold text-foreground text-sm">
+                          {formatPKR(booking.finalSettlement.actualCashPaid)}
+                        </div>
+                      </div>
+                      {booking.finalSettlement.extraCashPaid ? (
+                        <div>
+                          <div className="text-muted-foreground text-[11px]">Extra Cash Paid</div>
+                          <div className="font-mono font-bold text-warning text-sm">
+                            +{formatPKR(booking.finalSettlement.extraCashPaid)}
+                          </div>
+                        </div>
+                      ) : null}
+                      {booking.finalSettlement.incrementalCommission ? (
+                        <div>
+                          <div className="text-muted-foreground text-[11px]">Extra Commission Cut</div>
+                          <div className="font-mono font-bold text-primary text-sm">
+                            +{formatPKR(booking.finalSettlement.incrementalCommission)}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {booking.finalSettlement.unauthorizedExtraDemanded && (
+                      <div className="mt-3 rounded-lg bg-destructive/20 p-2.5 text-destructive font-semibold">
+                        🚨 Customer reported that the worker improperly demanded extra money above the agreed scope!
+                      </div>
+                    )}
+
+                    {booking.finalSettlement.customerFeedback && (
+                      <div className="mt-2 text-foreground font-medium">
+                        Customer Note: &quot;{booking.finalSettlement.customerFeedback}&quot;
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Section>
+            )}
 
             <Section
               title="Booking Chat Messages"
@@ -570,6 +939,131 @@ function BookingDetailPage() {
         notePlaceholder="Explain why this booking is being cancelled…"
         onConfirm={handleCancelConfirm}
       />
+
+      {/* ── Dialog: Customer Price Reduction Resolution ── */}
+      <Dialog open={reductionConfirmOpen} onOpenChange={setReductionConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {reductionAction === "approve" ? "Approve Price Reduction" : "Reject Price Reduction"}
+            </DialogTitle>
+            <DialogDescription>
+              {reductionAction === "approve"
+                ? `Approving will reduce the service total from ${formatPKR(booking.totalAmount)} to ${formatPKR(booking.customerReductionRequest?.requestedAmount || 0)}. The commission difference will be automatically refunded to the worker's wallet.`
+                : "Rejecting will keep the current booking price unchanged."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="rounded-xl border border-hairline bg-surface/50 p-3 text-xs space-y-1">
+              <div className="text-muted-foreground">Customer's Reason:</div>
+              <div className="font-medium text-foreground italic">
+                &quot;{booking.customerReductionRequest?.reason || "No reason given"}&quot;
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">
+                Admin Review Notes (Optional)
+              </label>
+              <Textarea
+                placeholder="Enter notes on why this reduction is approved or rejected…"
+                value={reductionNote}
+                onChange={(e) => setReductionNote(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setReductionConfirmOpen(false)}
+              disabled={resolveReductionMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={reductionAction === "approve" ? "default" : "destructive"}
+              onClick={handleResolveReduction}
+              disabled={resolveReductionMutation.isPending}
+            >
+              {resolveReductionMutation.isPending
+                ? "Processing…"
+                : reductionAction === "approve"
+                ? "Confirm & Refund Difference"
+                : "Reject Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Fraud Signal Resolution ── */}
+      <Dialog open={fraudConfirmOpen} onOpenChange={setFraudConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {fraudAction === "penalize" ? "Penalize Worker for Fraud" : "Dismiss Fraud Alarm"}
+            </DialogTitle>
+            <DialogDescription>
+              {fraudAction === "penalize"
+                ? "Penalizing will record a penalty transaction against the worker's wallet balance and resolve the fraud signal."
+                : "Dismissing clears the alarm after confirming the booking activity was legitimate."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {fraudAction === "penalize" && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Penalty Amount (PKR)
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="50"
+                  placeholder="500"
+                  value={fraudPenaltyAmount}
+                  onChange={(e) => setFraudPenaltyAmount(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">
+                Audit Findings & Reason <span className="text-destructive">*</span>
+              </label>
+              <Textarea
+                placeholder="Explain the findings from GPS logs, customer confirmation, or worker interview…"
+                value={fraudReason}
+                onChange={(e) => setFraudReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setFraudConfirmOpen(false)}
+              disabled={resolveFraudMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={fraudAction === "penalize" ? "destructive" : "default"}
+              onClick={handleResolveFraud}
+              disabled={resolveFraudMutation.isPending || !fraudReason.trim()}
+            >
+              {resolveFraudMutation.isPending
+                ? "Processing…"
+                : fraudAction === "penalize"
+                ? "Apply Penalty"
+                : "Dismiss Alarm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DetailPage>
   );
 }
