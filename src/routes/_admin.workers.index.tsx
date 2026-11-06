@@ -36,9 +36,69 @@ import {
   useWorkersPage,
   useVerifyWorker,
   useToggleWorkerStatus,
+  useCategories,
   type Worker,
 } from "@/lib/api-hooks";
 import { api } from "@/lib/api";
+
+interface WorkerServiceItem {
+  name: string;
+  isPrimary: boolean;
+  status?: string;
+  isActive: boolean;
+}
+
+function getWorkerServices(w: Worker, categoryMap: Map<string, string>): WorkerServiceItem[] {
+  const result: WorkerServiceItem[] = [];
+  const seen = new Set<string>();
+
+  // 1. Primary category from w.category
+  const primaryName = (w.category || "").trim();
+  if (primaryName) {
+    result.push({
+      name: primaryName,
+      isPrimary: true,
+      isActive: true,
+      status: "approved",
+    });
+    seen.add(primaryName.toLowerCase());
+  }
+
+  // 2. Additional specialties / services
+  const specialties = Array.isArray(w.specialties) ? w.specialties : [];
+  for (const s of specialties) {
+    let name = "";
+    if (s.categoryId && typeof s.categoryId === "object" && "name" in s.categoryId) {
+      name = (s.categoryId.name || "").trim();
+    } else if (typeof s.categoryId === "string" && s.categoryId) {
+      name = categoryMap.get(s.categoryId)?.trim() || "";
+    }
+
+    if (!name) continue;
+    const lower = name.toLowerCase();
+    if (seen.has(lower)) continue;
+
+    seen.add(lower);
+    result.push({
+      name,
+      isPrimary: s.priority === 1 && result.length === 0,
+      isActive: s.isActive !== false,
+      status: s.approvalStatus,
+    });
+  }
+
+  // 3. Fallback if empty
+  if (result.length === 0) {
+    result.push({
+      name: "General",
+      isPrimary: true,
+      isActive: true,
+      status: "approved",
+    });
+  }
+
+  return result;
+}
 
 export const Route = createFileRoute("/_admin/workers/")({
   component: WorkersPage,
@@ -85,6 +145,17 @@ function WorkersPage() {
 
   const { options: categoryOptions } = useCategoryFilterOptions();
   const { options: cityOptions } = useCityFilterOptions();
+  const { data: allCategories = [] } = useCategories({ limit: 100 });
+
+  const categoryLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of allCategories) {
+      if (c._id && c.name) {
+        map.set(String(c._id), c.name);
+      }
+    }
+    return map;
+  }, [allCategories]);
 
   const rows = data?.items || [];
   const totalItems = data?.pagination.totalItems ?? 0;
@@ -444,6 +515,9 @@ function WorkersPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((w) => {
             const skills = Array.isArray(w.skills) ? w.skills : [];
+            const services = getWorkerServices(w, categoryLookup);
+            const primaryService = services[0];
+            const otherServices = services.slice(1);
             return (
               <div
                 key={w._id}
@@ -473,10 +547,41 @@ function WorkersPage() {
                           )}
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-                            <Briefcase className="h-3 w-3" />
-                            {w.category || "General"}
+                          {/* Primary Service */}
+                          <span
+                            className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary"
+                            title="Primary service"
+                          >
+                            <Briefcase className="h-3 w-3 shrink-0" />
+                            <span>{primaryService?.name || "General"}</span>
                           </span>
+
+                          {/* Other Services */}
+                          {otherServices.slice(0, 2).map((svc) => (
+                            <span
+                              key={svc.name}
+                              className="inline-flex items-center gap-1 rounded-md border border-border/80 bg-surface px-2 py-0.5 text-[11px] font-semibold text-foreground/90 hover:border-primary/40 transition"
+                              title={svc.status === "pending" ? `${svc.name} (Pending Approval)` : `${svc.name} (Additional service)`}
+                            >
+                              <Wrench className="h-2.5 w-2.5 text-primary/70 shrink-0" />
+                              <span className="truncate max-w-[130px]">{svc.name}</span>
+                              {svc.status === "pending" && (
+                                <span className="text-[9px] font-bold text-amber-500">(Pending)</span>
+                              )}
+                            </span>
+                          ))}
+
+                          {/* More Services Overflow Pill */}
+                          {otherServices.length > 2 && (
+                            <span
+                              title={otherServices.slice(2).map((s) => s.name).join(", ")}
+                              className="rounded-md bg-surface px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground border border-border/60 cursor-help"
+                            >
+                              +{otherServices.length - 2} more
+                            </span>
+                          )}
+
+                          {/* Short ID */}
                           <span className="rounded-md bg-surface px-1.5 py-0.5 font-mono text-[11px] font-semibold text-muted-foreground border border-border/60">
                             {shortId(w._id)}
                           </span>
@@ -637,31 +742,66 @@ function WorkersPage() {
       {/* VIEW MODE 2: Structured Rich Directory List */}
       {!isLoading && rows.length > 0 && viewMode === "list" && (
         <div className="space-y-2.5">
-          {rows.map((w) => (
-            <div
-              key={w._id}
-              onClick={() => navigate({ to: "/workers/$id", params: { id: w._id } })}
-              className="group flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md lg:flex-row lg:items-center lg:justify-between cursor-pointer"
-            >
-              {/* Identity */}
-              <div className="flex items-center gap-3.5 min-w-[240px]">
-                <Avatar src={w.profileImage} name={w.fullName} size={44} />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-foreground group-hover:text-primary transition truncate">
-                      {w.fullName}
-                    </span>
-                    {w.isVerified && <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />}
-                    <StatusBadge status={w.isActive !== false ? "active" : "inactive"} />
-                  </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="rounded bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-                      {w.category || "General"}
-                    </span>
-                    <span className="font-mono">{shortId(w._id)}</span>
+          {rows.map((w) => {
+            const services = getWorkerServices(w, categoryLookup);
+            const primaryService = services[0];
+            const otherServices = services.slice(1);
+            return (
+              <div
+                key={w._id}
+                onClick={() => navigate({ to: "/workers/$id", params: { id: w._id } })}
+                className="group flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md lg:flex-row lg:items-center lg:justify-between cursor-pointer"
+              >
+                {/* Identity */}
+                <div className="flex items-center gap-3.5 min-w-[240px]">
+                  <Avatar src={w.profileImage} name={w.fullName} size={44} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-foreground group-hover:text-primary transition truncate">
+                        {w.fullName}
+                      </span>
+                      {w.isVerified && <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />}
+                      <StatusBadge status={w.isActive !== false ? "active" : "inactive"} />
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      {/* Primary Service */}
+                      <span
+                        className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary"
+                        title="Primary service"
+                      >
+                        <Briefcase className="h-3 w-3 shrink-0" />
+                        <span>{primaryService?.name || "General"}</span>
+                      </span>
+
+                      {/* Other Services */}
+                      {otherServices.slice(0, 3).map((svc) => (
+                        <span
+                          key={svc.name}
+                          className="inline-flex items-center gap-1 rounded border border-border/70 bg-surface px-2 py-0.5 text-[11px] font-medium text-foreground/90"
+                          title={svc.status === "pending" ? `${svc.name} (Pending Approval)` : `${svc.name} (Additional service)`}
+                        >
+                          <Wrench className="h-2.5 w-2.5 text-primary/70 shrink-0" />
+                          <span className="truncate max-w-[140px]">{svc.name}</span>
+                          {svc.status === "pending" && (
+                            <span className="text-[9px] font-bold text-amber-500">(Pending)</span>
+                          )}
+                        </span>
+                      ))}
+
+                      {/* More Services Overflow Pill */}
+                      {otherServices.length > 3 && (
+                        <span
+                          title={otherServices.slice(3).map((s) => s.name).join(", ")}
+                          className="rounded bg-surface px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground border border-border/60 cursor-help"
+                        >
+                          +{otherServices.length - 3} more
+                        </span>
+                      )}
+
+                      <span className="font-mono">{shortId(w._id)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
               {/* Contact & CNIC */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 max-w-xl text-xs">
@@ -754,7 +894,8 @@ function WorkersPage() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 

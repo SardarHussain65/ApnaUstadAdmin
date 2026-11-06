@@ -169,7 +169,8 @@ function WorkerDetail() {
             {activeSpecialties.length > 0
               ? activeSpecialties.slice(0, 3).map((specialty) => {
                 const category = typeof specialty.categoryId === "string" ? null : specialty.categoryId;
-                return <Badge key={specialty._id} variant={specialty.priority === 1 ? "info" : "orange"}>{category?.name || "Category"}</Badge>;
+                const name = category?.name || (specialty.priority === 1 ? worker.category : "Category");
+                return <Badge key={specialty._id} variant={specialty.priority === 1 ? "info" : "orange"}>{name}</Badge>;
               })
               : <Badge variant="orange">{worker.category || "No category"}</Badge>}
             {activeSpecialties.length > 3 && <Badge variant="purple">+{activeSpecialties.length - 3} more</Badge>}
