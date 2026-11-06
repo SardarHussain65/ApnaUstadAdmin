@@ -259,7 +259,7 @@ function BookingsPage() {
               Fraud Alert
             </span>
           )}
-          {b.customerReductionRequest?.status === "pending" && (
+          {b.customerReductionRequest?.status === "pending" && typeof b.customerReductionRequest?.requestedAmount === "number" && b.customerReductionRequest.requestedAmount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold text-warning whitespace-nowrap">
               <TrendingDown className="h-3 w-3" />
               Reduction Req.

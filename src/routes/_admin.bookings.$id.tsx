@@ -369,7 +369,7 @@ function BookingDetailPage() {
       )}
 
       {/* ── Customer Price Reduction Request Banner ── */}
-      {booking.customerReductionRequest?.status === "pending" && (
+      {booking.customerReductionRequest?.status === "pending" && typeof booking.customerReductionRequest?.requestedAmount === "number" && booking.customerReductionRequest.requestedAmount > 0 && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border-2 border-warning bg-warning/10 p-4 shadow-sm">
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-warning" />
@@ -594,7 +594,7 @@ function BookingDetailPage() {
             )}
 
             {/* ── Customer Price Reduction Audit ── */}
-            {booking.customerReductionRequest && (
+            {booking.customerReductionRequest && typeof booking.customerReductionRequest?.requestedAmount === "number" && booking.customerReductionRequest.requestedAmount > 0 && (
               <Section
                 title="Customer Price Reduction Audit"
                 description="Customer request to lower price due to smaller scope"
@@ -635,7 +635,7 @@ function BookingDetailPage() {
             )}
 
             {/* ── Customer Truth Settlement & Audit ── */}
-            {booking.finalSettlement && (
+            {booking.finalSettlement && (booking.finalSettlement.customerDeclaredAmount || booking.finalSettlement.verifiedAt) && (
               <Section
                 title="Customer Truth Settlement & Audit"
                 description="Verified final cash payment reported by customer upon job completion"
