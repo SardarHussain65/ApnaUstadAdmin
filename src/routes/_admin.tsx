@@ -7,6 +7,7 @@ import { IdleTimeoutGuard } from "@/components/admin/IdleTimeoutGuard";
 import { fetchAdminProfile, getToken, logout } from "@/lib/auth";
 import { canAccessRoute } from "@/lib/admin-permissions";
 import { getSocket } from "@/lib/socket";
+import { playNotificationChime } from "@/lib/sound";
 
 export const Route = createFileRoute("/_admin")({
   component: AdminLayout,
@@ -106,6 +107,21 @@ function AdminLayout() {
       queryClient.invalidateQueries({ queryKey: ["action-counts"] });
     };
 
+    const handleDisputeCreated = (data: any) => {
+      playNotificationChime("urgent");
+      handleDisputeUpdate(data);
+    };
+
+    const handleSupportCreated = (data: any) => {
+      playNotificationChime("urgent");
+      handleSupportUpdate(data);
+    };
+
+    const handleVerificationSubmitted = (data: any) => {
+      playNotificationChime("normal");
+      handleWorkerUpdate(data);
+    };
+
     socket.on("job:new", handleJobUpdate);
     socket.on("job:cancelled", handleJobUpdate);
     socket.on("job:status", handleJobUpdate);
@@ -123,16 +139,16 @@ function AdminLayout() {
     socket.on("wallet:topup_updated", handleWalletUpdate);
     socket.on("wallet:updated", handleWalletUpdate);
 
-    socket.on("dispute:created", handleDisputeUpdate);
+    socket.on("dispute:created", handleDisputeCreated);
     socket.on("dispute:updated", handleDisputeUpdate);
     socket.on("dispute:message", handleDisputeUpdate);
 
     socket.on("worker:updated", handleWorkerUpdate);
     socket.on("worker:verified", handleWorkerUpdate);
-    socket.on("verification:submitted", handleWorkerUpdate);
+    socket.on("verification:submitted", handleVerificationSubmitted);
     socket.on("verification:reviewed", handleWorkerUpdate);
 
-    socket.on("support:created", handleSupportUpdate);
+    socket.on("support:created", handleSupportCreated);
     socket.on("support:updated", handleSupportUpdate);
 
     return () => {
@@ -153,16 +169,16 @@ function AdminLayout() {
       socket.off("wallet:topup_updated", handleWalletUpdate);
       socket.off("wallet:updated", handleWalletUpdate);
 
-      socket.off("dispute:created", handleDisputeUpdate);
+      socket.off("dispute:created", handleDisputeCreated);
       socket.off("dispute:updated", handleDisputeUpdate);
       socket.off("dispute:message", handleDisputeUpdate);
 
       socket.off("worker:updated", handleWorkerUpdate);
       socket.off("worker:verified", handleWorkerUpdate);
-      socket.off("verification:submitted", handleWorkerUpdate);
+      socket.off("verification:submitted", handleVerificationSubmitted);
       socket.off("verification:reviewed", handleWorkerUpdate);
 
-      socket.off("support:created", handleSupportUpdate);
+      socket.off("support:created", handleSupportCreated);
       socket.off("support:updated", handleSupportUpdate);
     };
   }, [ready, queryClient]);
