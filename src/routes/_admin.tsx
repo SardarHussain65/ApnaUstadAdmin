@@ -77,6 +77,35 @@ function AdminLayout() {
       queryClient.invalidateQueries({ queryKey: ["action-counts"] });
     };
 
+    const handleDisputeUpdate = (data: any) => {
+      const disputeId = (data?.disputeId || data?._id)?.toString();
+      if (disputeId) {
+        queryClient.invalidateQueries({ queryKey: ["dispute", disputeId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["disputes"] });
+      queryClient.invalidateQueries({ queryKey: ["action-counts"] });
+    };
+
+    const handleWorkerUpdate = (data: any) => {
+      const workerId = (data?.workerId || data?._id)?.toString();
+      if (workerId) {
+        queryClient.invalidateQueries({ queryKey: ["worker", workerId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["workers"] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding"] });
+      queryClient.invalidateQueries({ queryKey: ["verification-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["action-counts"] });
+    };
+
+    const handleSupportUpdate = (data: any) => {
+      const requestId = (data?.requestId || data?._id)?.toString();
+      if (requestId) {
+        queryClient.invalidateQueries({ queryKey: ["support-request", requestId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["support-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["action-counts"] });
+    };
+
     socket.on("job:new", handleJobUpdate);
     socket.on("job:cancelled", handleJobUpdate);
     socket.on("job:status", handleJobUpdate);
@@ -93,6 +122,18 @@ function AdminLayout() {
     socket.on("wallet:topup_created", handleWalletUpdate);
     socket.on("wallet:topup_updated", handleWalletUpdate);
     socket.on("wallet:updated", handleWalletUpdate);
+
+    socket.on("dispute:created", handleDisputeUpdate);
+    socket.on("dispute:updated", handleDisputeUpdate);
+    socket.on("dispute:message", handleDisputeUpdate);
+
+    socket.on("worker:updated", handleWorkerUpdate);
+    socket.on("worker:verified", handleWorkerUpdate);
+    socket.on("verification:submitted", handleWorkerUpdate);
+    socket.on("verification:reviewed", handleWorkerUpdate);
+
+    socket.on("support:created", handleSupportUpdate);
+    socket.on("support:updated", handleSupportUpdate);
 
     return () => {
       socket.off("job:new", handleJobUpdate);
@@ -111,6 +152,18 @@ function AdminLayout() {
       socket.off("wallet:topup_created", handleWalletUpdate);
       socket.off("wallet:topup_updated", handleWalletUpdate);
       socket.off("wallet:updated", handleWalletUpdate);
+
+      socket.off("dispute:created", handleDisputeUpdate);
+      socket.off("dispute:updated", handleDisputeUpdate);
+      socket.off("dispute:message", handleDisputeUpdate);
+
+      socket.off("worker:updated", handleWorkerUpdate);
+      socket.off("worker:verified", handleWorkerUpdate);
+      socket.off("verification:submitted", handleWorkerUpdate);
+      socket.off("verification:reviewed", handleWorkerUpdate);
+
+      socket.off("support:created", handleSupportUpdate);
+      socket.off("support:updated", handleSupportUpdate);
     };
   }, [ready, queryClient]);
 

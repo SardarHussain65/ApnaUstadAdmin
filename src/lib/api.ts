@@ -33,7 +33,8 @@ interface ApiEnvelope<T> {
 }
 
 function notifyUnauthorized(response: Response) {
-  if ((response.status !== 401 && response.status !== 403) || typeof window === 'undefined') return;
+  // Only 401 signifies unauthenticated/expired session. 403 signifies permission forbidden.
+  if (response.status !== 401 || typeof window === 'undefined') return;
 
   localStorage.removeItem('adminToken');
   localStorage.removeItem('adminUser');
