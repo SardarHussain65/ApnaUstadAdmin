@@ -3,7 +3,20 @@
  * Synthesizes a clean dual-tone harmonic chime using browser Web Audio API.
  * Requires no external audio files or network requests.
  */
-export function playNotificationChime(priority: 'normal' | 'urgent' = 'normal') {
+export function isSoundEnabled(): boolean {
+  if (typeof window === 'undefined') return true;
+  return localStorage.getItem('adminSoundEnabled') !== 'false';
+}
+
+export function setSoundEnabled(enabled: boolean) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('adminSoundEnabled', enabled ? 'true' : 'false');
+  }
+}
+
+export function playNotificationChime(priority: 'normal' | 'urgent' = 'normal', force: boolean = false) {
+  if (!force && !isSoundEnabled()) return;
+
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;

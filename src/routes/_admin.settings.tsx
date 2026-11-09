@@ -7,7 +7,8 @@ import {
   useUpdateAdminProfile,
   useChangeAdminPassword,
 } from "@/lib/api-hooks";
-import { Shield, Lock, Sliders, Settings2, RefreshCw } from "lucide-react";
+import { Shield, Lock, Sliders, Settings2, RefreshCw, Volume2 } from "lucide-react";
+import { isSoundEnabled, setSoundEnabled, playNotificationChime } from "@/lib/sound";
 
 export const Route = createFileRoute("/_admin/settings")({ component: SettingsPage });
 
@@ -30,6 +31,9 @@ function SettingsPage() {
   const [cur, setCur] = useState("");
   const [npw, setNpw] = useState("");
   const [conf, setConf] = useState("");
+
+  // Audio Alerts state
+  const [soundOn, setSoundOn] = useState(() => isSoundEnabled());
 
   // Mutations
   const updateProfileMutation = useUpdateAdminProfile();
@@ -208,7 +212,68 @@ function SettingsPage() {
           </button>
         </div>
 
-        {/* Card 3: Platform settings moved to dedicated page */}
+        {/* Card 3: Operational Audio Alerts */}
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-card flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Volume2 className="w-5 h-5 text-emerald-400" />
+              <h3 className="font-bold text-lg text-white">Audio Alert Chimes</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-5">
+              Dual-tone harmonic chimes when real-time disputes, tickets, and verifications arrive
+            </p>
+
+            <div className="flex items-center justify-between p-4 bg-surface-light/20 border border-border rounded-xl">
+              <div>
+                <div className="text-sm font-semibold text-white">Real-Time Chimes</div>
+                <div className="text-xs text-dim">Play sound on incoming urgent events</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !soundOn;
+                  setSoundOn(next);
+                  setSoundEnabled(next);
+                  toast.success(next ? "Audio alerts enabled" : "Audio alerts muted");
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  soundOn ? "bg-emerald-500" : "bg-neutral-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    soundOn ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                playNotificationChime("normal", true);
+                toast.info("Playing standard chime test");
+              }}
+              className="flex-1 h-10 rounded-xl border border-border bg-surface px-3 text-xs font-semibold text-foreground hover:bg-accent transition"
+            >
+              Test Normal
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                playNotificationChime("urgent", true);
+                toast.info("Playing urgent dispute chime test");
+              }}
+              className="flex-1 h-10 rounded-xl border border-destructive/30 bg-destructive/10 px-3 text-xs font-semibold text-destructive hover:bg-destructive/20 transition"
+            >
+              Test Urgent
+            </button>
+          </div>
+        </div>
+
+        {/* Card 4: Platform settings moved to dedicated page */}
         <div className="bg-card border border-border rounded-2xl p-6 shadow-card lg:col-span-2">
           <div className="flex items-center gap-2 mb-2">
             <Sliders className="w-5 h-5 text-accent" />
