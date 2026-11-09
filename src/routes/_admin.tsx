@@ -69,6 +69,14 @@ function AdminLayout() {
       queryClient.invalidateQueries({ queryKey: ["action-counts"] });
     };
 
+    const handleWalletUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["wallet-topups"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-topup-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["worker-wallets"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["action-counts"] });
+    };
+
     socket.on("job:new", handleJobUpdate);
     socket.on("job:cancelled", handleJobUpdate);
     socket.on("job:status", handleJobUpdate);
@@ -81,6 +89,10 @@ function AdminLayout() {
     socket.on("booking:completed", handleBookingUpdate);
     socket.on("booking:cancelled", handleBookingUpdate);
     socket.on("booking:paid", handleBookingUpdate);
+
+    socket.on("wallet:topup_created", handleWalletUpdate);
+    socket.on("wallet:topup_updated", handleWalletUpdate);
+    socket.on("wallet:updated", handleWalletUpdate);
 
     return () => {
       socket.off("job:new", handleJobUpdate);
@@ -95,6 +107,10 @@ function AdminLayout() {
       socket.off("booking:completed", handleBookingUpdate);
       socket.off("booking:cancelled", handleBookingUpdate);
       socket.off("booking:paid", handleBookingUpdate);
+
+      socket.off("wallet:topup_created", handleWalletUpdate);
+      socket.off("wallet:topup_updated", handleWalletUpdate);
+      socket.off("wallet:updated", handleWalletUpdate);
     };
   }, [ready, queryClient]);
 
